@@ -1,9 +1,9 @@
-package io.github.streackmc.pluginlib;
-
-import io.github.streackmc.pluginlib.utils.HTTPServer;
+package io.github.streackmc.streacklib;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import io.github.streackmc.streacklib.utils.HTTPServer;
 
 public class main extends JavaPlugin {
 

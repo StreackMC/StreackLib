@@ -1,0 +1,8 @@
+name: StreackLib
+version: ${project.version}
+author: "StreackMC Team"
+description: "Provide developers with useful API in MC Plugin."
+website: https://github.com/StreackMC/StreackLib
+api-version: '1.14'
+main: io.github.streackmc.pluginlib.main
+load: STARTUP

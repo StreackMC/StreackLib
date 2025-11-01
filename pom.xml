@@ -4,7 +4,7 @@
 
   <artifactId>StreackLib</artifactId>
   <groupId>com.github.streackmc</groupId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <packaging>jar</packaging>
   <description>为StreackMC Team旗下插件提供前置能力</description>
 
@@ -74,6 +74,23 @@
         <configuration>
           <release>17</release>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <echo file="${project.build.directory}/artifacts.txt"
+                      message="${project.build.finalName}.${project.packaging}"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

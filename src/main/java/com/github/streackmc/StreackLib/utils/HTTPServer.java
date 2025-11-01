@@ -1,4 +1,4 @@
-package io.github.streackmc.StreackLib.utils;
+package com.github.streackmc.StreackLib.utils;
 
 import fi.iki.elonen.NanoHTTPD;
 import org.bukkit.plugin.java.JavaPlugin;

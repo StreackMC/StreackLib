@@ -1,9 +1,9 @@
-package io.github.streackmc.StreackLib;
+package com.github.streackmc.StreackLib;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import io.github.streackmc.StreackLib.utils.HTTPServer;
+import com.github.streackmc.StreackLib.utils.HTTPServer;
 
 public class main extends JavaPlugin {
 
@@ -37,7 +37,7 @@ public class main extends JavaPlugin {
     String host = conf.getString("http-server.host", "0.0.0.0");
     int port = conf.getInt("http-server.port", 8080);
     
-    getLogger().info("模块：HTTPServer " + host + ":" + port);
+    getLogger().info("处理模块：HTTPServer");
     if (enabled) {
       httpServer = new HTTPServer(host, port, this);
       httpServer.startServer();

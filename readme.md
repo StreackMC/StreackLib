@@ -3,7 +3,7 @@
 
 # 文档
 ## 前言
-所有公开类全部放在了`io.github.streackmc.StreackLib.utils`下面，可按需引用。
+所有公开类全部放在了`com.github.streackmc.StreackLib.utils`下面，可按需引用。
 
 ## 快速开始
 先引入此lib，以maven为例：
@@ -35,6 +35,9 @@ softdepend: ["StreackLib"]
 最后引入StreackLib类即可：
 
 ```java
+import com.github.StreackMC.StreackLib.main;
+// ...
+
 StreackLib StreackLib = (StreackLib) getServer().getPluginManager().getPlugin("StreackLib");
 if (lib == null || !lib.isEnabled()) {
   /* 如果没有检测到StreackLib则执行 */

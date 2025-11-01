@@ -1,5 +1,5 @@
 # StreackLib
-为StreackPlugin提供一些有用的前置API.
+为StreackPlugin提供一些有用的前置API，最低需要JDK17，最低兼容Minecraft 1.14
 
 # 文档
 ## 前言

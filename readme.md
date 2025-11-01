@@ -3,7 +3,7 @@
 
 # 文档
 ## 前言
-所有公开类全部放在了`io.github.streackmc.streacklib.utils`下面，可按需引用。
+所有公开类全部放在了`io.github.streackmc.StreackLib.utils`下面，可按需引用。
 
 ## 快速开始
 先引入此lib，以maven为例：

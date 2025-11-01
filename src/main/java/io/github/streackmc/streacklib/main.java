@@ -43,6 +43,7 @@ public class main extends JavaPlugin {
       httpServer.startServer();
       getLogger().info("HTTP 服务器已启动于 " + host + ":" + port);
     } else {
+      httpServer = null;
       getLogger().info("HTTP 服务器未启用");
     }
   }

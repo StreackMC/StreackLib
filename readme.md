@@ -33,10 +33,9 @@ softdepend: ["StreackLib"]
 import com.github.streackmc.StreackLib.StreackLib;
 // ...
 
-StreackLib StreackLib = (StreackLib) getServer().getPluginManager().getPlugin("StreackLib");
-if (lib == null || !lib.isEnabled()) {
-  /* 如果没有检测到StreackLib则执行 */
-  getLogger().severe("StreackLib 未安装或未启用，本插件即将关闭！");
+private StreackLib StreackLib = new StreackLib();
+if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
+  //未检测到时……
   getServer().getPluginManager().disablePlugin(this);
   return;
 }

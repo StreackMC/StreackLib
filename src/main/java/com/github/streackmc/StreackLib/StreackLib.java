@@ -13,6 +13,7 @@ public class StreackLib extends JavaPlugin {
   @Override
   public void onEnable() {
     getLogger().info(
+      "\n" +
       "  ____     _                                     _        __  __     ____ \n" +
       " / ___|   | |_   _ __    ___      __ _    ___   | | __   |  \\/  |  / ___|\n" +
       " \\___ \\ | __| | '__|  / _ \\   / _` |  / __|  | |/ /   | |\\/| | | |    \n" +

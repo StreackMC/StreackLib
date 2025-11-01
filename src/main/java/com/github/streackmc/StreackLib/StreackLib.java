@@ -5,7 +5,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 
-public class main extends JavaPlugin {
+public class StreackLib extends JavaPlugin {
 
   private HTTPServer httpServer;
   private FileConfiguration conf;

@@ -9,11 +9,6 @@
 先引入此lib，以maven为例：
 
 ```xml
-<repository>
-    <id>streackmc</id>
-    https://repo.streackmc.io/releases
-</repository>
-
 <dependency>
     <groupId>com.github.streackmc</groupId>
     <artifactId>StreackLib</artifactId>
@@ -35,7 +30,7 @@ softdepend: ["StreackLib"]
 最后引入StreackLib类即可：
 
 ```java
-import com.github.StreackMC.StreackLib.main;
+import com.github.streackmc.StreackLib.StreackLib;
 // ...
 
 StreackLib StreackLib = (StreackLib) getServer().getPluginManager().getPlugin("StreackLib");

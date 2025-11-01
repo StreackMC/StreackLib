@@ -6,6 +6,7 @@
   <groupId>io.github.streackmc.pluginlib</groupId>
   <version>0.1.0</version>
   <packaging>jar</packaging>
+  <description>为StreackMC Team旗下插件提供前置能力</description>
 
   <properties>
     <maven.compiler.souce>21</maven.compiler.souce>
@@ -37,6 +38,7 @@
 
   <!-- Dependencies -->
   <dependencies>
+    <!-- Basic -->
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
@@ -54,6 +56,12 @@
       <artifactId>jsr305</artifactId>
       <version>3.0.2</version>
       <scope>provided</scope>
+    </dependency>
+    <!-- HTTP-Server -->
+    <dependency>
+      <groupId>org.nanohttpd</groupId>
+      <artifactId>nanohttpd</artifactId>
+      <version>2.3.1</version>
     </dependency>
   </dependencies>
 

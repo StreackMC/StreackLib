@@ -1,0 +1,8 @@
+# HTTPServer
+http-server:
+  # 是否开启内置 HTTP 服务器
+  enabled: true
+  # 监听地址
+  host: 0.0.0.0
+  # 监听端口
+  port: 8080

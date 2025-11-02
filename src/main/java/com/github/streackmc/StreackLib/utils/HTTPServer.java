@@ -14,42 +14,79 @@ public class HTTPServer extends NanoHTTPD {
 
   private final JavaPlugin plugin;
   private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
+  private String uri;
 
+  /**
+   * 初始化一个HTTPServer对象
+   * @param hostname 监听地址
+   * @param port 监听端口
+   * @param plugin 发起的插件对象
+   */
   public HTTPServer(String hostname, int port, JavaPlugin plugin) {
     super(hostname, port);
+    this.uri = hostname + ":" + port;
     this.plugin = plugin;
   }
 
+  /**
+   * 启动当前HTTPServer.
+   */
   public void startServer() {
     try {
       start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
     } catch (IOException e) {
-      plugin.getLogger().severe("无法启动 HTTP 服务器: " + e.getMessage());
+      plugin.getLogger().severe("无法启动HTTPServer [" + uri + "]: " + e.getMessage());
     }
   }
 
+  /**
+   * 停止当前HTTPServer.
+   */
   public void stopServer() {
+    StackTraceElement[] st = Thread.currentThread().getStackTrace();
+    StackTraceElement caller;
+    if (st.length >= 3) {
+      caller = st[2];
+      plugin.getLogger().warning(caller.getMethodName() + "@" + caller.getFileName() + ":" + caller.getLineNumber()
+          + ":" + caller.getClassName() + "请求停止HTTP Server [" + uri + "].");
+    }
     if (isAlive()) {
       stop();
+      plugin.getLogger().info("已停止HTTP Server [" + uri + "].");
     }
   }
 
-  /** 供外部插件注册子路由 */
+  /**
+   * 判断当前HTTPServer是否正在运行
+   * @return 正在运行时返回True
+   */
+  public boolean isStarted() {
+    return isAlive();
+  }
+
+  /**
+   * 注册一个HTTP处理器事件，当指定的Path有请求传入时自动Call Handler
+   * 
+   * @param path    监听的路径
+   * @param handler 处理器
+   * @return void: 没有返回值
+   */
   public void registerHandler(String path, Handler handler) {
     handlerMap.put(path, handler);
-    plugin.getLogger().info("已注册 HTTP 处理器: " + path);
+    plugin.getLogger().info("向HTTP Server [" + uri + "]注册接受事件于 " + path);
   }
 
   @Override
   public Response serve(IHTTPSession session) {
-    String uri = session.getUri();   // 例如 /api/demo
+    String uri = session.getUri();
     Handler h = handlerMap.get(uri);
     if (h != null) {
       try {
         return h.handle(session);
       } catch (Exception ex) {
-        plugin.getLogger().warning("处理器异常 (" + uri + "): " + ex.getMessage());
-        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "Internal Server Error");
+        plugin.getLogger().warning("HTTP Server [" + uri + "]的处理器异常 (" + uri + "): " + ex.getMessage());
+        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+            "Internal Server Error");
       }
     }
     // 默认 404

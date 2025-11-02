@@ -2,11 +2,10 @@ name: Auto Release
 
 on:
   push:
-    branches: [ "master" ]
     tags: ["*"]
-  pull_request:
-    branches: [ "master" ]
-    tags: ["*"]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -44,9 +43,8 @@ jobs:
               echo 'EOF'
             } >> "$GITHUB_OUTPUT"
           else
-            echo "body=No changelog found." >> "$GITHUB_OUTPUT"
+            echo "body=*No ChangeLog yet.*" >> "$GITHUB_OUTPUT"
           fi
-
       - name: Detect artifact name
         id: artifacts
         run: echo "name=$(cat target/artifacts.txt)" >> $GITHUB_OUTPUT

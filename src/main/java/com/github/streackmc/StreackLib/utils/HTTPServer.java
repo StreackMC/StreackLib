@@ -35,7 +35,7 @@ public class HTTPServer extends NanoHTTPD {
     try {
       start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
     } catch (IOException e) {
-      plugin.getLogger().severe("无法启动HTTPServer [" + uri + "]: " + e.getMessage());
+      plugin.getLogger().severe("无法启动" + getServerFullName() + "：" + e.getMessage());
     }
   }
 
@@ -45,7 +45,7 @@ public class HTTPServer extends NanoHTTPD {
   public void stopServer() {
     if (isAlive()) {
       stop();
-      plugin.getLogger().info("已停止HTTP Server [" + uri + "].");
+      plugin.getLogger().info("已停止" + getServerFullName() + ".\nfrom " + getCaller());
     }
   }
 
@@ -65,7 +65,7 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void registerHandler(String path, Handler handler) {
     handlerMap.put(path, handler);
-    plugin.getLogger().info("向HTTP Server [" + uri + "]注册HTTP事件于 " + path);
+    plugin.getLogger().info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
   }
 
   /**
@@ -74,7 +74,7 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void removeHandler(String path) {
     handlerMap.remove(path);
-    plugin.getLogger().info("向取消注册HTTP事件于 " + path);
+    plugin.getLogger().info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
   }
 
   private String getCaller() {
@@ -84,10 +84,10 @@ public class HTTPServer extends NanoHTTPD {
       caller = st[2];
       return caller.getFileName() + "//" + caller.getClassName() + ":" + caller.getMethodName() + "@" + caller.getLineNumber();
     }
-    return "";
+    return "StreackLib-InnerCall";
   }
   private String getServerFullName() {
-    return "HTTPServer [" + uri + "]";
+    return " HTTPServer[" + uri + "] ";
   }
 
   @Override
@@ -98,7 +98,7 @@ public class HTTPServer extends NanoHTTPD {
       try {
         return h.handle(session);
       } catch (Exception ex) {
-        plugin.getLogger().warning("HTTP Server [" + uri + "]的处理器异常 (" + uri + "): " + ex.getMessage());
+        plugin.getLogger().warning(getServerFullName() + "在处理 " + uri + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
             "Internal Server Error: " + ex.getMessage());
       }

@@ -69,7 +69,6 @@ public class HTTPServer extends NanoHTTPD {
    * 
    * @param path    监听的路径
    * @param handler 处理器
-   * @return void: 没有返回值
    */
   public void registerHandler(String path, Handler handler) {
     handlerMap.put(path, handler);
@@ -86,7 +85,7 @@ public class HTTPServer extends NanoHTTPD {
       } catch (Exception ex) {
         plugin.getLogger().warning("HTTP Server [" + uri + "]的处理器异常 (" + uri + "): " + ex.getMessage());
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-            "Internal Server Error");
+            "Internal Server Error: " + ex.getMessage());
       }
     }
     // 默认 404

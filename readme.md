@@ -41,6 +41,9 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 }
 ```
 
+## `FileHandler`
+目前模块正在开发，仅内部使用。
+
 ## `ConfHandler`
 ### 初始化
 这是一个自动配置文件处理器，可以：

@@ -37,6 +37,7 @@ public class ConfHandler {
     } else {
       throw new UnsupportedOperationException("不支持的文件类型：" + ctype);
     }
+    load();
   }
 
   /**

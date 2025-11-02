@@ -49,8 +49,6 @@ public class libinit extends JavaPlugin {
   private void DisableHTTPServer() {
     if (httpServer != null) {
       httpServer.stopServer();
-      httpServer = null;
-      getLogger().info("HTTP 服务器已关闭");
     }
   }
 }

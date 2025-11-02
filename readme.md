@@ -3,7 +3,7 @@
 
 # 文档
 ## 前言
-所有公开类全部放在了`com.github.streackmc.StreackLib.utils`下面，可按需引用。
+欢迎使用本前置库！
 
 ## 快速开始
 先引入此lib，以maven为例：
@@ -42,12 +42,15 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 ```
 
 ## `HTTPServer`
+### 获取HTTP Server
 首先，你需要额外引入以处理HTTP Response：
 
 ```java
 import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
+import com.github.streackmc.StreackLib.utils.HTTPServer;
 ```
 
+### 监听事件并处理
 之后你可以注册一个HTTP监听事件：
 
 ```java
@@ -58,5 +61,32 @@ server.registerHandler("/api/player/count", session -> {
 });
 ```
 
+或是移除：
+
+```java
+
+```
+
 在上例中，你创建了对`/api/player/count`的监听，格式化了一个JSON并以`200`返回。
+一个路径上同时最多只能存在一个处理器
 **注意**：由于用户可以配置是否启用HTTPServer功能，你应始终校验获取到的`HTTPServer`对象是否为`null`——如是则未启用。
+
+### 高级
+如果你想，你也可以自己创建一个HTTPServer实例。
+这么做可以避免依赖StreackLib的内建服务器状态，也不必考虑与其它插件的兼容性。
+
+```java
+// 创建一个实例，监听0.0.0.0:8080，插件继承自身
+HTTPServer server = new HTTPServer("0.0.0.0", 8080, this);
+
+// 启动该实例
+server.startServer();
+
+//获取实例状态
+boolen status = server.isStarted();
+
+// 结束此实例
+server.stopServer();
+```
+
+> 请注意即使你新建了一个实例，其部分行为仍受StreackLib的配置文件控制。

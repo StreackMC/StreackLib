@@ -1,157 +1,50 @@
+<div align="center">
+
 # StreackLib
-为StreackPlugin提供一些有用的前置API，最低需要JDK17，最低兼容Minecraft 1.14
+多功能的Minecraft前置库，立志把Java变得和JavaScript一样易用~~——不过似乎不可能？~~
 
-# 文档
-## 前言
-欢迎使用本前置库！
+[![GitHub Issues](https://img.shields.io/github/issues/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/pulls)
+![GitHub Repo stars](https://img.shields.io/github/stars/StreackMC/StreackLib?style=social)
+[![Our License: MIT](https://img.shields.io/github/license/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/blob/master/LICENSE)
 
-## 快速开始
-先引入此lib，以maven为例：
+</div>
 
-```xml
-<dependency>
-    <groupId>com.github.streackmc</groupId>
-    <artifactId>StreackLib</artifactId>
-    <!-- 记得修改版本号 -->
-    <version>0.0.0</version>
-    <scope>provided</scope>
-</dependency>
-```
+## 功能列表
+> 此处展示的功能非本前置库的可用全部功能，详情请[查看文档](./docs.md)。
 
-再在`plugin.yml`里声明依赖：
+* HTTP服务器：轻量易管理，支持多插件共享和单插件独享；
+* 配置管理器：泛格式支持，自动重载，自动管理；
+* [*更多……*](./docs.md)
 
-```yml
-depend: ["StreackLib"]
+## 下载
+你可在[Github Release](https://github.com/StreackMC/StreackLib/releases)下载发行版<br>
+或者在[Github Action](https://github.com/StreackMC/StreackLib/actions/workflows/build_with_maven.yml)处获取**不稳定、不适用于生产环境的**预览版。<br>
 
-# 如果你的插件缺失本lib也可运行请改用
-softdepend: ["StreackLib"]
-```
+## 运行
+### 加载器需求
+目前支持以下加载器：
+- [X] Paper
+- [X] Spigot
+- [ ] Fabric（未来可期）
+- [ ] NeoForge（未来可期）
 
-最后引入StreackLib类即可：
+> 在代码中我们声明了需求版本`1.14+`，但代码始终在`1.21+`测试，不保证低版本可用性。
 
-```java
-import com.github.streackmc.StreackLib.StreackLib;
-// ...
+### 使用此库
+[请查看文档获取使用方法！](./docs.md)
 
-// 如果你未打包StreackLib,你需要检验是否可用，不过Paper一般会自动处理
-if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
-  // 未检测到时……
-  getServer().getPluginManager().disablePlugin(this);
-  return;
-}
-```
+## 许可
 
-## `FileHandler`
-目前模块正在开发，仅内部使用。
+此项目使用 MIT 协议授权。详见 [./LICENSE](./LICENSE)。
 
-## `ConfHandler`
-### 初始化
-这是一个自动配置文件处理器，可以：
+* 自由使用，唯需署名
+* 按现状提供（As-is）
 
-* JSON和YAML
-* 自动重载
-* 自动管理配置项
-* 缺省值配置
+## Star 历史
+[![Star Chart](https://starchart.cc/StreackMC/StreackLib.svg?variant=adaptive)](https://starchart.cc/StreackMC/StreackLib)
 
-要想使用：
+## 赞助
+赞助即视为您知悉，赞助不会使您获得除*赞助列表*外的任何权益。
 
-```java
-import java.io.File;
-import com.github.streackmc.StreackLib.utils.ConfHandler;
-import com.github.streackmc.StreackLib.StreackLib;
-
-ConfHandler conf = StreackLib.initConf(File 文件对象, String "文件类型");
-```
-
-这样就获取了一个ConfHandler对象。
-
-### 重载
-在对象初始化后，其会被自动重载一次。
-你也可以使用自动重载：
-
-```java
-// 启用自动重载
-conf.startAutoReload;
-// 获取自动重载状态
-Boolen status = conf.isAutoReloading();
-// 禁用自动重载
-conf.stopAutoReload();
-```
-
-> 自动重载被重复启用时会自动忽略且不抛错误
-
-或者手动重载：
-
-```java
-conf.reload();
-```
-
-### 获取配置文件对象
-你可以用这个存储文件对象：
-
-```java
-File confFile = conf.getFile();
-```
-
-### 增删查改
-作为一个配置管理器，最重要的是增删查改：
-
-```java
-// 增/改
-conf.put(String "key", <T> "value");
-// 删
-conf.remove(String "key");
-// 查
-T v = (T) conf.get(String "key", <T> fallback);
-```
-
-## `HTTPServer`
-### 获取HTTP Server
-首先，你需要额外引入以处理HTTP Response：
-
-```java
-import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
-import com.github.streackmc.StreackLib.utils.HTTPServer;
-import com.github.streackmc.StreackLib.StreackLib;
-```
-
-### 监听事件并处理
-之后你可以注册一个HTTP监听事件：
-
-```java
-HTTPServer server = StreackLib.getHttpServer();
-server.registerHandler("/api/player/count", session -> {
-  int online = getServer().getOnlinePlayers().size();
-  return newFixedLengthResponse(HTTPServer.Response.Status.OK, "application/json", "{\"online\":" + online + "}");
-});
-```
-
-或是移除：
-
-```java
-
-```
-
-在上例中，你创建了对`/api/player/count`的监听，格式化了一个JSON并以`200`返回。
-一个路径上同时最多只能存在一个处理器
-**注意**：由于用户可以配置是否启用HTTPServer功能，你应始终校验获取到的`HTTPServer`对象是否为`null`——如是则未启用。
-
-### 高级
-如果你想，你也可以自己创建一个HTTPServer实例。
-这么做可以避免依赖StreackLib的内建服务器状态，也不必考虑与其它插件的兼容性。
-
-```java
-// 创建一个实例，监听0.0.0.0:8080，插件继承自身
-HTTPServer server = new HTTPServer("0.0.0.0", 8080, this);
-
-// 启动该实例
-server.startServer();
-
-//获取实例状态
-boolen status = server.isStarted();
-
-// 结束此实例
-server.stopServer();
-```
-
-> 请注意即使你新建了一个实例，其部分行为仍受StreackLib的配置文件控制。
+[我已知晓，执意赞助。](https://mc.kdxiaoyi.top/Streack/#donate)。

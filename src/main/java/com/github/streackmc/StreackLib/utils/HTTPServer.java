@@ -43,13 +43,6 @@ public class HTTPServer extends NanoHTTPD {
    * 停止当前HTTPServer.
    */
   public void stopServer() {
-    StackTraceElement[] st = Thread.currentThread().getStackTrace();
-    StackTraceElement caller;
-    if (st.length >= 3) {
-      caller = st[2];
-      plugin.getLogger().warning(caller.getMethodName() + "@" + caller.getFileName() + ":" + caller.getLineNumber()
-          + ":" + caller.getClassName() + "请求停止HTTP Server [" + uri + "].");
-    }
     if (isAlive()) {
       stop();
       plugin.getLogger().info("已停止HTTP Server [" + uri + "].");
@@ -65,14 +58,36 @@ public class HTTPServer extends NanoHTTPD {
   }
 
   /**
-   * 注册一个HTTP处理器事件，当指定的Path有请求传入时自动Call Handler
+   * 注册一个事件处理器，当指定的Path有请求传入时自动Call Handler
    * 
    * @param path    监听的路径
    * @param handler 处理器
    */
   public void registerHandler(String path, Handler handler) {
     handlerMap.put(path, handler);
-    plugin.getLogger().info("向HTTP Server [" + uri + "]注册接受事件于 " + path);
+    plugin.getLogger().info("向HTTP Server [" + uri + "]注册HTTP事件于 " + path);
+  }
+
+  /**
+   * 移除一个事件处理器
+   * @param path 目标Path
+   */
+  public void removeHandler(String path) {
+    handlerMap.remove(path);
+    plugin.getLogger().info("向取消注册HTTP事件于 " + path);
+  }
+
+  private String getCaller() {
+    StackTraceElement[] st = Thread.currentThread().getStackTrace();
+    StackTraceElement caller;
+    if (st.length >= 3) {
+      caller = st[2];
+      return caller.getFileName() + "//" + caller.getClassName() + ":" + caller.getMethodName() + "@" + caller.getLineNumber();
+    }
+    return "";
+  }
+  private String getServerFullName() {
+    return "HTTPServer [" + uri + "]";
   }
 
   @Override

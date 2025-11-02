@@ -33,7 +33,7 @@ softdepend: ["StreackLib"]
 import com.github.streackmc.StreackLib.StreackLib;
 // ...
 
-private StreackLib StreackLib = new StreackLib();
+// 如果你未打包StreackLib,你需要检验是否可用，不过Paper一般会自动处理
 if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
   // 未检测到时……
   getServer().getPluginManager().disablePlugin(this);

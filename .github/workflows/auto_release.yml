@@ -32,16 +32,21 @@ jobs:
         with:
           name: StreackLib-git@${{ steps.git.outputs.sha }}.jar
           path: target/*.jar
-      - name: Read changelog
+      - name: Read ChangeLog
         id: changelog
+        shell: bash
         run: |
           if [ -f .change_log.md ]; then
-            echo "body<<EOF" >> $GITHUB_OUTPUT
-            cat .change_log.md >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            {
+              echo 'body<<EOF'
+              cat .change_log.md
+              echo
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "body=No changelog found." >> $GITHUB_OUTPUT
+            echo "body=No changelog found." >> "$GITHUB_OUTPUT"
           fi
+
       - name: Detect artifact name
         id: artifacts
         run: echo "name=$(cat target/artifacts.txt)" >> $GITHUB_OUTPUT

@@ -6,3 +6,5 @@ http-server:
   host: 0.0.0.0
   # 监听端口
   port: 8080
+  # 当请求没有对应处理器时是否从本地目录里返回一个文件
+  allow-file-transport: true

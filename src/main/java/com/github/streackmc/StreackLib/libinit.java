@@ -2,12 +2,14 @@ package com.github.streackmc.StreackLib;
 
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 
+import java.io.File;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class libinit extends JavaPlugin {
   public static HTTPServer httpServer;
-  public FileConfiguration conf;
+  public static FileConfiguration conf;
+  public static File pluginDataPath;
 
   @Override
   public void onEnable() {
@@ -22,6 +24,7 @@ public class libinit extends JavaPlugin {
     );
     saveDefaultConfig();
     conf = getConfig();
+    pluginDataPath = this.getDataFolder();
     getLogger().info("初始化成功！正在启用组件。");
     EnableHTTPServer();
     getLogger().info("已启用StreackLib v" + getDescription().getVersion() + "");

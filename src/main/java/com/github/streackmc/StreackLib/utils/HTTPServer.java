@@ -1,7 +1,11 @@
 package com.github.streackmc.StreackLib.utils;
 
+import com.github.streackmc.StreackLib.libinit;
+import com.github.streackmc.StreackLib.utils.FileHandler;
 import fi.iki.elonen.NanoHTTPD;
 import org.bukkit.plugin.java.JavaPlugin;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -109,8 +113,22 @@ public class HTTPServer extends NanoHTTPD {
             "Internal Server Error: " + ex.getMessage());
       }
     }
-    // 默认 404
-    return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+    // 没有请求处理器时
+    if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
+      try {
+        FileHandler.mkdir(libinit.pluginDataPath, "HTTPServer");
+        File reach = new File(libinit.pluginDataPath, uri);
+        if (reach.exists()&&reach.isFile()) {
+          return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
+        } else {
+          return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+        }
+      } catch (IOException e) {
+        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error: File is unreachable.");
+      }
+    } else {
+      return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+    }
   }
 
   /** 函数式接口，方便 Lambda 注册 */

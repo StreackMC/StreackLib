@@ -62,10 +62,16 @@ public class HTTPServer extends NanoHTTPD {
    * 
    * @param path    监听的路径
    * @param handler 处理器
+   * @throws Exception 如果路径已被注册则抛出此错误
    */
-  public void registerHandler(String path, Handler handler) {
-    handlerMap.put(path, handler);
-    plugin.getLogger().info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+  public void registerHandler(String path, Handler handler) throws Exception {
+    if (handlerMap.get(path) != null) {
+      plugin.getLogger().warning(getServerFullName() + "无法注册在 " + path + "上的事件处理器：该路径已被占用\nfrom " + getCaller());
+      throw new Exception("在" + path + "上的事件处理器已被注册");
+    } else {
+      handlerMap.put(path, handler);
+      plugin.getLogger().info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+    }
   }
 
   /**

@@ -181,22 +181,24 @@ public class ConfHandler {
           } else {
             cache = new ConcurrentHashMap<>();
           }
-        } else {
+        } else if (type.equals("yml")) {
           Yaml yaml = new Yaml();
           Map<String, Object> loaded = yaml.load(in);
           cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
+        } else {
+          throw new UnsupportedOperationException("不支持的文件类型：" + type);
         }
         lastModified = conf.lastModified();
       }
     } catch (IOException e) {
-      throw new UncheckedIOException("Failed to load conf", e);
+      throw new UncheckedIOException("无法加载配置文件", e);
     } finally {
       lock.writeLock().unlock();
     }
   }
 
   /**
-   * 内部刷盘
+   * 内部写入
    */
   private void flush() {
     lock.readLock().lock();
@@ -204,15 +206,17 @@ public class ConfHandler {
       if (type.equals("json")) {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         gson.toJson(cache, w);
-      } else {
+      } else if (type.equals("yml")) {
         DumperOptions opts = new DumperOptions();
         opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         opts.setPrettyFlow(true);
         new Yaml(opts).dump(cache, w);
+      } else {
+        throw new UnsupportedOperationException("不支持的文件类型：" + type);
       }
       lastModified = conf.lastModified();
     } catch (IOException e) {
-      throw new UncheckedIOException("Failed to flush conf", e);
+      throw new UncheckedIOException("无法写入配置文件", e);
     } finally {
       lock.readLock().unlock();
     }

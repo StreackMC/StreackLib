@@ -2,11 +2,10 @@ name: Auto Release
 
 on:
   push:
-    branches: [ "master" ]
     tags: ["*"]
-  pull_request:
-    branches: [ "master" ]
-    tags: ["*"]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -32,15 +31,19 @@ jobs:
         with:
           name: StreackLib-git@${{ steps.git.outputs.sha }}.jar
           path: target/*.jar
-      - name: Read changelog
+      - name: Read ChangeLog
         id: changelog
+        shell: bash
         run: |
           if [ -f docs/.change_log.md ]; then
-            echo "body<<EOF" >> $GITHUB_OUTPUT
-            cat docs/.change_log.md >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            {
+              echo 'body<<EOF'
+              cat docs/.change_log.md
+              echo
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "body=No changelog found." >> $GITHUB_OUTPUT
+            echo "body=*No ChangeLog yet.*" >> "$GITHUB_OUTPUT"
           fi
       - name: Detect artifact name
         id: artifacts

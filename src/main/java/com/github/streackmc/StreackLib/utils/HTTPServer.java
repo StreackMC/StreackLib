@@ -12,6 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 基于 NanoHTTPD 的简易转发服务器。
  * 其它插件可通过 registerHandler(String path, Handler h) 注册自己的子路由。
+ * @author kdxiaoyi
+ * @author KimiAI 亦有贡献
  */
 public class HTTPServer extends NanoHTTPD {
 

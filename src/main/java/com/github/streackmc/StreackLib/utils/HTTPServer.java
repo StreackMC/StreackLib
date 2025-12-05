@@ -84,6 +84,9 @@ public class HTTPServer extends NanoHTTPD {
    * @param path 目标Path
    */
   public void removeHandler(String path) {
+    if (path == null) {
+      plugin.getLogger().warning(getServerFullName() + "未能取消注册事件处理器，因为目标地址是 null .\nfrom " + getCaller());
+    }
     handlerMap.remove(path);
     plugin.getLogger().info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
   }

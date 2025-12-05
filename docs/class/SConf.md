@@ -42,7 +42,7 @@ conf.reload();
 ```
 
 ## 获取配置文件对象
-你可以用这个存储文件对象：
+你可以用这个获取存储文件对象：
 
 ```java
 File confFile = conf.getFile();
@@ -61,3 +61,18 @@ T v = (T) conf.get(String "key", <T> fallback);
 ```
 
 ### 严格类型
+Java是一门严格类型的语言，使用刚才示例中的弃用方法是危险的。~~如果你是Java高手你可以无视风险、继续使用。~~
+你可以在`put()`或者`get()`的括号前面插入类型，比如：
+
+```java
+conf.putString(String "key", "value");
+String v = conf.getString(String "key", "fallback");
+```
+
+我们支持以下类型：
+
+* String
+* Int
+* Float
+* Boolen
+* List

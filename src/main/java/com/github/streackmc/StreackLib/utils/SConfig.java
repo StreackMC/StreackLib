@@ -49,12 +49,14 @@ public class SConfig {
   }
 
   /**
-   * 
+   * 获取配置项
    * @param <T> 可为String/List/Int/Number
    * @param key 目标配置项，没有自动新增
    * @param fallback 默认值，如果没有传入则为空字符串
    * @return 获取到的值
+   * @deprecated
    */
+  @Deprecated
   @SuppressWarnings("unchecked")
   public <T> T get(String key, T fallback) {
     lock.readLock().lock();
@@ -76,7 +78,9 @@ public class SConfig {
    * @param <T> 可为String/List/Int/Number
    * @param key 目标配置项，没有自动新增
    * @param value 目标值
+   * @deprecated
    */
+  @Deprecated
   public <T> void put(String key, T value) {
     lock.writeLock().lock();
     try {

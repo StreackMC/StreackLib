@@ -1,6 +1,6 @@
 package com.github.streackmc.StreackLib;
 
-import com.github.streackmc.StreackLib.utils.ConfHandler;
+import com.github.streackmc.StreackLib.utils.SConfig;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import java.io.File;
 
@@ -23,7 +23,7 @@ public final class StreackLib {
    * @param type 配置文件的类型
    * @return 一个配置文件对象
    */
-  public static ConfHandler initConf(File file, String type) {
-    return new ConfHandler(file, type);
+  public static SConfig initConf(File file, String type) {
+    return new SConfig(file, type);
   }
 }

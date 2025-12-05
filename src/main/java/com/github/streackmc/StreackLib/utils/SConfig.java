@@ -10,7 +10,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class ConfHandler {
+public class SConfig {
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private WatchService watchService;
@@ -28,7 +28,7 @@ public class ConfHandler {
    * @param ctype 文件类型(json|yml|yaml)，大小写不敏感
    * @throws UnsupportedOperationException 不支持的配置文件格式时报错
    */
-  public ConfHandler(File file, String ctype) throws UnsupportedOperationException {
+  public SConfig(File file, String ctype) throws UnsupportedOperationException {
     this.conf = file;
     if (ctype.toLowerCase() == "json") {
       type = "json";

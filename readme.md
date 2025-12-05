@@ -41,10 +41,10 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 }
 ```
 
-## `FileHandler`
+## `SFile`
 目前模块正在开发，仅内部使用。
 
-## `ConfHandler`
+## `SConf`
 ### 初始化
 这是一个自动配置文件处理器，可以：
 
@@ -57,13 +57,13 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 
 ```java
 import java.io.File;
-import com.github.streackmc.StreackLib.utils.ConfHandler;
+import com.github.streackmc.StreackLib.utils.SConf;
 import com.github.streackmc.StreackLib.StreackLib;
 
-ConfHandler conf = StreackLib.initConf(File 文件对象, String "文件类型");
+SConf conf = StreackLib.initConf(File 文件对象, String "文件类型");
 ```
 
-这样就获取了一个ConfHandler对象。
+这样就获取了一个SConf对象。
 
 ### 重载
 在对象初始化后，其会被自动重载一次。

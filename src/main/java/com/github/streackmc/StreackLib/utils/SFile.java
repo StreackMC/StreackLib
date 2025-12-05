@@ -3,8 +3,8 @@ package com.github.streackmc.StreackLib.utils;
 import java.io.File;
 import java.io.IOException;
 
-public final class FileHandler {
-  private FileHandler() {}
+public final class SFile {
+  private SFile() {}
 
   /**
    * 在一个父路径下创建文件夹

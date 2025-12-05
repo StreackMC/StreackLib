@@ -115,7 +115,7 @@ public class HTTPServer extends NanoHTTPD {
     // 没有请求处理器时
     if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
       try {
-        FileHandler.mkdir(libinit.pluginDataPath, "HTTPServer");
+        SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
         File reach = new File(libinit.pluginDataPath, uri);
         if (reach.exists()&&reach.isFile()) {
           return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());

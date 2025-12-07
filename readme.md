@@ -3,6 +3,7 @@
 # StreackLib
 多功能的Minecraft前置库，立志把Java变得和JavaScript一样易用~~——不过似乎不可能？~~
 
+<<<<<<< HEAD
 [![GitHub Issues](https://img.shields.io/github/issues/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/pulls)
 ![GitHub Repo stars](https://img.shields.io/github/stars/StreackMC/StreackLib?style=social)
@@ -48,3 +49,7 @@
 赞助即视为您知悉，赞助不会使您获得除*赞助列表*外的任何权益。
 
 [我已知晓，执意赞助。](https://mc.kdxiaoyi.top/Streack/#donate)。
+=======
+## 开始使用
+[文档](./docs/index.md)
+>>>>>>> 3dc1b072dd81972dcc7abe040a7bfad1c0819f58

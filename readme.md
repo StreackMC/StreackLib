@@ -3,7 +3,6 @@
 # StreackLib
 多功能的Minecraft前置库，立志把Java变得和JavaScript一样易用~~——不过似乎不可能？~~
 
-<<<<<<< HEAD
 [![GitHub Issues](https://img.shields.io/github/issues/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/StreackMC/StreackLib)](https://github.com/StreackMC/StreackLib/pulls)
 ![GitHub Repo stars](https://img.shields.io/github/stars/StreackMC/StreackLib?style=social)
@@ -33,14 +32,12 @@
 > 在代码中我们声明了需求版本`1.14+`，但代码始终在`1.21+`测试，不保证低版本可用性。
 
 ### 使用此库
-[请查看文档获取使用方法！](./docs.md)
+[请查看文档获取使用方法！](./docs/index.md)
 
 ## 许可
 
-此项目使用 MIT 协议授权。详见 [./LICENSE](./LICENSE)。
+此项目使用 LGPL 协议授权。详见 [./LICENSE](./LICENSE)。
 
-* 自由使用，唯需署名
-* 按现状提供（As-is）
 
 ## Star 历史
 [![Star Chart](https://starchart.cc/StreackMC/StreackLib.svg?variant=adaptive)](https://starchart.cc/StreackMC/StreackLib)
@@ -49,7 +46,3 @@
 赞助即视为您知悉，赞助不会使您获得除*赞助列表*外的任何权益。
 
 [我已知晓，执意赞助。](https://mc.kdxiaoyi.top/Streack/#donate)。
-=======
-## 开始使用
-[文档](./docs/index.md)
->>>>>>> 3dc1b072dd81972dcc7abe040a7bfad1c0819f58

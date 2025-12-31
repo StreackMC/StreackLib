@@ -20,6 +20,8 @@ public class HTTPServer extends NanoHTTPD {
   private final JavaPlugin plugin;
   private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
   private String uri;
+  public int MAX_URI = 2048;
+  public long MAX_FILE_SIZE = 20L*1024*1024;
 
   /**
    * 初始化一个HTTPServer对象
@@ -31,6 +33,8 @@ public class HTTPServer extends NanoHTTPD {
     super(hostname, port);
     this.uri = hostname + ":" + port;
     this.plugin = plugin;
+    this.MAX_URI = libinit.conf.getInt("http-server.max-uri-length", 2048);
+    this.MAX_FILE_SIZE = libinit.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
   }
 
   /**

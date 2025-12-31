@@ -1,10 +1,21 @@
 # HTTPServer
 http-server:
-  # 是否开启内置 HTTP 服务器
+  ## 是否开启内置 HTTP 服务器
   enabled: true
-  # 监听地址
+  ## 监听地址
   host: 0.0.0.0
-  # 监听端口
+  ## 监听端口
   port: 8080
-  # 当请求没有对应处理器时是否从本地目录里返回一个文件
+  ## 当请求没有对应处理器时是否从本地目录里返回一个文件
   allow-file-transport: true
+  ## 允许返回的文件大小，单位KB
+  # 可被其它插件修改
+  max-file-size-kb: 20480
+  ## 允许的最大URI长度
+  # 可被其它插件修改
+  max-uri-length: 2048
+
+
+## 配置文件版本
+version: 1
+# 除非在更新配置文件版本，否则请勿修改该值！！！

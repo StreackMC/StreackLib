@@ -181,8 +181,16 @@ public class HTTPServer extends NanoHTTPD {
       }
       if (reach.exists() && reach.isFile()) {// 判断文件是否合法
         // 判断大小是否合法
-        if (reach.length() > MAX_FILE_SIZE) {
-          plugin.getLogger().warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + reach.length() + " 字节。");
+        int size = 0;
+        try {
+          size = (int) reach.length();
+        } catch (Exception e) {
+          plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
+          return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+              "500 Internal Server Error: " + e.getMessage());
+        }
+        if (size > MAX_FILE_SIZE) {
+          plugin.getLogger().warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
           return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
               "413 Payload Too Large");
         }
@@ -198,7 +206,6 @@ public class HTTPServer extends NanoHTTPD {
       return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
           "500 Internal Server Error: " + e.getMessage());
     }
-
   }
 
   /** 函数式接口，方便 Lambda 注册 */

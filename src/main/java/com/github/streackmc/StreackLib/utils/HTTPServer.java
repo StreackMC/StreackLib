@@ -141,7 +141,14 @@ public class HTTPServer extends NanoHTTPD {
 
   @Override
   public Response serve(IHTTPSession session) {
+    int id = new Random().nextInt(100000);
     String uri = session.getUri();
+    plugin.getLogger().info(
+      getServerFullName()+ "收到请求#" + id + "\n"
+      + " origin = " + session.getRemoteIpAddress() + "\n"
+      + " target = " + uri + "\n"
+      + " method =" + session.getMethod()
+    );
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
       return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
@@ -150,19 +157,18 @@ public class HTTPServer extends NanoHTTPD {
     Handler h = handlerMap.get(uri);
     if (h != null) {
       try {
-        plugin.getLogger().info(getServerFullName() + "在 " + uri + " 上收到了请求，正在调用事件处理器...");
         return h.handle(session);
       } catch (Exception ex) {
-        plugin.getLogger().warning(getServerFullName() + "在处理 " + uri + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
+        plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-            "500 Internal Server Error: " + ex.getMessage());
+          "500 Internal Server Error: " + ex.getMessage());
+        }
       }
-    }
-    // 没有请求处理器时
-    if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
-      // 文件传输未启用
-      return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
-    }
+      // 没有请求处理器时
+      if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
+        // 文件传输未启用
+        return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+      }
     // 文件传递
     try {
       SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
@@ -170,11 +176,13 @@ public class HTTPServer extends NanoHTTPD {
       File reach = new File(root, uri).getCanonicalFile();
       // 防止路径穿越
       if (!reach.getPath().startsWith(root.getCanonicalPath())) {
+        plugin.getLogger().warning(getServerFullName() + "请求#" + id + " 试图调用非法路径，已被拦截。");
         return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
       }
       if (reach.exists() && reach.isFile()) {// 判断文件是否合法
         // 判断大小是否合法
         if (reach.length() > MAX_FILE_SIZE) {
+          plugin.getLogger().warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + reach.length() + " 字节。");
           return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
               "413 Payload Too Large");
         }
@@ -186,7 +194,7 @@ public class HTTPServer extends NanoHTTPD {
         return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       }
     } catch (IOException e) {
-      plugin.getLogger().warning(getServerFullName() + "在处理 " + uri + " 上的文件传输时发生异常：" + e.getMessage());
+      plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getMessage());
       return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
           "500 Internal Server Error: " + e.getMessage());
     }

@@ -3,11 +3,9 @@ package com.github.streackmc.StreackLib.utils;
 import com.github.streackmc.StreackLib.libinit;
 import fi.iki.elonen.NanoHTTPD;
 import org.bukkit.plugin.java.JavaPlugin;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.*;
 
 /**
  * 基于 NanoHTTPD 的简易转发服务器。
@@ -42,7 +40,31 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void startServer() {
     try {
+      setAsyncRunner(new DefaultAsyncRunner() {
+        private final ThreadPoolExecutor exec = new ThreadPoolExecutor(
+            // default 8 | max 16 | keepalive 60s 
+            8, 16, 60L, TimeUnit.SECONDS,
+            new SynchronousQueue<>(),
+            r -> {
+              Thread t = new Thread(r, "StreackLib.HTTPServer/NanoHTTPD-" + r.hashCode());
+              t.setDaemon(true);
+              t.setContextClassLoader(HTTPServer.class.getClassLoader());
+              return t;
+            },
+            new ThreadPoolExecutor.AbortPolicy());
+
+        @Override
+        public void exec(Runnable code) {
+          exec.execute(code);
+        }
+
+        @Override
+        public void close() {
+          exec.shutdownNow();
+        }
+      });
       start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+      plugin.getLogger().info("已启动" + getServerFullName());
     } catch (IOException e) {
       plugin.getLogger().severe("无法启动" + getServerFullName() + "：" + e.getMessage());
     }

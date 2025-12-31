@@ -52,9 +52,9 @@ public class HTTPServer extends NanoHTTPD {
             8, 16, 60L, TimeUnit.SECONDS,
             new SynchronousQueue<>(),
             new ThreadFactoryBuilder()
-              .setNameFormat("StreackLib.HTTPServer/Worker-%d")
-              .setDaemon(true)
-              .build(),
+                .setNameFormat("StreackLib.HTTPServer/Worker-%d")
+                .setDaemon(true)
+                .build(),
             new ThreadPoolExecutor.AbortPolicy());
 
         public void exec(Runnable code) {
@@ -150,6 +150,7 @@ public class HTTPServer extends NanoHTTPD {
     Handler h = handlerMap.get(uri);
     if (h != null) {
       try {
+        plugin.getLogger().info(getServerFullName() + "在 " + uri + " 上收到了请求，正在调用事件处理器...");
         return h.handle(session);
       } catch (Exception ex) {
         plugin.getLogger().warning(getServerFullName() + "在处理 " + uri + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
@@ -159,35 +160,37 @@ public class HTTPServer extends NanoHTTPD {
     }
     // 没有请求处理器时
     if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
-      // 文件传递
-      try {
-        SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
-        File root = new File(libinit.pluginDataPath, "HTTPServer");
-        File reach = new File(root, uri).getCanonicalFile();
-        // 防止路径穿越
-        if (!reach.getPath().startsWith(root.getCanonicalPath())) {
-          return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
-        }
-        if (reach.exists() && reach.isFile()) {// 判断文件是否合法
-          // 判断大小是否合法
-          if (reach.length() > MAX_FILE_SIZE) {
-            return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
-                "413 Payload Too Large");
-          }
-          // 返回文件
-          return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach),
-              reach.length());
-        } else {
-          // 文件不存在
-          return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
-        }
-      } catch (IOException e) {
-        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-            "500 Internal Server Error: File is unreachable.");
-      }
-    } else { // 文件传输未启用
+      // 文件传输未启用
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
     }
+    // 文件传递
+    try {
+      SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
+      File root = new File(libinit.pluginDataPath, "HTTPServer");
+      File reach = new File(root, uri).getCanonicalFile();
+      // 防止路径穿越
+      if (!reach.getPath().startsWith(root.getCanonicalPath())) {
+        return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
+      }
+      if (reach.exists() && reach.isFile()) {// 判断文件是否合法
+        // 判断大小是否合法
+        if (reach.length() > MAX_FILE_SIZE) {
+          return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
+              "413 Payload Too Large");
+        }
+        // 返回文件
+        return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach),
+            reach.length());
+      } else {
+        // 文件不存在
+        return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+      }
+    } catch (IOException e) {
+      plugin.getLogger().warning(getServerFullName() + "在处理 " + uri + " 上的文件传输时发生异常：" + e.getMessage());
+      return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+          "500 Internal Server Error: " + e.getMessage());
+    }
+
   }
 
   /** 函数式接口，方便 Lambda 注册 */

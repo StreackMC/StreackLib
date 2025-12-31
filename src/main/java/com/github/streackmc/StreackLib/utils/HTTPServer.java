@@ -1,6 +1,7 @@
 package com.github.streackmc.StreackLib.utils;
 
 import com.github.streackmc.StreackLib.libinit;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import fi.iki.elonen.NanoHTTPD;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.*;
@@ -50,12 +51,10 @@ public class HTTPServer extends NanoHTTPD {
             // default 8 | max 16 | keepalive 60s
             8, 16, 60L, TimeUnit.SECONDS,
             new SynchronousQueue<>(),
-            r -> {
-              Thread t = new Thread(r, "StreackLib.HTTPServer/NanoHTTPD-" + r.hashCode());
-              t.setDaemon(true);
-              t.setContextClassLoader(HTTPServer.class.getClassLoader());
-              return t;
-            },
+            new ThreadFactoryBuilder()
+              .setNameFormat("StreackLib.HTTPServer/Worker-%d")
+              .setDaemon(true)
+              .build(),
             new ThreadPoolExecutor.AbortPolicy());
 
         public void exec(Runnable code) {

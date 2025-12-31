@@ -96,7 +96,7 @@ public class HTTPServer extends NanoHTTPD {
    * @throws Exception 如果路径已被注册则抛出此错误
    */
   public void registerHandler(String path, Handler handler) throws Exception {
-    if (handlerMap.get(path) != null) {
+    if (handlerMap.containsKey(path)) {
       plugin.getLogger().warning(getServerFullName() + "无法注册在 " + path + "上的事件处理器：该路径已被占用\nfrom " + getCaller());
       throw new Exception("在" + path + "上的事件处理器已被注册");
     } else {
@@ -113,8 +113,11 @@ public class HTTPServer extends NanoHTTPD {
     if (path == null) {
       plugin.getLogger().warning(getServerFullName() + "未能取消注册事件处理器，因为目标地址是 null .\nfrom " + getCaller());
     }
-    handlerMap.remove(path);
-    plugin.getLogger().info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+    if (handlerMap.remove(path) != null) {
+      plugin.getLogger().info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+    } else {
+      plugin.getLogger().warning(getServerFullName() + "未能取消注册在 " + path + "上的事件处理器：该路径未被注册.\nfrom " + getCaller());
+    }
   }
 
   private String getCaller() {

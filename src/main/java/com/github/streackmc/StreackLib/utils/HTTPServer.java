@@ -136,6 +136,11 @@ public class HTTPServer extends NanoHTTPD {
   @Override
   public Response serve(IHTTPSession session) {
     String uri = session.getUri();
+    // 不处理过长uri
+    if (uri.length() > MAX_URI) {
+      return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
+    }
+    // 有请求处理器时
     Handler h = handlerMap.get(uri);
     if (h != null) {
       try {
@@ -143,23 +148,31 @@ public class HTTPServer extends NanoHTTPD {
       } catch (Exception ex) {
         plugin.getLogger().warning(getServerFullName() + "在处理 " + uri + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-            "Internal Server Error: " + ex.getMessage());
+            "500 Internal Server Error: " + ex.getMessage());
       }
     }
     // 没有请求处理器时
     if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
+      // 文件传递
       try {
         SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
-        File reach = new File(libinit.pluginDataPath, uri);
-        if (reach.exists()&&reach.isFile()) {
+        File root = new File(libinit.pluginDataPath, "HTTPServer");
+        File reach = new File(root, uri).getCanonicalFile();
+        // 防止路径穿越
+        if (!reach.getPath().startsWith(root.getCanonicalPath())) {
+          return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
+        }
+        if (reach.exists() && reach.isFile()) {
+          // 判断文件是否合法
           return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
         } else {
+          // 文件不存在
           return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
         }
       } catch (IOException e) {
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error: File is unreachable.");
       }
-    } else {
+    } else { // 文件传输未启用
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
     }
   }

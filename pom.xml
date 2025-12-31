@@ -9,8 +9,8 @@
   <description>为StreackMC Team旗下插件提供前置能力</description>
 
   <properties>
-    <maven.compiler.souce>17</maven.compiler.souce>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.souce>21</maven.compiler.souce>
+    <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <paper.version>1.21.8-R0.1-SNAPSHOT</paper.version>
     <spigot.version>1.21.5-R0.1-SNAPSHOT</spigot.version>

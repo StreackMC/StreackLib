@@ -10,6 +10,7 @@ import java.util.concurrent.*;
 /**
  * 基于 NanoHTTPD 的简易转发服务器。
  * 其它插件可通过 registerHandler(String path, Handler h) 注册自己的子路由。
+ * 
  * @author kdxiaoyi
  * @author KimiAI 亦有贡献
  */
@@ -19,13 +20,14 @@ public class HTTPServer extends NanoHTTPD {
   private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
   private String listenAddress;
   public int MAX_URI = 2048;
-  public long MAX_FILE_SIZE = 20L*1024*1024;
+  public long MAX_FILE_SIZE = 20L * 1024 * 1024;
 
   /**
    * 初始化一个HTTPServer对象
+   * 
    * @param hostname 监听地址
-   * @param port 监听端口
-   * @param plugin 发起的插件对象
+   * @param port     监听端口
+   * @param plugin   发起的插件对象
    */
   public HTTPServer(String hostname, int port, JavaPlugin plugin) {
     super(hostname, port);
@@ -39,10 +41,13 @@ public class HTTPServer extends NanoHTTPD {
    * 启动当前HTTPServer.
    */
   public void startServer() {
+    if (isAlive()) {
+      return;
+    }
     try {
       setAsyncRunner(new DefaultAsyncRunner() {
         private final ThreadPoolExecutor exec = new ThreadPoolExecutor(
-            // default 8 | max 16 | keepalive 60s 
+            // default 8 | max 16 | keepalive 60s
             8, 16, 60L, TimeUnit.SECONDS,
             new SynchronousQueue<>(),
             r -> {
@@ -52,9 +57,11 @@ public class HTTPServer extends NanoHTTPD {
               return t;
             },
             new ThreadPoolExecutor.AbortPolicy());
+
         public void exec(Runnable code) {
           exec.execute(code);
         }
+
         public void close() {
           exec.shutdownNow();
         }
@@ -78,6 +85,7 @@ public class HTTPServer extends NanoHTTPD {
 
   /**
    * 判断当前HTTPServer是否正在运行
+   * 
    * @return 正在运行时返回True
    */
   public boolean isStarted() {
@@ -103,6 +111,7 @@ public class HTTPServer extends NanoHTTPD {
 
   /**
    * 移除一个事件处理器
+   * 
    * @param path 目标Path
    */
   public void removeHandler(String path) {
@@ -121,10 +130,12 @@ public class HTTPServer extends NanoHTTPD {
     StackTraceElement caller;
     if (st.length >= 3) {
       caller = st[2];
-      return caller.getFileName() + "//" + caller.getClassName() + ":" + caller.getMethodName() + "@" + caller.getLineNumber();
+      return caller.getFileName() + "//" + caller.getClassName() + ":" + caller.getMethodName() + "@"
+          + caller.getLineNumber();
     }
     return "StreackLib-InnerCall";
   }
+
   private String getServerFullName() {
     return " HTTPServer[" + listenAddress + "] ";
   }
@@ -161,16 +172,19 @@ public class HTTPServer extends NanoHTTPD {
         if (reach.exists() && reach.isFile()) {// 判断文件是否合法
           // 判断大小是否合法
           if (reach.length() > MAX_FILE_SIZE) {
-            return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "413 Payload Too Large");
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
+                "413 Payload Too Large");
           }
           // 返回文件
-          return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
+          return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach),
+              reach.length());
         } else {
           // 文件不存在
           return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
         }
       } catch (IOException e) {
-        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error: File is unreachable.");
+        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+            "500 Internal Server Error: File is unreachable.");
       }
     } else { // 文件传输未启用
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");

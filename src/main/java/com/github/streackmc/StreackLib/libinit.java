@@ -1,14 +1,17 @@
 package com.github.streackmc.StreackLib;
 
 import com.github.streackmc.StreackLib.utils.HTTPServer;
+import com.github.streackmc.StreackLib.utils.SConfig;
 
-import java.io.File;
-import org.bukkit.configuration.file.FileConfiguration;
+import java.io.*;
+import java.nio.file.Files;
+
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class libinit extends JavaPlugin {
+  private final int CONFIG_VERSION = 1;
   public static HTTPServer httpServer;
-  public static FileConfiguration conf;
+  public static SConfig conf;
   public static File pluginDataPath;
 
   @Override
@@ -23,8 +26,10 @@ public class libinit extends JavaPlugin {
       "                                                                   "
     );
     saveDefaultConfig();
-    conf = getConfig();
     pluginDataPath = this.getDataFolder();
+    conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
+    CheckConfigUpdate();
+    LoadConf();
     getLogger().info("初始化成功！正在启用组件。");
     EnableHTTPServer();
     getLogger().info("已启用StreackLib v" + getDescription().getVersion() + "");
@@ -32,6 +37,30 @@ public class libinit extends JavaPlugin {
   @Override
   public void onDisable() {
     DisableHTTPServer();
+  }
+
+  /* 载入配置 */
+  private void LoadConf() {
+  }
+
+  /* 检查配置文件更新 */
+  private void CheckConfigUpdate() {
+    if (conf.getInt("version", 0) < 1) {
+      getLogger().warning("注意：你的配置文件版本过低。参阅config.new.yml修改你的配置文件。");
+      try(
+        InputStream is = this.getResource("config.yml");
+        OutputStream os = Files.newOutputStream(new File(pluginDataPath, "config.new.yml").toPath());
+      ) {
+          byte[] buffer = new byte[1024];
+          int length;
+          while ((length = is.read(buffer)) > 0) {
+            os.write(buffer, 0, length);
+          }
+          os.close();
+      } catch (Exception e) {
+        getLogger().severe("配置文件更新失败：" + e.getMessage());
+      }
+    }
   }
 
   /* HTTPServer */

@@ -52,13 +52,9 @@ public class HTTPServer extends NanoHTTPD {
               return t;
             },
             new ThreadPoolExecutor.AbortPolicy());
-
-        @Override
         public void exec(Runnable code) {
           exec.execute(code);
         }
-
-        @Override
         public void close() {
           exec.shutdownNow();
         }

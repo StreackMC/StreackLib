@@ -162,8 +162,12 @@ public class HTTPServer extends NanoHTTPD {
         if (!reach.getPath().startsWith(root.getCanonicalPath())) {
           return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
         }
-        if (reach.exists() && reach.isFile()) {
-          // 判断文件是否合法
+        if (reach.exists() && reach.isFile()) {// 判断文件是否合法
+          // 判断大小是否合法
+          if (reach.length() > MAX_FILE_SIZE) {
+            return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "413 Payload Too Large");
+          }
+          // 返回文件
           return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
         } else {
           // 文件不存在

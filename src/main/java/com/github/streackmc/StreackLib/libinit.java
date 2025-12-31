@@ -41,6 +41,7 @@ public class libinit extends JavaPlugin {
 
   /* 载入配置 */
   private void LoadConf() {
+    conf.startAutoReload();
   }
 
   /* 检查配置文件更新 */

@@ -15,6 +15,15 @@ public final class StreackLib {
   public static HTTPServer getHttpServer() {
     return libinit.httpServer;
   }
+  /**
+   * 新建一个HTTPServer对象
+   * @param hostname 监听地址
+   * @param port 监听端口
+   * @return 获取到的对象
+   */
+  public static HTTPServer newHttpServer(String hostname, int port) {
+    return new HTTPServer(hostname, port, libinit.pluginSelf);
+  }
 
   //Conf Handle
   /**

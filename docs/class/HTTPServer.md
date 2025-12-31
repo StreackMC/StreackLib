@@ -10,6 +10,8 @@
 import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.StreackLib;
+
+HTTPServer server = StreackLib.newHttpServer(host: "localhost", port: 8080);
 ```
 
 ## 监听事件并处理
@@ -34,6 +36,17 @@ server.registerHandler("/api/player/count");
 **注意**：由于用户可以配置是否启用HTTPServer功能，你应始终校验获取到的`HTTPServer`对象是否为`null`——如是则未启用。
 
 ## 高级
+### 限制
+每一个HTTP Server都暴露了几个变量，你可以做出修改：
+
+| 变量 | 描述 |
+|:-:|------|
+|Int `MAX_URI`|最大接受的URI长度，过多直接拦截。<br>默认2048|
+|Long `MAX_FILE_SIZE`|能通过文件传输功能传输的最大文件体积，单位B。<br>默认20MB。|
+
+这些设置默认会继承配置项中所定义，你也可以自行修改。
+
+### 自定义HTTPServer实例
 如果你想，你也可以自己创建一个HTTPServer实例。
 这么做可以避免依赖StreackLib的内建服务器状态，也不必考虑与其它插件的兼容性。
 

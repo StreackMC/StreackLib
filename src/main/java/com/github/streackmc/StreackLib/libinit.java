@@ -10,12 +10,18 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class libinit extends JavaPlugin {
   private final int CONFIG_VERSION = 1;
-  public static HTTPServer httpServer;
+
+  // 共享变量
   public static SConfig conf;
   public static File pluginDataPath;
+  public static JavaPlugin pluginSelf;
+
+  // 模块代表变量
+  public static HTTPServer httpServer;
 
   @Override
   public void onEnable() {
+    // 展示启动信息
     getLogger().info(
       "\n" +
       "  ____     _                                     _        __  __     ____ \n" +
@@ -26,12 +32,17 @@ public class libinit extends JavaPlugin {
       "                                                                   "
     );
     saveDefaultConfig();
+    // 填充共享变量
+    pluginSelf = this;
     pluginDataPath = this.getDataFolder();
     conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
+    // 配置文件初始化
     CheckConfigUpdate();
     LoadConf();
+    // 启用组件
     getLogger().info("初始化成功！正在启用组件。");
     EnableHTTPServer();
+    // 完成
     getLogger().info("已启用StreackLib v" + getDescription().getVersion() + "");
   }
   @Override

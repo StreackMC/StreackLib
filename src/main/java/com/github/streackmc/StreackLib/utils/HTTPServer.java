@@ -208,17 +208,14 @@ public class HTTPServer extends NanoHTTPD {
         String mime = "application/octet-stream";
         try {
           size = (int) reach.length();
-          String fileName = reach.getName();
-          int dotPos = fileName.lastIndexOf('.');
-          if (dotPos > 0 && dotPos < fileName.length() - 1) {
-            String ext = fileName.substring(dotPos + 1).toLowerCase(Locale.ROOT);
-            mime = Optional.ofNullable(MIME_TYPES.get(ext)).orElse("application/octet-stream");
-          } else {
+          try {
+            mime = SFile.getMIME(reach);
+          } catch (Exception ignored) {
             mime = "application/octet-stream";
           }
           logger.debug(getServerFullName() + "请求#" + id + " 获取的文件信息："
           + " 大小   = " + size + "Bytes"
-          + " MIME  = " + mime + "");
+          + " MIME  = " + mime);
         } catch (Exception e) {
           logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
           return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");

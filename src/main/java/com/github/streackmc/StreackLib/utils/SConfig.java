@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  *
  * @author kdxiaoyi
  * @author KimiAI 亦有贡献
+ * @since 0.2.0
  */
 public class SConfig {
 
@@ -126,23 +127,25 @@ public class SConfig {
   }
 
   // String
-  /** 获取字符串，缺失返回空串 */
-  public String getString(String key) { return getString(key, ""); }
-  /** 获取字符串，缺失返回默认值 */
+  /** 获取字符串，缺失返回空串；支持嵌套 key，如 "server.port" */
+  public String getString(String key) {
+    return getString(key, "");
+  }
+  /** 获取字符串，缺失返回默认值；支持嵌套 key，如 "server.port" */
   public String getString(String key, String def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
+      Object v = getNested(key); // 改为调用嵌套版本
       return v == null ? def : String.valueOf(v);
     } finally {
       lock.readLock().unlock();
     }
   }
-  /** 写入字符串 */
+  /** 写入字符串；支持嵌套 key，如 "server.port" */
   public void putString(String key, String value) {
     lock.writeLock().lock();
     try {
-      cache.put(key, value);
+      putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -150,27 +153,33 @@ public class SConfig {
   }
 
   // Int
-  /** 获取 int，缺失返回 0 */
-  public int getInt(String key) { return getInt(key, 0); }
-  /** 获取 int，缺失返回默认值 */
+  /** 获取 int，缺失返回 0；支持嵌套 key，如 "server.port" */
+  public int getInt(String key) {
+    return getInt(key, 0);
+  }
+  /** 获取 int，缺失返回默认值；支持嵌套 key，如 "server.port" */
   public int getInt(String key, int def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
-      if (v instanceof Number) return ((Number) v).intValue();
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof Number)
+        return ((Number) v).intValue();
       if (v instanceof String) {
-        try { return Integer.parseInt((String) v); } catch (NumberFormatException ignore) {}
+        try {
+          return Integer.parseInt((String) v);
+        } catch (NumberFormatException ignore) {
+        }
       }
       return def;
     } finally {
       lock.readLock().unlock();
     }
   }
-  /** 写入 int */
+  /** 写入 int；支持嵌套 key，如 "server.port" */
   public void putInt(String key, int value) {
     lock.writeLock().lock();
     try {
-      cache.put(key, value);
+      putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -178,27 +187,33 @@ public class SConfig {
   }
 
   // Long
-  /** 获取 long，缺失返回 0L */
-  public long getLong(String key) { return getLong(key, 0L); }
-  /** 获取 long，缺失返回默认值 */
+  /** 获取 long，缺失返回 0L；支持嵌套 key，如 "server.port" */
+  public long getLong(String key) {
+    return getLong(key, 0L);
+  }
+  /** 获取 long，缺失返回默认值；支持嵌套 key，如 "server.port" */
   public long getLong(String key, long def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
-      if (v instanceof Number) return ((Number) v).longValue();
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof Number)
+        return ((Number) v).longValue();
       if (v instanceof String) {
-        try { return Long.parseLong((String) v); } catch (NumberFormatException ignore) {}
+        try {
+          return Long.parseLong((String) v);
+        } catch (NumberFormatException ignore) {
+        }
       }
       return def;
     } finally {
       lock.readLock().unlock();
     }
   }
-  /** 写入 long */
+  /** 写入 long；支持嵌套 key，如 "server.port" */
   public void putLong(String key, long value) {
     lock.writeLock().lock();
     try {
-      cache.put(key, value);
+      putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -206,27 +221,33 @@ public class SConfig {
   }
 
   // Double
-  /** 获取 double，缺失返回 0.0 */
-  public double getDouble(String key) { return getDouble(key, 0.0); }
-  /** 获取 double，缺失返回默认值 */
+  /** 获取 double，缺失返回 0.0；支持嵌套 key，如 "server.port" */
+  public double getDouble(String key) {
+    return getDouble(key, 0.0);
+  }
+  /** 获取 double，缺失返回默认值；支持嵌套 key，如 "server.port" */
   public double getDouble(String key, double def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
-      if (v instanceof Number) return ((Number) v).doubleValue();
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof Number)
+        return ((Number) v).doubleValue();
       if (v instanceof String) {
-        try { return Double.parseDouble((String) v); } catch (NumberFormatException ignore) {}
+        try {
+          return Double.parseDouble((String) v);
+        } catch (NumberFormatException ignore) {
+        }
       }
       return def;
     } finally {
       lock.readLock().unlock();
     }
   }
-  /** 写入 double */
+  /** 写入 double；支持嵌套 key，如 "server.port" */
   public void putDouble(String key, double value) {
     lock.writeLock().lock();
     try {
-      cache.put(key, value);
+      putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -234,25 +255,29 @@ public class SConfig {
   }
 
   // Boolean
-  /** 获取 boolean，缺失返回 false */
-  public boolean getBoolean(String key) { return getBoolean(key, false); }
-  /** 获取 boolean，缺失返回默认值 */
+  /** 获取 boolean，缺失返回 false；支持嵌套 key，如 "server.port" */
+  public boolean getBoolean(String key) {
+    return getBoolean(key, false);
+  }
+  /** 获取 boolean，缺失返回默认值；支持嵌套 key，如 "server.port" */
   public boolean getBoolean(String key, boolean def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
-      if (v instanceof Boolean) return (Boolean) v;
-      if (v instanceof String) return Boolean.parseBoolean((String) v);
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof Boolean)
+        return (Boolean) v;
+      if (v instanceof String)
+        return Boolean.parseBoolean((String) v);
       return def;
     } finally {
       lock.readLock().unlock();
     }
   }
-  /** 写入 boolean */
+  /** 写入 boolean；支持嵌套 key，如 "server.port" */
   public void putBoolean(String key, boolean value) {
     lock.writeLock().lock();
     try {
-      cache.put(key, value);
+      putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -260,22 +285,24 @@ public class SConfig {
   }
 
   // StringList
-  /** 获取字符串列表，缺失返回空列表（不可变） */
-  public List<String> getStringList(String key) { return getStringList(key, Collections.emptyList()); }
-  /** 获取字符串列表，缺失返回默认值 */
+  /** 获取字符串列表，缺失返回空列表（不可变）；支持嵌套 key，如 "server.hosts" */
+  public List<String> getListOfString(String key) {
+    return getListOfString(key, Collections.emptyList());
+  }
+  /** 获取字符串列表，缺失返回默认值；支持嵌套 key，如 "server.hosts" */
   @SuppressWarnings("unchecked")
-  public List<String> getStringList(String key, List<String> def) {
+  public List<String> getListOfString(String key, List<String> def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
+      Object v = getNested(key); // 改为调用嵌套版本
       if (v instanceof List) {
         List<?> raw = (List<?>) v;
         if (raw.isEmpty() || raw.get(0) instanceof String) {
           return (List<String>) v;
         }
-        // 元素非 String，尝试转换
         List<String> list = new ArrayList<>(raw.size());
-        for (Object o : raw) list.add(String.valueOf(o));
+        for (Object o : raw)
+          list.add(String.valueOf(o));
         return list;
       }
       return def;
@@ -283,11 +310,48 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入字符串列表 */
-  public void putStringList(String key, List<String> value) {
+  /** 写入字符串列表；支持嵌套 key，如 "server.hosts" */
+  public void putListOfString(String key, List<String> value) {
     lock.writeLock().lock();
     try {
-      cache.put(key, new ArrayList<>(value));
+      putNested(key, new ArrayList<>(value)); // 改为调用嵌套版本
+      flush();
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  // List
+  /** 获取一般列表，缺失返回空列表（不可变）；支持嵌套 key，如 "server.hosts" */
+  public List<Object> getList(String key) {
+    return getList(key, Collections.emptyList());
+  }
+  /** 获取一般列表，缺失返回默认值；支持嵌套 key，如 "server.hosts" */
+  @SuppressWarnings("unchecked")
+  public List<Object> getList(String key, List<Object> def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof List) {
+        List<?> raw = (List<?>) v;
+        if (raw.isEmpty() || raw.get(0) instanceof Object) {
+          return (List<Object>) v;
+        }
+        List<Object> list = new ArrayList<>(raw.size());
+        for (Object o : raw)
+          list.add(String.valueOf(o));
+        return list;
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /** 写入一般列表；支持嵌套 key，如 "server.hosts" */
+  public void putList(String key, List<Object> value) {
+    lock.writeLock().lock();
+    try {
+      putNested(key, new ArrayList<>(value)); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -295,25 +359,28 @@ public class SConfig {
   }
 
   // Section (Map<String,Object>)
-  /** 获取子配置段，缺失返回空 Map（不可变） */
-  public Map<String, Object> getSection(String key) { return getSection(key, Collections.emptyMap()); }
-  /** 获取子配置段，缺失返回默认值 */
+  /** 获取子配置段，缺失返回空 Map（不可变）；支持嵌套 key，如 "server" */
+  public Map<String, Object> getSection(String key) {
+    return getSection(key, Collections.emptyMap());
+  }
+  /** 获取子配置段，缺失返回默认值；支持嵌套 key，如 "server" */
   @SuppressWarnings("unchecked")
   public Map<String, Object> getSection(String key, Map<String, Object> def) {
     lock.readLock().lock();
     try {
-      Object v = cache.get(key);
-      if (v instanceof Map) return new LinkedHashMap<>((Map<String, Object>) v);
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof Map)
+        return new LinkedHashMap<>((Map<String, Object>) v);
       return def;
     } finally {
       lock.readLock().unlock();
     }
   }
-  /** 写入子配置段 */
+  /** 写入子配置段；支持嵌套 key，如 "server" */
   public void putSection(String key, Map<String, Object> section) {
     lock.writeLock().lock();
     try {
-      cache.put(key, new LinkedHashMap<>(section));
+      putNested(key, new LinkedHashMap<>(section)); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -321,13 +388,22 @@ public class SConfig {
   }
 
   /**
-   * 删除配置项
-   * @param key 要删除的配置项
+   * 删除配置项；支持嵌套 key，如 "server.port"
+   * 若路径不存在或中途类型不匹配，静默返回
    */
   public void remove(String key) {
     lock.writeLock().lock();
     try {
-      cache.remove(key);
+      int lastDot = key.lastIndexOf(NESTED_SEP);
+      if (lastDot == -1) {
+        cache.remove(key);
+      } else {
+        Map<String, Object> parent = ensureNestedMap(key);
+        if (parent != null) {
+          String lastKey = key.substring(lastDot + 1);
+          parent.remove(lastKey);
+        }
+      }
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -341,6 +417,87 @@ public class SConfig {
   /** @return 当前配置文件对象 */
   public File getFile() {
     return conf;
+  }
+
+  private static final String NESTED_SEP = ".";
+
+  /**
+   * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
+   */
+  private Object getNested(String key) {
+    int dot = key.indexOf(NESTED_SEP);
+    if (dot == -1)
+      return cache.get(key);
+
+    String first = key.substring(0, dot);
+    Object current = cache.get(first);
+    if (!(current instanceof Map))
+      return null;
+
+    Map<String, Object> map = (Map<String, Object>) current;
+    String rest = key.substring(dot + 1);
+    return drillDown(map, rest);
+  }
+
+  /**
+   * 递归或迭代下探到最后一级 Map
+   */
+  private Object drillDown(Map<String, Object> map, String path) {
+    int dot = path.indexOf(NESTED_SEP);
+    if (dot == -1)
+      return map.get(path);
+
+    String first = path.substring(0, dot);
+    Object next = map.get(first);
+    if (!(next instanceof Map))
+      return null;
+
+    String rest = path.substring(dot + 1);
+    return drillDown((Map<String, Object>) next, rest);
+  }
+
+  /**
+   * 确保嵌套路径存在，返回最后一级 Map 以便写入
+   * 若中途遇到非 Map 节点，返回 null 表示无法创建
+   */
+  private Map<String, Object> ensureNestedMap(String key) {
+    int lastDot = key.lastIndexOf(NESTED_SEP);
+    if (lastDot == -1)
+      return cache;
+
+    String[] parts = key.split("\\.");
+    Map<String, Object> current = cache;
+    for (int i = 0; i < parts.length - 1; i++) {
+      String part = parts[i];
+      Object next = current.get(part);
+      if (next == null) {
+        Map<String, Object> newMap = new LinkedHashMap<>();
+        current.put(part, newMap);
+        current = newMap;
+      } else if (next instanceof Map) {
+        current = (Map<String, Object>) next;
+      } else {
+        // 中途节点非 Map，无法继续嵌套
+        return null;
+      }
+    }
+    return current;
+  }
+
+  /**
+   * 向嵌套路径写入值，若路径非法（中间节点非 Map）则退化为普通 key 写入顶层
+   */
+  private void putNested(String key, Object value) {
+    Map<String, Object> targetMap = ensureNestedMap(key);
+    if (targetMap == null) {
+      // 嵌套失败，退化为顶层写入（保持兼容）
+      cache.put(key, value);
+      return;
+    }
+
+    int lastDot = key.lastIndexOf(NESTED_SEP);
+    String lastKey = (lastDot == -1) ? key : key.substring(lastDot + 1);
+    targetMap.put(lastKey, value);
   }
 
   /* ==========================================

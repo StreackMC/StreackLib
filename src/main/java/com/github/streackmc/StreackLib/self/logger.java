@@ -208,7 +208,7 @@ public final class logger {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(logger.class);
 
     public void debug(String msg) {
-      LOG.debug(msg);
+      LOG.info(msg);
     }
 
     public void info(String msg) {

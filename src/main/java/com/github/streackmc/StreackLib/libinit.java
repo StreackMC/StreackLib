@@ -36,6 +36,7 @@ public class libinit extends JavaPlugin {
     pluginSelf = this;
     pluginDataPath = this.getDataFolder();
     StreackLib.conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
+    logger.plugin = this;
     // 配置文件初始化
     CheckConfigUpdate();
     LoadConf();

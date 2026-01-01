@@ -57,6 +57,7 @@ public class libinit extends JavaPlugin {
 
   /* 检查配置文件更新 */
   private void CheckConfigUpdate() {
+    getLogger().info("正在检查配置文件：" + new File(pluginDataPath, "config.yml").getPath());
     if (conf.getInt("version", 0) < CONFIG_VERSION) {
       getLogger().warning("注意：你的配置文件版本过低。参阅config.new.yml修改你的配置文件。");
       try(
@@ -77,11 +78,10 @@ public class libinit extends JavaPlugin {
 
   /* HTTPServer */
   private void EnableHTTPServer() {
-    boolean enabled = conf.getBoolean("http-server.enabled", false);
     String host = conf.getString("http-server.host", "0.0.0.0");
     int port = conf.getInt("http-server.port", 8080);
     getLogger().info("处理模块：HTTPServer");
-    if (enabled) {
+    if (conf.getBoolean("http-server.enabled", false)) {
       httpServer = new HTTPServer(host, port, this);
       httpServer.startServer();
       getLogger().info("HTTP 服务器已启动于 " + host + ":" + port);

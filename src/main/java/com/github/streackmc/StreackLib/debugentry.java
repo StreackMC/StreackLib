@@ -36,7 +36,7 @@ public class debugentry {
     info("user.home = " + System.getProperty("user.home"));
     info("java.version = " + System.getProperty("java.version"));
     info("java.home = " + System.getProperty("java.home"));
-    //info("java.class.path = " + System.getProperty("java.class.path"));
+    // info("java.class.path = " + System.getProperty("java.class.path"));
     // 操作系统信息
     info("==> OS Info");
     info("os.name = " + System.getProperty("os.name"));
@@ -86,42 +86,48 @@ public class debugentry {
 
     // JSON
     Files.write(json.toPath(),
-        ("{\n" +
-            "  \"str\": \"hello\",\n" +
-            "  \"num\": 123,\n" +
-            "  \"dbl\": 3.14,\n" +
-            "  \"bool\": true,\n" +
-            "  \"list\": [\"a\", \"b\", \"c\"],\n" +
-            "  \"sec\": { \"k1\": \"v1\", \"k2\": 42 }\n" +
-            "}").getBytes(StandardCharsets.UTF_8));
+      ("{\n" +
+        "  \"str\": \"hello\",\n" +
+        "  \"num\": 123,\n" +
+        "  \"dbl\": 3.14,\n" +
+        "  \"bool\": true,\n" +
+        "  \"list\": [\"a\", \"b\", \"c\"],\n" +
+        "  \"sec\": { \"k1\": \"v1\", \"k2\": 42 }\n" +
+        "}").getBytes(StandardCharsets.UTF_8));
 
     // YAML
     Files.write(yaml.toPath(),
-        ("str: hello\n" +
-            "num: 123\n" +
-            "dbl: 3.14\n" +
-            "bool: true\n" +
-            "list: [a, b, c]\n" +
-            "sec:\n" +
-            "  k1: v1\n" +
-            "  k2: 42\n").getBytes(StandardCharsets.UTF_8));
+      ("str: hello\n" +
+        "num: 123\n" +
+        "dbl: 3.14\n" +
+        "bool: true\n" +
+        "list: [a, b, c]\n" +
+        "sec:\n" +
+        "  k1: v1\n" +
+        "  k2: 42\n").getBytes(StandardCharsets.UTF_8));
 
     // TOML
     Files.write(toml.toPath(),
-        ("str = \"hello\"\n" +
-            "num = 123\n" +
-            "dbl = 3.14\n" +
-            "bool = true\n" +
-            "list = [\"a\", \"b\", \"c\"]\n" +
-            "[sec]\n" +
-            "k1 = \"v1\"\n" +
-            "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
+      ("str = \"hello\"\n" +
+        "num = 123\n" +
+        "dbl = 3.14\n" +
+        "bool = true\n" +
+        "list = [\"a\", \"b\", \"c\"]\n" +
+        "[sec]\n" +
+        "k1 = \"v1\"\n" +
+        "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
 
     // INI
     Files.write(ini.toPath(),
-        ("[sec]\n" +
-            "k1 = v1\n" +
-            "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
+      ("[keys]\n" +
+          "str = hello\n" +
+          "num = 123\n" +
+          "dbl = 3.14\n" +
+          "bool = true\n" +
+          "list = [\"a\", \"b\", \"c\"]\n" +
+          "[sec]\n" +
+          "k1 = v1\n" +
+          "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
 
     // 2) 分别对每种格式执行相同测试
     for (File f : new File[] { json, yaml, toml, ini }) {
@@ -136,6 +142,7 @@ public class debugentry {
       info("getBoolean(bool) = " + cfg.getBoolean("bool"));
       info("getStringList    = " + cfg.getStringList("list"));
       info("getSection(sec)  = " + cfg.getSection("sec"));
+      info("getSring(sec.k1)  = " + cfg.getSection("sec.k1"));
 
       // 写
       cfg.putString("newStr", "world");

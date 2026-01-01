@@ -57,7 +57,7 @@ public class libinit extends JavaPlugin {
 
   /* 检查配置文件更新 */
   private void CheckConfigUpdate() {
-    if (conf.getInt("version", 0) < 1) {
+    if (conf.getInt("version", 0) < CONFIG_VERSION) {
       getLogger().warning("注意：你的配置文件版本过低。参阅config.new.yml修改你的配置文件。");
       try(
         InputStream is = this.getResource("config.yml");

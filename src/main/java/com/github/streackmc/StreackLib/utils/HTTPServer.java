@@ -1,5 +1,6 @@
 package com.github.streackmc.StreackLib.utils;
 
+import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.libinit;
 import com.github.streackmc.StreackLib.self.logger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -39,8 +40,8 @@ public class HTTPServer extends NanoHTTPD {
     super(hostname, port);
     this.listenAddress = hostname + ":" + port;
     this.plugin = plugin;
-    this.MAX_URI = libinit.conf.getInt("http-server.max-uri-length", 2048);
-    this.MAX_FILE_SIZE = libinit.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
+    this.MAX_URI = StreackLib.conf.getInt("http-server.max-uri-length", 2048);
+    this.MAX_FILE_SIZE = StreackLib.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
   }
 
   /**
@@ -185,7 +186,7 @@ public class HTTPServer extends NanoHTTPD {
       }
     }
     // 没有请求处理器时
-    if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
+    if (StreackLib.conf.getBoolean("http-server.allow-file-transport", false)) {
       // 文件传输未启用
       logger.debug(getServerFullName() + "请求#" + id + " 没有命中已注册的处理器，且文件传输已禁用。");
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");

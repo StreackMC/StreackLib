@@ -5,7 +5,10 @@ import com.github.streackmc.StreackLib.utils.HTTPServer;
 import java.io.File;
 
 public final class StreackLib {
-  private StreackLib() {}
+  private StreackLib() {
+  }
+  
+  public static SConfig conf;
 
   // HTTP Server
   /**

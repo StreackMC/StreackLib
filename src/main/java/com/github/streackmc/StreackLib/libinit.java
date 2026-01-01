@@ -1,5 +1,6 @@
 package com.github.streackmc.StreackLib;
 
+import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
@@ -12,7 +13,6 @@ public class libinit extends JavaPlugin {
   private final int CONFIG_VERSION = 1;
 
   // 共享变量
-  public static SConfig conf;
   public static File pluginDataPath;
   public static JavaPlugin pluginSelf;
 
@@ -35,7 +35,7 @@ public class libinit extends JavaPlugin {
     // 填充共享变量
     pluginSelf = this;
     pluginDataPath = this.getDataFolder();
-    conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
+    StreackLib.conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
     // 配置文件初始化
     CheckConfigUpdate();
     LoadConf();
@@ -52,13 +52,17 @@ public class libinit extends JavaPlugin {
 
   /* 载入配置 */
   private void LoadConf() {
-    conf.startAutoReload();
+    StreackLib.conf.startAutoReload();
+    // debug mode
+    if (StreackLib.conf.getBoolean("debug", false)) {
+      logger.warn("调试模式已启用，你会因此收到更多消息");
+    }
   }
 
   /* 检查配置文件更新 */
   private void CheckConfigUpdate() {
     getLogger().info("正在检查配置文件：" + new File(pluginDataPath, "config.yml").getPath());
-    if (conf.getInt("version", 0) < CONFIG_VERSION) {
+    if (StreackLib.conf.getInt("version", 0) < CONFIG_VERSION) {
       getLogger().warning("注意：你的配置文件版本过低。参阅config.new.yml修改你的配置文件。");
       try(
         InputStream is = this.getResource("config.yml");
@@ -78,10 +82,10 @@ public class libinit extends JavaPlugin {
 
   /* HTTPServer */
   private void EnableHTTPServer() {
-    String host = conf.getString("http-server.host", "0.0.0.0");
-    int port = conf.getInt("http-server.port", 8080);
+    String host = StreackLib.conf.getString("http-server.host", "0.0.0.0");
+    int port = StreackLib.conf.getInt("http-server.port", 8080);
     getLogger().info("处理模块：HTTPServer");
-    if (conf.getBoolean("http-server.enabled", false)) {
+    if (StreackLib.conf.getBoolean("http-server.enabled", false)) {
       httpServer = new HTTPServer(host, port, this);
       httpServer.startServer();
       getLogger().info("HTTP 服务器已启动于 " + host + ":" + port);

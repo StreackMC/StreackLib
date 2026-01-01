@@ -186,7 +186,7 @@ public class HTTPServer extends NanoHTTPD {
       }
     }
     // 没有请求处理器时
-    if (StreackLib.conf.getBoolean("http-server.allow-file-transport", false)) {
+    if (!StreackLib.conf.getBoolean("http-server.allow-file-transport", false)) {
       // 文件传输未启用
       logger.debug(getServerFullName() + "请求#" + id + " 没有命中已注册的处理器，且文件传输已禁用。");
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");

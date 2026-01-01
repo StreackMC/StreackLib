@@ -102,6 +102,9 @@ public class debugentry {
   }
 
   public static void main(String[] args) {
+
+    // if (StreackLib.initConf(new File("./mcserver/plugins/StreackLib/config.yml"), "yml").getBoolean("http-server.allow-file-transport")) {info("passed");} else {warn("blocked");}
+
     info(">>>>>>>>>> TEST STARTED <<<<<<<<<<");
     info("========== Basic Info ==========");
     info("\n" + generateDebugInfo());

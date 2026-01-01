@@ -161,11 +161,10 @@ public class HTTPServer extends NanoHTTPD {
     int id = new Random().nextInt(100000);
     String uri = session.getUri();
     logger.info(
-      getServerFullName()+ "收到请求#" + id + "\n"
-      + " origin = " + session.getRemoteIpAddress() + "\n"
-      + " target = " + uri + "\n"
-      + " method =" + session.getMethod()
-    );
+        getServerFullName() + "收到请求#" + id + "\n"
+            + " origin = " + session.getRemoteIpAddress() + "\n"
+            + " target = " + uri + "\n"
+            + " method = " + session.getMethod());
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
       return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
@@ -177,15 +176,14 @@ public class HTTPServer extends NanoHTTPD {
         return h.handle(session);
       } catch (Exception ex) {
         logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
-        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-          "500 Internal Server Error: " + ex.getMessage());
-        }
+        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
       }
-      // 没有请求处理器时
-      if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
-        // 文件传输未启用
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
-      }
+    }
+    // 没有请求处理器时
+    if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
+      // 文件传输未启用
+      return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+    }
     // 文件传递
     try {
       SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
@@ -212,8 +210,7 @@ public class HTTPServer extends NanoHTTPD {
           }
         } catch (Exception e) {
           logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
-          return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-              "500 Internal Server Error: " + e.getMessage());
+          return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
         }
         if (size > MAX_FILE_SIZE) {
           logger.warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
@@ -230,8 +227,7 @@ public class HTTPServer extends NanoHTTPD {
       }
     } catch (IOException e) {
       logger.severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getMessage());
-      return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
-          "500 Internal Server Error: " + e.getMessage());
+      return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
     }
   }
 

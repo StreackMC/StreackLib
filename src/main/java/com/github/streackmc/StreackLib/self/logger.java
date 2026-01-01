@@ -2,10 +2,12 @@ package com.github.streackmc.StreackLib.self;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.Arrays;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 
 /**
  * 全局静态日志工具，自动根据运行环境选择日志后端。
@@ -29,8 +31,9 @@ import java.util.logging.Logger;
  * 未来支持 Fabric 时，只需新增一个 {@link Backend} 实现即可，无需改动业务代码。
  *
  * @author KimiAI 编写
+ * @author GitHub Copilot 编写
  * @author kdxiaoyi 审计
- * @since 0.0.0
+ * @since 0.4.0
  */
 public final class logger {
 
@@ -38,46 +41,59 @@ public final class logger {
 
   /**
    * 输出调试信息
-   * @param msg 信息
-   * @param arg 其它内容
+   * @param args 任意数量、任意类型的参数。若第一个参数为 String，则视为格式化模板（其余参数用于 format）。
+   *             若最后一个参数为 Throwable，则对 severe/error 系列方法会将其作为异常输出；其它级别会将堆栈附加到消息。
    */
-  public static void debug(@NotNull String msg, Object... arg) { backend().debug(format(msg, arg)); }
+  public static void debug(@NotNull Object... args) {
+    Payload p = extract(args);
+    if (p.t != null) {
+      // 对 debug/info/warn：将堆栈追加到消息
+      backend().debug(p.msg + "\n" + throwableToString(p.t));
+    } else {
+      backend().debug(p.msg);
+    }
+  }
   /**
    * 输出一般信息
-   * @param msg 信息
-   * @param arg 其它内容
    */
-  public static void info(@NotNull String msg, Object... arg)  { backend().info(format(msg, arg)); }
+  public static void info(@NotNull Object... args)  {
+    Payload p = extract(args);
+    if (p.t != null) {
+      backend().info(p.msg + "\n" + throwableToString(p.t));
+    } else {
+      backend().info(p.msg);
+    }
+  }
   /**
    * 输出警告信息
-   * @param msg 信息
-   * @param arg 其它内容
    */
-  public static void warning(@NotNull String msg, Object... arg) { backend().warn(format(msg, arg)); }
+  public static void warning(@NotNull Object... args) {
+    Payload p = extract(args);
+    if (p.t != null) {
+      backend().warn(p.msg + "\n" + throwableToString(p.t));
+    } else {
+      backend().warn(p.msg);
+    }
+  }
   /**
-   * 输出警告信息
-   * @param msg 信息
-   * @param arg 其它内容
+   * 输出警告信息，别名
    */
-  public static void warn(@NotNull String msg, Object... arg) { warning(msg, arg); }
+  public static void warn(@NotNull Object... args) { warning(args); }
   /**
-   * 输出错误信息
-   * @param msg 信息
-   * @param arg 其它内容
+   * 输出错误信息（可携带 Throwable）
    */
-  public static void severe(@NotNull String msg, @Nullable Throwable t) { backend().error(msg, t); }
+  public static void severe(@NotNull Object... args) {
+    Payload p = extract(args);
+    backend().error(p.msg, p.t);
+  }
   /**
-   * 输出错误信息
-   * @param msg 信息
-   * @param arg 其它内容
+   * 输出错误信息（可携带 Throwable）
    */
-  public static void error(@NotNull String msg, @Nullable Throwable t) { severe(msg, t); }
+  public static void error(@NotNull Object... args) { severe(args); }
   /**
-   * 输出错误信息
-   * @param msg 信息
-   * @param arg 其它内容
+   * 输出错误信息（可携带 Throwable）
    */
-  public static void err(@NotNull String msg, @Nullable Throwable t) { severe(msg, t); }
+  public static void err(@NotNull Object... args) { severe(args); }
 
   /* ===================== 内部实现 ===================== */
 
@@ -157,6 +173,54 @@ public final class logger {
   /** 简单格式化：用 String.format，兼容 %s 等占位符 */
   private static String format(String msg, Object... arg) {
     return arg.length == 0 ? msg : String.format(msg, arg);
+  }
+
+  /** 解析传入参数，返回最终消息与可选 Throwable */
+  private static final class Payload {
+    final String msg;
+    final Throwable t;
+    Payload(String msg, Throwable t) { this.msg = msg; this.t = t; }
+  }
+
+  private static Payload extract(Object... args) {
+    if (args == null || args.length == 0) return new Payload("", null);
+    // 如果只有一个参数
+    if (args.length == 1) {
+      Object o = args[0];
+      if (o instanceof Throwable) {
+        return new Payload(((Throwable) o).toString(), (Throwable) o);
+      }
+      return new Payload(String.valueOf(o), null);
+    }
+    // 检查最后一个是否为 Throwable
+    Throwable lastAsThrowable = null;
+    int len = args.length;
+    if (args[len - 1] instanceof Throwable) {
+      lastAsThrowable = (Throwable) args[len - 1];
+      len -= 1; // 剩余用于消息构造
+    }
+    Object first = args[0];
+    if (first instanceof String) {
+      Object[] fmtArgs = len <= 1 ? new Object[0] : Arrays.copyOfRange(args, 1, len);
+      String msg = fmtArgs.length == 0 ? (String) first : format((String) first, fmtArgs);
+      return new Payload(msg, lastAsThrowable);
+    } else {
+      StringBuilder sb = new StringBuilder();
+      for (int i = 0; i < len; i++) {
+        if (i > 0) sb.append(' ');
+        sb.append(String.valueOf(args[i]));
+      }
+      return new Payload(sb.toString(), lastAsThrowable);
+    }
+  }
+
+  private static String throwableToString(Throwable t) {
+    if (t == null) return "";
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    t.printStackTrace(pw);
+    pw.flush();
+    return sw.toString();
   }
 
   private logger() {} // 禁止实例化

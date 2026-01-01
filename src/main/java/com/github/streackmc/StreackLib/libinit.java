@@ -56,6 +56,7 @@ public class libinit extends JavaPlugin {
     // debug mode
     if (StreackLib.conf.getBoolean("debug", false)) {
       logger.warn("调试模式已启用，你会因此收到更多消息");
+      logger.debug("当前环境信息：\n" + debugentry.generateDebugInfo());
     }
   }
 

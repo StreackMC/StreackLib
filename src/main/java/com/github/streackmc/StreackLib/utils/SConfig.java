@@ -352,33 +352,38 @@ public class SConfig {
    * 若当前已启用会静默处理。
    */
   public void startAutoReload() {
-    if (watching) return;
+    if (watching)
+      return;
     try {
       watchService = FileSystems.getDefault().newWatchService();
-      Path path = conf.toPath().toAbsolutePath().getParent();
-      path.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
+      Path confPath = conf.toPath().toAbsolutePath();
+      Path dir = confPath.getParent();
+      dir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
       watching = true;
+
       watchThread = new Thread(() -> {
         while (watching && !Thread.currentThread().isInterrupted()) {
           try {
             WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
-            if (key != null) {
-              for (WatchEvent<?> event : key.pollEvents()) {
-                Path changed = path.resolve((Path) event.context());
-                if (changed.toFile().equals(conf) && conf.lastModified() > lastModified) {
-                  reload();
-                }
+            if (key == null)
+              continue;
+            for (WatchEvent<?> event : key.pollEvents()) {
+              Path changed = dir.resolve((Path) event.context());
+              if (changed.toAbsolutePath().equals(confPath)
+                  && conf.lastModified() > lastModified) {
+                reload();
               }
-              key.reset();
             }
+            key.reset();
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
           }
         }
-      }, "conf-reload");
+      }, "conf-reload-" + conf.getName());
       watchThread.setDaemon(true);
       watchThread.start();
     } catch (IOException e) {
+      stopAutoReload();
       throw new UncheckedIOException("无法启用自动重载：", e);
     }
   }
@@ -386,10 +391,16 @@ public class SConfig {
   /** 停止自动重载 */
   public void stopAutoReload() {
     watching = false;
-    if (watchThread != null) watchThread.interrupt();
+    if (watchThread != null)
+      watchThread.interrupt();
     try {
-      if (watchService != null) watchService.close();
-    } catch (IOException ignored) {}
+      if (watchService != null)
+        watchService.close();
+    } catch (IOException ignored) {
+    } finally {
+      watchService = null;
+      watchThread = null;
+    }
   }
 
   /** @return 是否正在自动重载 */
@@ -453,7 +464,6 @@ public class SConfig {
     return new HashMap<>();
   }
 
-  @SuppressWarnings("unchecked")
   private Map<String, Object> loadYaml(InputStream in) {
     Yaml yaml = new Yaml();
     Map<String, Object> m = yaml.load(in);
@@ -555,7 +565,7 @@ public class SConfig {
       writerBlock.accept(w);
     }
     try {
-      Files.move(tmp, target, StandardCopyOption.ATOMIC_REPLACE_EXISTING);
+      Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
     } catch (AtomicMoveNotSupportedException e) {
       // 某些文件系统不支持原子 move，退化为复制后删除
       Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);

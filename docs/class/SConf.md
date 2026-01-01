@@ -66,6 +66,7 @@ Java是一门严格类型的语言，使用刚才示例中的弃用方法是危�
 
 ```java
 conf.putString(String "key", "value");
+conf.putString(String "section.key", "value"); // 分节也是可以的
 String v = conf.getString(String "key", "fallback");
 ```
 

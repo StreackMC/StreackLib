@@ -140,16 +140,16 @@ public class debugentry {
       info("getInt(num)      = " + cfg.getInt("num"));
       info("getDouble(dbl)   = " + cfg.getDouble("dbl"));
       info("getBoolean(bool) = " + cfg.getBoolean("bool"));
-      info("getStringList    = " + cfg.getStringList("list"));
+      info("getListOfString  = " + cfg.getListOfString("list"));
       info("getSection(sec)  = " + cfg.getSection("sec"));
-      info("getSring(sec.k1)  = " + cfg.getSection("sec.k1"));
+      info("getString(sec.k1)= " + cfg.getString("sec.k1"));
 
       // 写
       cfg.putString("newStr", "world");
       cfg.putInt("newInt", 999);
       cfg.putDouble("newDbl", 2.718);
       cfg.putBoolean("newBool", false);
-      cfg.putStringList("newList", Arrays.asList("x", "y", "z"));
+      cfg.putListOfString("newList", Arrays.asList("x", "y", "z"));
       Map<String, Object> m = new LinkedHashMap<>();
       m.put("a", "1");
       m.put("b", 2);

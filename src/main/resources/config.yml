@@ -1,4 +1,5 @@
-# HTTPServer
+## HTTPServer
+# *本节配置需要重启才能应用修改
 http-server:
   ## 是否开启内置 HTTP 服务器
   enabled: true

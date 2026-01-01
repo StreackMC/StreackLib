@@ -158,7 +158,7 @@ public class HTTPServer extends NanoHTTPD {
 
   @Override
   public Response serve(IHTTPSession session) {
-    int id = new Random().nextInt(100000);
+    String id = System.currentTimeMillis() + "-" + new Random().nextInt(100000);
     String uri = session.getUri();
     uri = uri.replaceAll("\\.\\./", "")
         .replaceAll("[\\{Cntrl}&&[^\r\n]]+", "")

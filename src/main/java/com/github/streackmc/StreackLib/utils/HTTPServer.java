@@ -170,12 +170,14 @@ public class HTTPServer extends NanoHTTPD {
             + " 方法 = " + session.getMethod());
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
+      logger.warn(getServerFullName() + "请求#" + id + " 的URI过长，已拒绝。");
       return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
     }
     // 有请求处理器时
     Handler h = handlerMap.get(uri);
     if (h != null) {
       try {
+        logger.debug(getServerFullName() + "请求#" + id + " 命中已注册的处理器。");
         return h.handle(session);
       } catch (Exception ex) {
         logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
@@ -185,6 +187,7 @@ public class HTTPServer extends NanoHTTPD {
     // 没有请求处理器时
     if (libinit.conf.getBoolean("http-server.allow-file-transport", false)) {
       // 文件传输未启用
+      logger.debug(getServerFullName() + "请求#" + id + " 没有命中已注册的处理器，且文件传输已禁用。");
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
     }
     // 文件传递
@@ -192,6 +195,7 @@ public class HTTPServer extends NanoHTTPD {
       SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
       File root = new File(libinit.pluginDataPath, "HTTPServer");
       File reach = new File(root, uri).getCanonicalFile();
+      logger.debug(getServerFullName() + "请求#" + id + " 正在获取文件 " + reach.getAbsolutePath());
       // 防止路径穿越
       if (!reach.getPath().startsWith(root.getCanonicalPath())) {
         logger.warning(getServerFullName() + "请求#" + id + " 试图调用非法路径，已被拦截。");
@@ -211,6 +215,9 @@ public class HTTPServer extends NanoHTTPD {
           } else {
             mime = "application/octet-stream";
           }
+          logger.debug(getServerFullName() + "请求#" + id + " 获取的文件信息："
+          + " 大小   = " + size + "Bytes"
+          + " MIME  = " + mime + "");
         } catch (Exception e) {
           logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
           return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
@@ -218,14 +225,16 @@ public class HTTPServer extends NanoHTTPD {
         if (size > MAX_FILE_SIZE) {
           logger.warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
           return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
-              "413 Payload Too Large");
-        }
-        // 返回文件
-        FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
-        return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
+            "413 Payload Too Large");
+          }
+          // 返回文件
+          FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
+          logger.debug(getServerFullName() + "请求#" + id + " 开始传输文件 " + fileChannel.toString());
+          return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
         //return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
       } else {
         // 文件不存在
+        logger.debug(getServerFullName() + "请求#" + id + " 请求的文件不存在。");
         return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       }
     } catch (IOException e) {

@@ -64,7 +64,7 @@ public class libinit extends JavaPlugin {
   /* 检查配置文件更新 */
   private void CheckConfigUpdate() {
     logger.info("正在检查配置文件：" + new File(pluginDataPath, "config.yml").getPath());
-    if (StreackLib.conf.getInt("version", 0) < CONFIG_VERSION) {
+    if (StreackLib.conf.getInt("version", 0) > CONFIG_VERSION) {
       logger.warn("你的配置文件版本过高？请勿自行修改或强行应用高版本配置文件，否则可能引发意料之外的错误。当前版本：" + StreackLib.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
     }
     if (StreackLib.conf.getInt("version", 0) < CONFIG_VERSION) {

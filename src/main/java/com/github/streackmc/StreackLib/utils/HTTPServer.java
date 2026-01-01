@@ -129,15 +129,27 @@ public class HTTPServer extends NanoHTTPD {
     }
   }
 
+  private static final Set<String> SKIP_CLASS = Set.of(
+      HTTPServer.class.getName(),
+      "java.lang.reflect.Method",
+      "jdk.internal.reflect.NativeMethodAccessorImpl",
+      "jdk.internal.reflect.DelegatingMethodAccessorImpl");
+
+  /**
+   * 返回第一个非 HTTPServer 且非反射的调用者
+   * 格式：SimpleClassName:method@line
+   */
   private String getCaller() {
     StackTraceElement[] st = Thread.currentThread().getStackTrace();
-    StackTraceElement caller;
-    if (st.length >= 3) {
-      caller = st[2];
-      return caller.getFileName() + "//" + caller.getClassName() + ":" + caller.getMethodName() + "@"
-          + caller.getLineNumber();
+    for (int i = 2; i < st.length; i++) { // 0=getStackTrace, 1=getCaller
+      String cls = st[i].getClassName();
+      if (!SKIP_CLASS.contains(cls)) {
+        return st[i].getClassName()
+            + ":" + st[i].getMethodName()
+            + "@" + st[i].getLineNumber();
+      }
     }
-    return "StreackLib-InnerCall";
+    return "StreackLib-Self_Call";
   }
 
   private String getServerFullName() {

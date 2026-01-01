@@ -424,6 +424,7 @@ public class SConfig {
   /**
    * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
    */
+  @SuppressWarnings("unchecked")
   private Object getNested(String key) {
     int dot = key.indexOf(NESTED_SEP);
     if (dot == -1)
@@ -442,6 +443,7 @@ public class SConfig {
   /**
    * 递归或迭代下探到最后一级 Map
    */
+  @SuppressWarnings("unchecked")
   private Object drillDown(Map<String, Object> map, String path) {
     int dot = path.indexOf(NESTED_SEP);
     if (dot == -1)
@@ -455,11 +457,12 @@ public class SConfig {
     String rest = path.substring(dot + 1);
     return drillDown((Map<String, Object>) next, rest);
   }
-
+  
   /**
    * 确保嵌套路径存在，返回最后一级 Map 以便写入
    * 若中途遇到非 Map 节点，返回 null 表示无法创建
-   */
+  */
+  @SuppressWarnings("unchecked")
   private Map<String, Object> ensureNestedMap(String key) {
     int lastDot = key.lastIndexOf(NESTED_SEP);
     if (lastDot == -1)

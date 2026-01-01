@@ -2,6 +2,7 @@ package com.github.streackmc.StreackLib.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 
 public final class SFile {
   private SFile() {}
@@ -25,5 +26,31 @@ public final class SFile {
         throw new IOException("无法创建目标文件夹：" + e.getMessage());
       }
     }
+  }
+
+  /**
+   * 获取文件的MIME型
+   * 
+   * @param f 文件对象
+   * @return MIME类型
+   * @throws IOException 文件不存在、不可达等错误
+   */
+  public static String getMIME(File f) throws IOException {
+    if (!Files.exists(f.toPath())) {
+      throw new IOException("目标文件不存在，无法获取MIME类型");
+    } else {
+      return Files.probeContentType(f.toPath());
+    }
+  }
+
+  /**
+   * 获取文件的MIME类型
+   * 
+   * @param path 文件路径
+   * @return MIME类型
+   * @throws IOException 文件不存在、不可达等错误
+   */
+  public static String getMIME(String path) throws IOException {
+    return getMIME(new File(path));
   }
 }

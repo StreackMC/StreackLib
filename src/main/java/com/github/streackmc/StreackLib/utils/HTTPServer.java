@@ -5,6 +5,9 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import fi.iki.elonen.NanoHTTPD;
 import org.bukkit.plugin.java.JavaPlugin;
 import java.io.*;
+import java.nio.channels.FileChannel;
+import java.nio.channels.Channels;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -182,8 +185,17 @@ public class HTTPServer extends NanoHTTPD {
       if (reach.exists() && reach.isFile()) {// 判断文件是否合法
         // 判断大小是否合法
         int size = 0;
+        String mime = "application/octet-stream";
         try {
           size = (int) reach.length();
+          String fileName = reach.getName();
+          int dotPos = fileName.lastIndexOf('.');
+          if (dotPos > 0 && dotPos < fileName.length() - 1) {
+            String ext = fileName.substring(dotPos + 1).toLowerCase(Locale.ROOT);
+            mime = Optional.ofNullable(MIME_TYPES.get(ext)).orElse("application/octet-stream");
+          } else {
+            mime = "application/octet-stream";
+          }
         } catch (Exception e) {
           plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
           return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
@@ -195,8 +207,9 @@ public class HTTPServer extends NanoHTTPD {
               "413 Payload Too Large");
         }
         // 返回文件
-        return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach),
-            reach.length());
+        FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
+        return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
+        //return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
       } else {
         // 文件不存在
         return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");

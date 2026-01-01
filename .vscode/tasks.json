@@ -28,8 +28,18 @@
       "command": "mvn package --file pom.xml",
       "group": {
         "kind": "build",
+        "isDefault": false
+      },
+    },
+    {
+      "label": "Start Test Server",
+      "promptOnClose": true,
+      "type": "shell",
+      "command": "bash ./mcserver/run.sh",
+      "group": {
+        "kind": "test",
         "isDefault": true
-      }
+      },
     },
   ]
 }

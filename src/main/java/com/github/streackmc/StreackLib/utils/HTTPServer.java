@@ -160,11 +160,14 @@ public class HTTPServer extends NanoHTTPD {
   public Response serve(IHTTPSession session) {
     int id = new Random().nextInt(100000);
     String uri = session.getUri();
+    uri = uri.replaceAll("\\.\\./", "")
+        .replaceAll("[\\{Cntrl}&&[^\r\n]]+", "")
+        .replaceAll("[\r\n]+", " "); // 清洗URL
     logger.info(
         getServerFullName() + "收到请求#" + id + "\n"
-            + " origin = " + session.getRemoteIpAddress() + "\n"
-            + " target = " + uri + "\n"
-            + " method = " + session.getMethod());
+            + " 来源 = [未校验]" + session.getRemoteIpAddress() + "\n"
+            + " 路径 = " + uri + "\n"
+            + " 方法 = " + session.getMethod());
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
       return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");

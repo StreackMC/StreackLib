@@ -12,6 +12,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.*;
 import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,11 +63,16 @@ public class SConfig {
   private static ConfigType parseType(String ctype) {
     if (ctype == null) throw new IllegalArgumentException("ctype 不能为空");
     switch (ctype.toLowerCase(Locale.ROOT)) {
-      case "json": return ConfigType.JSON;
+      case "json":
+        return ConfigType.JSON;
       case "yml":
-      case "yaml": return ConfigType.YAML;
-      case "toml": return ConfigType.TOML;
-      case "ini":  return ConfigType.INI;
+        return ConfigType.YAML;
+      case "yaml":
+        return ConfigType.YAML;
+      case "toml":
+        return ConfigType.TOML;
+      case "ini":
+        return ConfigType.INI;
       default: throw new UnsupportedOperationException("不支持的文件类型：" + ctype);
     }
   }
@@ -482,29 +488,31 @@ public class SConfig {
    * 将缓存写入磁盘
    */
   private void flush() {
-    lock.readLock().lock();
-    try (Writer w = new OutputStreamWriter(new FileOutputStream(conf))) {
-      switch (type) {
-        case JSON:
-          flushJson(w);
-          break;
-        case YAML:
-          flushYaml(w);
-          break;
-        case TOML:
-          flushToml(w);
-          break;
-        case INI:
-          flushIni(w);
-          break;
-        default:
-          throw new UnsupportedOperationException("不支持的文件类型：" + type);
-      }
+    lock.writeLock().lock();
+    try {
+      atomicWrite(conf.toPath(), w -> {
+        switch (type) {
+          case JSON:
+            flushJson(w);
+            break;
+          case YAML:
+            flushYaml(w);
+            break;
+          case TOML:
+            flushToml(w);
+            break;
+          case INI:
+            flushIni(w);
+            break;
+          default:
+            throw new UnsupportedOperationException("不支持的文件类型：" + type);
+        }
+      });
       lastModified = conf.lastModified();
     } catch (IOException e) {
       throw new UncheckedIOException("无法写入配置文件", e);
     } finally {
-      lock.readLock().unlock();
+      lock.writeLock().unlock();
     }
   }
 
@@ -537,5 +545,26 @@ public class SConfig {
       }
     }
     ini.store(w);
+  }
+
+  /** 原子替换文件：先写临时文件，再 move */
+  private void atomicWrite(Path target, IOConsumer<Writer> writerBlock) throws IOException {
+    Path dir = target.toAbsolutePath().getParent();
+    Path tmp = dir.resolve(target.getFileName().toString() + ".tmp");
+    try (Writer w = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
+      writerBlock.accept(w);
+    }
+    try {
+      Files.move(tmp, target, StandardCopyOption.ATOMIC_REPLACE_EXISTING);
+    } catch (AtomicMoveNotSupportedException e) {
+      // 某些文件系统不支持原子 move，退化为复制后删除
+      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+  }
+
+  /** 简化函数式接口 */
+  @FunctionalInterface
+  private interface IOConsumer<T> {
+    void accept(T t) throws IOException;
   }
 }

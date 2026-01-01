@@ -213,8 +213,8 @@ public class HTTPServer extends NanoHTTPD {
           } catch (Exception ignored) {
             mime = "application/octet-stream";
           }
-          logger.debug(getServerFullName() + "请求#" + id + " 获取的文件信息："
-          + " 大小   = " + size + "Bytes"
+          logger.debug(getServerFullName() + "请求#" + id + " 获取的文件信息：\n"
+          + " 大小   = " + size + "Bytes\n"
           + " MIME  = " + mime);
         } catch (Exception e) {
           logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
@@ -227,7 +227,7 @@ public class HTTPServer extends NanoHTTPD {
           }
           // 返回文件
           FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
-          logger.debug(getServerFullName() + "请求#" + id + " 开始传输文件 " + fileChannel.toString());
+          logger.debug(getServerFullName() + "请求#" + id + " 开始传输文件 @ " + fileChannel.toString());
           return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
         //return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
       } else {

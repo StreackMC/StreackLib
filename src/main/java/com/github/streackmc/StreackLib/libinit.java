@@ -41,10 +41,10 @@ public class libinit extends JavaPlugin {
     CheckConfigUpdate();
     LoadConf();
     // 启用组件
-    getLogger().info("初始化成功！正在启用组件。");
+    logger.info("初始化成功！正在启用组件。");
     EnableHTTPServer();
     // 完成
-    getLogger().info("已启用StreackLib v" + getDescription().getVersion() + "");
+    logger.info("已启用StreackLib v" + getDescription().getVersion() + "");
   }
   @Override
   public void onDisable() {
@@ -63,9 +63,12 @@ public class libinit extends JavaPlugin {
 
   /* 检查配置文件更新 */
   private void CheckConfigUpdate() {
-    getLogger().info("正在检查配置文件：" + new File(pluginDataPath, "config.yml").getPath());
+    logger.info("正在检查配置文件：" + new File(pluginDataPath, "config.yml").getPath());
     if (StreackLib.conf.getInt("version", 0) < CONFIG_VERSION) {
-      getLogger().warning("注意：你的配置文件版本过低。参阅config.new.yml修改你的配置文件。");
+      logger.warn("你的配置文件版本过高？请勿自行修改或强行应用高版本配置文件，否则可能引发意料之外的错误。当前版本：" + StreackLib.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
+    }
+    if (StreackLib.conf.getInt("version", 0) < CONFIG_VERSION) {
+      logger.severe("注意：你的配置文件版本过低，请参阅config.new.yml修改你的配置文件；现在未配置的项将使用默认值。当前版本：" + StreackLib.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
       try(
         InputStream is = this.getResource("config.yml");
         OutputStream os = Files.newOutputStream(new File(pluginDataPath, "config.new.yml").toPath());
@@ -77,7 +80,7 @@ public class libinit extends JavaPlugin {
           }
           os.close();
       } catch (Exception e) {
-        getLogger().severe("配置文件更新失败：" + e.getMessage());
+        logger.severe("配置文件更新失败：" + e.getMessage());
       }
     }
   }
@@ -86,14 +89,14 @@ public class libinit extends JavaPlugin {
   private void EnableHTTPServer() {
     String host = StreackLib.conf.getString("http-server.host", "0.0.0.0");
     int port = StreackLib.conf.getInt("http-server.port", 8080);
-    getLogger().info("处理模块：HTTPServer");
+    logger.info("处理模块：HTTPServer");
     if (StreackLib.conf.getBoolean("http-server.enabled", false)) {
       httpServer = new HTTPServer(host, port, this);
       httpServer.startServer();
-      getLogger().info("HTTP 服务器已启动于 " + host + ":" + port);
+      logger.info("HTTP 服务器已启动于 " + host + ":" + port);
     } else {
       httpServer = null;
-      getLogger().info("HTTP 服务器未启用");
+      logger.info("HTTP 服务器未启用");
     }
   }
   private void DisableHTTPServer() {

@@ -162,7 +162,7 @@ public class HTTPServer extends NanoHTTPD {
     String id = System.currentTimeMillis() + "-" + new Random().nextInt(100000);
     String uri = session.getUri();
     uri = uri.replaceAll("\\.\\./", "")
-        .replaceAll("[\\{Cntrl}&&[^\r\n]]+", "")
+        .replaceAll("[\\p{Cntrl}&&[^\r\n]]+", "")
         .replaceAll("[\r\n]+", " "); // 清洗URL
     logger.info(
         getServerFullName() + "收到请求#" + id + "\n"

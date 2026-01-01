@@ -1,6 +1,7 @@
 package com.github.streackmc.StreackLib.utils;
 
 import com.github.streackmc.StreackLib.libinit;
+import com.github.streackmc.StreackLib.self.logger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import fi.iki.elonen.NanoHTTPD;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -17,6 +18,7 @@ import java.util.concurrent.*;
  * 
  * @author kdxiaoyi
  * @author KimiAI 亦有贡献
+ * @since 0.1.0
  */
 public class HTTPServer extends NanoHTTPD {
 
@@ -24,7 +26,7 @@ public class HTTPServer extends NanoHTTPD {
   private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
   private String listenAddress;
   public int MAX_URI = 2048;
-  public long MAX_FILE_SIZE = 20L * 1024 * 1024;
+  public long MAX_FILE_SIZE = 20L/* MB */ * 1024 * 1024;
 
   /**
    * 初始化一个HTTPServer对象
@@ -69,9 +71,9 @@ public class HTTPServer extends NanoHTTPD {
         }
       });
       start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
-      plugin.getLogger().info("已启动" + getServerFullName());
+      logger.info("已启动" + getServerFullName());
     } catch (IOException e) {
-      plugin.getLogger().severe("无法启动" + getServerFullName() + "：" + e.getMessage());
+      logger.severe("无法启动" + getServerFullName() + "：" + e.getMessage());
     }
   }
 
@@ -81,7 +83,7 @@ public class HTTPServer extends NanoHTTPD {
   public void stopServer() {
     if (isAlive()) {
       stop();
-      plugin.getLogger().info("已停止" + getServerFullName() + ".\nfrom " + getCaller());
+      logger.info("已停止" + getServerFullName() + ".\nfrom " + getCaller());
     }
   }
 
@@ -103,11 +105,11 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void registerHandler(String path, Handler handler) throws Exception {
     if (handlerMap.containsKey(path)) {
-      plugin.getLogger().warning(getServerFullName() + "无法注册在 " + path + "上的事件处理器：该路径已被占用\nfrom " + getCaller());
+      logger.warning(getServerFullName() + "无法注册在 " + path + "上的事件处理器：该路径已被占用\nfrom " + getCaller());
       throw new Exception("在" + path + "上的事件处理器已被注册");
     } else {
       handlerMap.put(path, handler);
-      plugin.getLogger().info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+      logger.info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
     }
   }
 
@@ -118,12 +120,12 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void removeHandler(String path) {
     if (path == null) {
-      plugin.getLogger().warning(getServerFullName() + "未能取消注册事件处理器，因为目标地址是 null .\nfrom " + getCaller());
+      logger.warning(getServerFullName() + "未能取消注册事件处理器，因为目标地址是 null .\nfrom " + getCaller());
     }
     if (handlerMap.remove(path) != null) {
-      plugin.getLogger().info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+      logger.info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
     } else {
-      plugin.getLogger().warning(getServerFullName() + "未能取消注册在 " + path + "上的事件处理器：该路径未被注册.\nfrom " + getCaller());
+      logger.warning(getServerFullName() + "未能取消注册在 " + path + "上的事件处理器：该路径未被注册.\nfrom " + getCaller());
     }
   }
 
@@ -146,7 +148,7 @@ public class HTTPServer extends NanoHTTPD {
   public Response serve(IHTTPSession session) {
     int id = new Random().nextInt(100000);
     String uri = session.getUri();
-    plugin.getLogger().info(
+    logger.info(
       getServerFullName()+ "收到请求#" + id + "\n"
       + " origin = " + session.getRemoteIpAddress() + "\n"
       + " target = " + uri + "\n"
@@ -162,7 +164,7 @@ public class HTTPServer extends NanoHTTPD {
       try {
         return h.handle(session);
       } catch (Exception ex) {
-        plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
+        logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
           "500 Internal Server Error: " + ex.getMessage());
         }
@@ -179,7 +181,7 @@ public class HTTPServer extends NanoHTTPD {
       File reach = new File(root, uri).getCanonicalFile();
       // 防止路径穿越
       if (!reach.getPath().startsWith(root.getCanonicalPath())) {
-        plugin.getLogger().warning(getServerFullName() + "请求#" + id + " 试图调用非法路径，已被拦截。");
+        logger.warning(getServerFullName() + "请求#" + id + " 试图调用非法路径，已被拦截。");
         return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
       }
       if (reach.exists() && reach.isFile()) {// 判断文件是否合法
@@ -197,12 +199,12 @@ public class HTTPServer extends NanoHTTPD {
             mime = "application/octet-stream";
           }
         } catch (Exception e) {
-          plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
+          logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
           return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
               "500 Internal Server Error: " + e.getMessage());
         }
         if (size > MAX_FILE_SIZE) {
-          plugin.getLogger().warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
+          logger.warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
           return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
               "413 Payload Too Large");
         }
@@ -215,7 +217,7 @@ public class HTTPServer extends NanoHTTPD {
         return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       }
     } catch (IOException e) {
-      plugin.getLogger().severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getMessage());
+      logger.severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getMessage());
       return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
           "500 Internal Server Error: " + e.getMessage());
     }

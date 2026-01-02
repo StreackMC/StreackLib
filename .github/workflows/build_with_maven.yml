@@ -59,7 +59,9 @@ jobs:
             "version": "${{ github.ref_name }}",
             "download_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.artifacts.outputs.name }}",
             "changelog": ${{ toJson(steps.changelog.outputs.body) }},
-            "is_release": false
+            "is_release": false,
+            "build_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "git_hash": "${{ steps.git.outputs.sha }}"
           }
           EOF
           echo "Generated version_info.json:"

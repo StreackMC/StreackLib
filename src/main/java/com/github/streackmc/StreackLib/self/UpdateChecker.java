@@ -11,11 +11,13 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.github.streackmc.StreackLib.StreackLib;
+import com.github.streackmc.StreackLib.libinit;
 import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;

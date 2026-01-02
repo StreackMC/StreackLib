@@ -31,8 +31,8 @@ import com.google.gson.JsonParser;
 public class UpdateChecker {
 
   private static final List<String> VERSION_URLS = Arrays.asList(
-      "https://github.com/StreackMC/StreackLib/releases/latest/version_info.json",
-      "https://gh.kdxiaoyi.top/github.com/StreackMC/StreackLib/releases/latest/version_info.json");
+      "https://raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json",
+      "https://gh.kdxiaoyi.top/raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json");
   private static final AtomicReference<CompletableFuture<Void>> activeTask = new AtomicReference<>();
   private static final String USER_AGENT = "StreackLib-UpdateChecker/0.4.1";
 

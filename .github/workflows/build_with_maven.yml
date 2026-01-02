@@ -6,16 +6,6 @@ on:
   pull_request:
     branches: [ "master" ]
 
-
-name: Auto Release
-
-on:
-  push:
-    tags: ["*"]
-
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -75,12 +65,15 @@ jobs:
           echo "Generated version_info.json:"
           cat version_info.json
 
-      # 3. 上传 CI 产物
+      # 5. 上传 CI 产物
       - name: Upload built jar
         uses: actions/upload-artifact@v4
         with:
           name: StreackLib-git@${{ steps.git.outputs.sha }}.jar
           path: target/*.jar
+
+      - name: Upload version def
+        uses: actions/upload-artifact@v4
         with:
           name: version_info.json
           path: version_info.json

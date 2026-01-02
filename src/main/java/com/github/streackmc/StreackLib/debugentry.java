@@ -19,6 +19,7 @@ import org.ini4j.Ini;
 import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.Gson;
 import com.moandjiezana.toml.TomlWriter;
 
@@ -115,6 +116,13 @@ public class debugentry {
       err("[!] Caught Error @[ebugentry.test/SConfig] :" + e.getMessage());
       e.printStackTrace();
     }
+    info("========== SFile.java ==========");
+    try {
+      test_SFile(new File("./target/debugCI-tmp/SFileTest"));
+    } catch (Exception e) {
+      err("[!] Caught Error @[debugentry.test/SFile] :" + e.getMessage());
+      e.printStackTrace();
+    }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");
   }
 
@@ -128,6 +136,58 @@ public class debugentry {
 
   private static void err(String txt) {
     System.out.println("[" + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")) + "][ERROR] " + txt);
+  }
+
+  private static void test_SFile(File testDir) throws Exception {
+    File testFile = new File(testDir, "testFile.txt");
+
+    if (SFile.mkdir(testDir.getAbsolutePath())) {
+      info("Directory created: " + testDir.getAbsolutePath());
+    } else {
+      warn("Failed to create directory: " + testDir.getAbsolutePath());
+    }
+
+    if (SFile.touch(testFile)) {
+      info("File created: " + testFile.getAbsolutePath());
+    } else {
+      warn("Failed to create file: " + testFile.getAbsolutePath());
+    }
+
+    if (SFile.copy(testFile, new File(testDir, "testFileCopy.txt"))) {
+      info("File copied: " + testFile.getAbsolutePath());
+    } else {
+      warn("Failed to copy the file: " + testFile.getAbsolutePath());
+    }
+
+    if (SFile.copyJoin(testFile, new File(testDir, "testFileCopy.txt"))) {
+      info("File copied [JoinMode]: " + testFile.getAbsolutePath());
+    } else {
+      warn("Failed to copy [JoinMode] the file: " + testFile.getAbsolutePath());
+    }
+
+    if (SFile.mv(testFile, new File(testDir, "testFileMoved.txt"))) {
+      info("File moved: " + testFile.getAbsolutePath());
+    } else {
+      warn("Failed to move the file: " + testFile.getAbsolutePath());
+    }
+
+    if (SFile.ren(new File(testDir, "testFileCopy.txt"), "testFileCopy-Renamed.txt")) {
+      info("File renamed: " + testFile.getAbsolutePath());
+    } else {
+      warn("Failed to rename the file: " + testFile.getAbsolutePath());
+    }
+
+    if (SFile.rm(new File(testDir, "testFileCopy-Renamed.txt"))) {
+      info("File deleted: " + testFile.getAbsolutePath());
+    } else {
+      warn("Failed to delete file: " + testFile.getAbsolutePath());
+    }
+
+    if (SFile.rm(testDir)) {
+      info("Directory deleted: " + testDir.getAbsolutePath());
+    } else {
+      warn("Failed to delete directory: " + testDir.getAbsolutePath());
+    }
   }
 
   private static void test_SConfig(String path) throws Exception {

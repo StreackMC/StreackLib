@@ -1,20 +1,25 @@
 package com.github.streackmc.StreackLib;
 
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+
+import com.github.streackmc.StreackLib.self.UpdateChecker;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
-import java.io.*;
-import java.nio.file.Files;
-
-import org.bukkit.plugin.java.JavaPlugin;
-
 public class libinit extends JavaPlugin {
-  private final int CONFIG_VERSION = 1;
+  private final int CONFIG_VERSION = 2;
 
   // 共享变量
   public static File pluginDataPath;
   public static JavaPlugin pluginSelf;
+  public static BukkitRunnable UpdateCheckTask;
 
   // 模块代表变量
   public static HTTPServer httpServer;
@@ -47,6 +52,14 @@ public class libinit extends JavaPlugin {
     // 启用组件
     logger.info("初始化成功！正在启用组件。");
     EnableHTTPServer();
+    // 计划自动更新
+    UpdateCheckTask = new BukkitRunnable() {
+      @Override
+      public void run() {
+        UpdateChecker.checkUpdate();
+      }
+    };
+    UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);
     // 完成
     logger.info("已启用StreackLib v" + getDescription().getVersion() + "");
   }

@@ -66,7 +66,8 @@ jobs:
           {
             "version": "${{ github.ref_name }}",
             "download_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.artifacts.outputs.name }}",
-            "changelog": ${{ toJson(steps.changelog.outputs.body) }}
+            "changelog": ${{ toJson(steps.changelog.outputs.body) }},
+            "is_release": false
           }
           EOF
           echo "Generated version_info.json:"

@@ -29,7 +29,7 @@ public final class SFile {
   }
 
   /**
-   * 获取文件的MIME型
+   * 获取文件的MIME类型
    * 
    * @param f 文件对象
    * @return MIME类型

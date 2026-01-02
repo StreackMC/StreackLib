@@ -10,6 +10,17 @@ public final class StreackLib {
   
   public static SConfig conf;
 
+  /**
+   * 获取当前StreackLib是否为预览版构建
+   * @return 若为预览版构建则返回true，否则返回false
+   */
+  public static boolean isPreviewBuild() {
+    if (System.getProperty("build.type", "preview").equals("release")) {
+      return false;
+    }
+    return true;
+  }
+
   // HTTP Server
   /**
    * 获取一个HTTPServer对象

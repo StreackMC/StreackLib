@@ -32,6 +32,10 @@ public class libinit extends JavaPlugin {
       "                                                                   "
     );
     saveDefaultConfig();
+    // 判断构建版本
+    if (StreackLib.isPreviewBuild()) {
+      getLogger().warning("当前StreackLib为预览版构建，可能存在意料之外的错误。如有发现请及时提出Issue以便我们改进！→ https://github.com/StreackMC/StreackLib/issues/new ");
+    }
     // 填充共享变量
     pluginSelf = this;
     pluginDataPath = this.getDataFolder();

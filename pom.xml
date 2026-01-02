@@ -4,7 +4,7 @@
 
   <artifactId>StreackLib</artifactId>
   <groupId>com.github.streackmc</groupId>
-  <version>0.4.1</version>
+  <version>${build.version}</version>
   <packaging>jar</packaging>
   <description>为StreackMC Team旗下插件提供前置能力</description>
 
@@ -14,6 +14,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <paper.version>1.21.8-R0.1-SNAPSHOT</paper.version>
     <spigot.version>1.21.5-R0.1-SNAPSHOT</spigot.version>
+    <build.type>preview</build.type>
+    <build.version>0.4.1</build.version>
   </properties>
 
   <!-- Repositories -->
@@ -185,4 +187,14 @@
       </resource>
     </resources>
   </build>
+
+<profiles>
+    <profile>
+        <id>release</id>
+        <properties>
+            <build.type>release</build.type>
+        </properties>
+    </profile>
+</profiles>
+
 </project>

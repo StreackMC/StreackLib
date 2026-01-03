@@ -1,22 +1,45 @@
 package com.github.streackmc.StreackLib.utils;
 
-import com.google.gson.*;
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.stream.JsonReader;
-import com.moandjiezana.toml.Toml;
-import com.moandjiezana.toml.TomlWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.io.Writer;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import org.ini4j.Ini;
 import org.ini4j.Profile;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.*;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+import com.moandjiezana.toml.Toml;
+import com.moandjiezana.toml.TomlWriter;
 
 /**
  * 高性能多格式（json/yaml/toml/xml/ini）配置中心。
@@ -537,12 +560,14 @@ public class SConfig {
             key.reset();
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            e.printStackTrace();
           }
         }
       }, "conf-reload-" + conf.getName());
       watchThread.setDaemon(true);
       watchThread.start();
     } catch (IOException e) {
+      e.printStackTrace();
       stopAutoReload();
       throw new UncheckedIOException("无法启用自动重载：", e);
     }
@@ -556,7 +581,7 @@ public class SConfig {
     try {
       if (watchService != null)
         watchService.close();
-    } catch (IOException ignored) {
+    } catch (IOException ignore) {
     } finally {
       watchService = null;
       watchThread = null;
@@ -726,7 +751,7 @@ public class SConfig {
     }
     try {
       Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
-    } catch (AtomicMoveNotSupportedException e) {
+    } catch (AtomicMoveNotSupportedException ignore) {
       // 某些文件系统不支持原子 move，退化为复制后删除
       Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
     }

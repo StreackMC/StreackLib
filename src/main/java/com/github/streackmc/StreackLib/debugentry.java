@@ -39,14 +39,14 @@ public class debugentry {
     try {
       test_SConfig("./target/debugCI-tmp/SConfig");
     } catch (Exception e) {
-      err("[!] Caught Error @[ebugentry.test/SConfig] :" + e.getMessage());
+      err("[!] Caught Error @[ebugentry.test/SConfig] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
     info("========== SFile.java ==========");
     try {
       test_SFile(new File("./target/debugCI-tmp/SFileTest"));
     } catch (Exception e) {
-      err("[!] Caught Error @[debugentry.test/SFile] :" + e.getMessage());
+      err("[!] Caught Error @[debugentry.test/SFile] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");

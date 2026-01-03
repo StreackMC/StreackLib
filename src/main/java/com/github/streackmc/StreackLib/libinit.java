@@ -105,7 +105,8 @@ public class libinit extends JavaPlugin {
           }
           os.close();
       } catch (Exception e) {
-        logger.severe("配置文件更新失败：" + e.getMessage());
+        logger.severe("配置文件更新失败：" + e.getLocalizedMessage());
+        e.printStackTrace();
       }
     }
   }

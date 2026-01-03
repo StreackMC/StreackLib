@@ -1,16 +1,15 @@
 package com.github.streackmc.StreackLib.self;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.streackmc.StreackLib.StreackLib;
-import com.github.streackmc.StreackLib.libinit;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.Arrays;
-import java.io.StringWriter;
-import java.io.PrintWriter;
 
 /**
  * 全局静态日志工具，自动根据运行环境选择日志后端。
@@ -173,7 +172,8 @@ public final class logger {
       Class.forName("org.slf4j.LoggerFactory");
       return new Slf4jBackend();
     } catch (ClassNotFoundException ignore) {
-      /* 不存在 */ }
+      /* 不存在 */
+    }
     // 3. JUL 保底
     return new JulBackend();
   }

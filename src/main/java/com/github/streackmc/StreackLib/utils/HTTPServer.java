@@ -82,7 +82,8 @@ public class HTTPServer extends NanoHTTPD {
       start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
       logger.info("已启动" + getServerFullName());
     } catch (IOException e) {
-      logger.severe("无法启动" + getServerFullName() + "：" + e.getMessage());
+      logger.severe("无法启动" + getServerFullName() + "：" + e.getLocalizedMessage());
+      e.printStackTrace();
     }
   }
 
@@ -189,7 +190,8 @@ public class HTTPServer extends NanoHTTPD {
         logger.debug(getServerFullName() + "请求#" + id + " 命中已注册的处理器。");
         return h.handle(session);
       } catch (Exception ex) {
-        logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getMessage());
+        ex.printStackTrace();
+        logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getLocalizedMessage());
         return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
       }
     }
@@ -218,14 +220,15 @@ public class HTTPServer extends NanoHTTPD {
           size = (int) reach.length();
           try {
             mime = SFile.getMIME(reach);
-          } catch (Exception ignored) {
+          } catch (Exception ignore) {
             mime = "application/octet-stream";
           }
           logger.debug(getServerFullName() + "请求#" + id + " 获取的文件信息：\n"
           + " 大小   = " + size + "Bytes\n"
           + " MIME  = " + mime);
         } catch (Exception e) {
-          logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getMessage());
+          logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getLocalizedMessage());
+          e.printStackTrace();
           return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
         }
         if (size > MAX_FILE_SIZE) {
@@ -244,7 +247,8 @@ public class HTTPServer extends NanoHTTPD {
         return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       }
     } catch (IOException e) {
-      logger.severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getMessage());
+      logger.severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getLocalizedMessage());
+      e.printStackTrace();
       return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
     }
   }

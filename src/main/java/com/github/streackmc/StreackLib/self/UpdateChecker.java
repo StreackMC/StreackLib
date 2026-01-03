@@ -129,7 +129,7 @@ public class UpdateChecker {
         }
 
       } catch (Exception e) {
-        logger.severe("检查更新时发生错误: " + e.getMessage());
+        logger.severe("检查更新时发生错误: " + e.getLocalizedMessage());
         e.printStackTrace();
       }
     });
@@ -185,7 +185,8 @@ public class UpdateChecker {
         return JsonParser.parseString(response.toString()).getAsJsonObject();
 
       } catch (Exception e) {
-        logger.warning("从 " + urlStr + " 获取版本信息失败: " + e.getMessage());
+        logger.warning("从 " + urlStr + " 获取版本信息失败: " + e.getLocalizedMessage());
+        e.printStackTrace();
         // 继续尝试下一个URL
       } finally {
         if (conn != null) {
@@ -274,7 +275,7 @@ public class UpdateChecker {
       outputStream.flush();
       logger.info("下载完成，新版本 " + version + " 已准备就绪，重启后立即生效。文件已保存到:" + targetFile.toAbsolutePath());
     } catch (Exception e) {
-      logger.severe("下载更新失败: " + e.getMessage());
+      logger.severe("下载更新失败: " + e.getLocalizedMessage());
       e.printStackTrace();
     }
   }

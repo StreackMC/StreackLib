@@ -39,7 +39,7 @@ public class manager {
    * @throws IOException           无法创建指定的临时文件
    */
   public static File getResourceAsFile(String name) throws Exception {
-    InputStream in = StreackLib.class.getResourceAsStream("/plugin.yml");
+    InputStream in = StreackLib.class.getResourceAsStream(name);
     if (in == null) {
       throw new FileNotFoundException(String.format("没有找到 %s ，打包时是否包括了它？", name));
     }

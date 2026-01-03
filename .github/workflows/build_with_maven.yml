@@ -52,9 +52,9 @@ jobs:
           fi
 
       # 4. 生成版本信息 JSON
-      - name: Generate version_info.json
+      - name: Generate version_info_dev.json
         run: |
-          cat > version_info.json <<EOF
+          cat > version_info_dev.json <<EOF
           {
             "version": "${{ github.ref_name }}",
             "download_url": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.artifacts.outputs.name }}",
@@ -64,8 +64,8 @@ jobs:
             "git_hash": "${{ steps.git.outputs.sha }}"
           }
           EOF
-          echo "Generated version_info.json:"
-          cat version_info.json
+          echo "Generated version_info_dev.json:"
+          cat version_info_dev.json
 
       # 5. 上传 CI 产物
       - name: Upload built jar
@@ -74,8 +74,35 @@ jobs:
           name: StreackLib-git@${{ steps.git.outputs.sha }}
           path: target/*.jar
 
+      # 6. 上传version_info_dev.json
       - name: Upload version def
         uses: actions/upload-artifact@v4
         with:
           name: version_info
-          path: version_info.json
+          path: version_info_dev.json
+
+      # 7. 推送 version_info_dev.json 到 version 分支
+      - name: Push to version branch
+        run: |
+          # 创建或切换到 version 分支
+          git checkout version 2>/dev/null || git checkout -b version
+          
+          # 复制 version_info_dev.json 到当前目录
+          cp version_info_dev.json .
+          
+          # 配置 git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 添加文件
+          git add version_info_dev.json
+          
+          # 检查是否有变化
+          if git diff --staged --quiet; then
+            echo "version_info_dev.json 没有变化，跳过提交"
+          else
+            # 提交并推送
+            git commit -m "Update version_info_dev.json for ${{ github.ref_name }}"
+            git push origin version
+            echo "已推送 version_info_dev.json 到 version 分支"
+          fi

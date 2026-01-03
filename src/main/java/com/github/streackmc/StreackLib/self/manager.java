@@ -10,7 +10,6 @@ import java.lang.management.RuntimeMXBean;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Random;
 
 import com.github.streackmc.StreackLib.StreackLib;
 
@@ -41,7 +40,7 @@ public class manager {
     if (in == null) {
       throw new FileNotFoundException(String.format("没有找到 %s ，打包时是否包括了它？", name));
     }
-    Path tmp = File.createTempFile(String.valueOf(new Random().nextLong(10 ^ 2)), ".tmp").toPath();
+    Path tmp = File.createTempFile("extract-", ".tmp").toPath();
     Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
     tmp.toFile().deleteOnExit();
     return tmp.toFile();

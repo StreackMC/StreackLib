@@ -17,7 +17,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.github.streackmc.StreackLib.StreackLib;
-import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -209,14 +208,16 @@ public class UpdateChecker {
 
     try {
       // 准备目标文件夹
-      Path pluginFolder = StreackLib.dataPath.toPath().resolve("../");
-      Path updateFolder = pluginFolder.resolve("../update");
-      SFile.mkdir(pluginFolder.toFile(), "update");
+      Path dataPath = StreackLib.dataPath.toPath();
+      Path pluginsFolder = dataPath.getParent(); // 获取 plugins 文件夹路径
+      Path updateFolder = pluginsFolder.resolveSibling("update"); // 在 plugins 同级创建 update 文件夹
+
+      // 确保 update 文件夹存在（会创建所有不存在的父目录）
+      Files.createDirectories(updateFolder);
 
       // 获取文件名
       String fileName = downloadUrl.substring(downloadUrl.lastIndexOf("/") + 1);
       if (fileName.isEmpty()) {
-        // 如果 URL 没有明确的文件名，使用默认命名
         fileName = String.format("StreackLib-%s.jar", version);
       }
       Path targetFile = updateFolder.resolve(fileName);
@@ -225,13 +226,12 @@ public class UpdateChecker {
       URL url = new URI(downloadUrl).toURL();
       conn = (HttpURLConnection) url.openConnection();
       conn.setRequestMethod("GET");
-      conn.setConnectTimeout(5000);
-      conn.setReadTimeout(10000);
+      conn.setConnectTimeout(10000);
+      conn.setReadTimeout(60000);
       conn.setInstanceFollowRedirects(true);
       conn.setRequestProperty("User-Agent", USER_AGENT);
       conn.setRequestProperty("Accept", "application/octet-stream");
 
-      // 检查响应码
       int responseCode = conn.getResponseCode();
       if (responseCode != HttpURLConnection.HTTP_OK) {
         throw new IOException(String.format(
@@ -251,17 +251,15 @@ public class UpdateChecker {
           StandardOpenOption.CREATE,
           StandardOpenOption.WRITE,
           StandardOpenOption.TRUNCATE_EXISTING);
-      byte[] buffer = new byte[8192]; // 8KB 缓冲区
+      byte[] buffer = new byte[8192];
       long totalBytesRead = 0;
       int bytesRead;
       long lastLogTime = System.currentTimeMillis();
 
-      // 循环读取并写入
       while ((bytesRead = inputStream.read(buffer)) != -1) {
         outputStream.write(buffer, 0, bytesRead);
         totalBytesRead += bytesRead;
 
-        // 每 1 秒输出一次进度
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastLogTime > 1000) {
           logger.debug(String.format(
@@ -271,12 +269,24 @@ public class UpdateChecker {
         }
       }
 
-      // 确保所有数据写入磁盘
       outputStream.flush();
       logger.info("下载完成，新版本 " + version + " 已准备就绪，重启后立即生效。文件已保存到:" + targetFile.toAbsolutePath());
     } catch (Exception e) {
       logger.severe("下载更新失败: " + e.getLocalizedMessage());
       e.printStackTrace();
+    } finally {
+      // 确保资源被关闭
+      try {
+        if (inputStream != null)
+          inputStream.close();
+        if (outputStream != null)
+          outputStream.close();
+        if (conn != null)
+          conn.disconnect();
+      } catch (IOException e) {
+        logger.warning("关闭资源时出错: " + e.getMessage());
+        e.printStackTrace();
+      }
     }
   }
 }

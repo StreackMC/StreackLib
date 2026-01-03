@@ -236,6 +236,7 @@ public class UpdateChecker {
             fileName = String.format("StreackLib-%s.jar", version);
           }
           Path targetFile = updateFolder.resolve(fileName);
+          logger.debug(String.format("保存到：%s", targetFile.toString()));
 
           // 构建请求
           URL url = new URI(downloadUrl).toURL();
@@ -286,7 +287,7 @@ public class UpdateChecker {
 
           outputStream.flush();
           isDone.set(true);
-          logger.info("下载完成，新版本 " + version + " 已准备就绪，重启后立即生效。文件已保存到:" + targetFile.toAbsolutePath());
+          logger.info("下载完成，新版本 " + version + " 已准备就绪。文件已保存到:" + targetFile.toAbsolutePath());
         } catch (Exception e) {
           logger.severe("从" + downloadUrl +"下载更新失败: " + e.getLocalizedMessage());
           e.printStackTrace();

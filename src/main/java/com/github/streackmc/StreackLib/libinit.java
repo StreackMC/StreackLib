@@ -46,11 +46,13 @@ public class libinit extends JavaPlugin {
     try {
       StreackLib.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
       StreackLib.defaultConf = new SConfig(manager.getResourceAsFile("/config.yml"), "yml");
-      CONFIG_VERSION = StreackLib.defaultConf.getLong("version");
+      CONFIG_VERSION = StreackLib.defaultConf.getLong("version", -1L);
     } catch (Exception e) {
       logger.severe("未能获取构建信息：" + e.getLocalizedMessage());
       e.printStackTrace();
       this.getPluginLoader().disablePlugin(this);
+    } finally {
+      logger.debug(String.format("构建信息：\nversion = %s \nbuild.type = %s \nconf.CONFIG_VERISON = %s", StreackLib.buildConf.getString("version"), System.getProperty("build.type"), CONFIG_VERSION));
     }
     if (manager.isPreviewBuild()) {
       getLogger().warning("当前StreackLib为预览版构建，可能存在意料之外的错误。如有发现请及时提出Issue以便我们改进！→ https://github.com/StreackMC/StreackLib/issues/new ");

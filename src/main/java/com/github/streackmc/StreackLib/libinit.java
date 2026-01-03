@@ -38,6 +38,11 @@ public class libinit extends JavaPlugin {
       "                                                                   "
     );
     saveDefaultConfig();
+    // 填充共享变量
+    pluginSelf = this;
+    pluginDataPath = this.getDataFolder();
+    StreackLib.conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
+    logger.plugin = this;
     // 读取构建信息
     try {
       StreackLib.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
@@ -50,11 +55,6 @@ public class libinit extends JavaPlugin {
     if (manager.isPreviewBuild()) {
       getLogger().warning("当前StreackLib为预览版构建，可能存在意料之外的错误。如有发现请及时提出Issue以便我们改进！→ https://github.com/StreackMC/StreackLib/issues/new ");
     }
-    // 填充共享变量
-    pluginSelf = this;
-    pluginDataPath = this.getDataFolder();
-    StreackLib.conf = new SConfig(new File(pluginDataPath, "config.yml"), "YAML");
-    logger.plugin = this;
     // 配置文件初始化
     CheckConfigUpdate();
     LoadConf();

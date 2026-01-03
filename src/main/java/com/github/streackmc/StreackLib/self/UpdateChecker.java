@@ -208,9 +208,9 @@ public class UpdateChecker {
       logger.debug("更新链接：" + dlUrls.toString());
 
       // 准备目标文件夹
-      Path dataPath = StreackLib.dataPath.toPath();
-      Path pluginsFolder = dataPath.getParent(); // 获取 plugins 文件夹路径
-      Path updateFolder = pluginsFolder.resolveSibling("update"); // 在 plugins 同级创建 update 文件夹
+      Path dataPath = StreackLib.dataPath.toPath(); // mcserver/plugins/StreackLib/
+      Path pluginsFolder = dataPath.getParent(); // mcserver/plugins/
+      Path updateFolder = pluginsFolder.resolve("update"); // mcserver/plugins/update/
 
       // 确保 update 文件夹存在（会创建所有不存在的父目录）
       Files.createDirectories(updateFolder);

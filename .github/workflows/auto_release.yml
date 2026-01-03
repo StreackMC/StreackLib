@@ -85,7 +85,7 @@ jobs:
           git checkout version 2>/dev/null || git checkout -b version
           
           # 复制 version_info.json 到当前目录
-          cp version_info.json .
+          # cp version_info.json .
           
           # 配置 git
           git config user.name "github-actions[bot]"

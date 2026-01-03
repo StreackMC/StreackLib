@@ -90,7 +90,7 @@ jobs:
           git checkout version 2>/dev/null || git checkout -b version
           
           # 复制 version_info_dev.json 到当前目录
-          cp version_info_dev.json .
+          # cp version_info_dev.json .
           
           # 配置 git
           git config user.name "github-actions[bot]"
@@ -98,6 +98,7 @@ jobs:
           
           # 添加文件
           git add version_info_dev.json
+          git add StreackLib*.jar
           
           # 检查是否有变化
           if git diff --staged --quiet; then

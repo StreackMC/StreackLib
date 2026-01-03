@@ -224,7 +224,10 @@ public class UpdateChecker {
         OutputStream outputStream = null;
         String downloadUrl = "";
         try {
-          downloadUrl = dlUrlOrigin.toString();
+          if (dlUrlOrigin.isJsonNull()) {
+            throw new IllegalArgumentException(String.format("无效的JSON描述信息： %s", dlUrlOrigin.toString()));
+          }
+          downloadUrl = dlUrlOrigin.getAsString();
           logger.debug("正在尝试连接：" + downloadUrl);
 
           // 获取文件名

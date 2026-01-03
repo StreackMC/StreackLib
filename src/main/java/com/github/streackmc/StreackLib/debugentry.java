@@ -2,9 +2,6 @@ package com.github.streackmc.StreackLib;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.RuntimeMXBean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
@@ -13,21 +10,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ForkJoinPool.ManagedBlocker;
 
 import org.ini4j.Ini;
 import org.yaml.snakeyaml.Yaml;
 
+import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.SConfig;
 import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.Gson;
 import com.moandjiezana.toml.TomlWriter;
-
-import oshi.SystemInfo;
-import oshi.hardware.CentralProcessor;
-import oshi.hardware.GlobalMemory;
-import oshi.hardware.GraphicsCard;
-import oshi.hardware.HardwareAbstractionLayer;
 
 /**
  * 自动化快速测试一些不需要MC服务器环境也能运行的模块
@@ -37,78 +28,13 @@ import oshi.hardware.HardwareAbstractionLayer;
  */
 public class debugentry {
 
-  /**
-   * 生成当前环境信息
-   * @return 环境信息
-   */
-  public static String generateDebugInfo() {
-    /* JVM Info */
-    MemoryMXBean mmxb = ManagementFactory.getMemoryMXBean();
-    RuntimeMXBean rmxb = ManagementFactory.getRuntimeMXBean();
-    
-    /* Hardware */
-    SystemInfo si = new SystemInfo();
-    HardwareAbstractionLayer hw = si.getHardware();
-    CentralProcessor cpu = hw.getProcessor();
-    GlobalMemory mem = hw.getMemory();
-    GraphicsCard[] gpus = hw.getGraphicsCards().toArray(new GraphicsCard[0]);
-
-    /* Get GPU List */
-    String gpu_listed = "";
-    int loop = 0;
-    for (GraphicsCard g : gpus) {
-      loop++;
-      if (loop > 1) {
-        gpu_listed += "\n                  ";
-      }
-      gpu_listed += "[" + loop + "] " + g.getName() + " <" + g.getVendor() + ">";
-    }
-    System.out.println(
-        );
-
-    /* Build */
-    return
-        /* 系统核心信息 */
-        "==> Running Time Meta" +
-        "\nuser.name       = " + System.getProperty("user.name") +
-        "\nuser.dir        = " + System.getProperty("user.dir") +
-        "\nuser.home       = " + System.getProperty("user.home") +
-        "\njava.version    = " + System.getProperty("java.version") +
-        "\njava.home       = " + System.getProperty("java.home") +
-        "\nStarted Since   = " + java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()),java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS")) + " | " + rmxb.getStartTime() +
-        "\nJVM Name        = " + rmxb.getName() +
-        "\nJVM Cmdline     = " + String.join(" ",rmxb.getInputArguments()) +
-        "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / " + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
-        /* 操作系统信息 */
-        "\n==> OS Info" +
-        "\nos.name         = " + System.getProperty("os.name") +
-        "\nos.version      = " + System.getProperty("os.version") +
-        "\nos.arch         = " + System.getProperty("os.arch") +
-        /* 设备信息 */
-        "\n==> Hardware Info" +
-        "\nCPU             = " + cpu.getProcessorIdentifier().getName() +
-        "\nCPU Core        = " + cpu.getLogicalProcessorCount() + "x Logical / " + cpu.getPhysicalProcessorCount() + "x Physical" +
-        "\nMemory          = " + (mem.getAvailable() / 1024 / 1024) + " MB free / "  + (mem.getTotal() / 1024 / 1024) + " MB in total" +
-        "\nGPUs            = " + gpu_listed +
-        /* 路径与编码 */
-        "\n==> File System" +
-        "\njava.io.tmpdir  = " + System.getProperty("java.io.tmpdir") +
-        "\nfile.encoding   = " + System.getProperty("file.encoding") +
-        "\nfile.separator  = " + System.getProperty("file.separator") +
-        /* 环境变量（常用） */
-        "\n==> Env" +
-        "\n$JAVA_HOME      = " + System.getenv("JAVA_HOME") +
-        "\n$PATH           = " + System.getenv("PATH") +
-        "\n$CLASSPATH      = " + System.getenv("CLASSPATH");
-  }
-
   public static void main(String[] args) {
 
     // if (StreackLib.initConf(new File("./mcserver/plugins/StreackLib/config.yml"), "yml").getBoolean("http-server.allow-file-transport")) {info("passed");} else {warn("blocked");}
 
     info(">>>>>>>>>> TEST STARTED <<<<<<<<<<");
     info("========== Basic Info ==========");
-    info("\n" + generateDebugInfo());
+    info("\n" + manager.generateDebugInfo());
     info("========== SConfig.java ==========");
     try {
       test_SConfig("./target/debugCI-tmp/SConfig");

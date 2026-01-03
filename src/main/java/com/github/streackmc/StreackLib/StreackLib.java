@@ -1,25 +1,17 @@
 package com.github.streackmc.StreackLib;
 
-import com.github.streackmc.StreackLib.utils.SConfig;
-import com.github.streackmc.StreackLib.utils.HTTPServer;
 import java.io.File;
+
+import com.github.streackmc.StreackLib.utils.HTTPServer;
+import com.github.streackmc.StreackLib.utils.SConfig;
 
 public final class StreackLib {
   private StreackLib() {
   }
   
   public static SConfig conf;
-
-  /**
-   * 获取当前StreackLib是否为预览版构建
-   * @return 若为预览版构建则返回true，否则返回false
-   */
-  public static boolean isPreviewBuild() {
-    if (System.getProperty("build.type", "preview").equals("release")) {
-      return false;
-    }
-    return true;
-  }
+  public static SConfig defaultConf;
+  public static SConfig buildConf;
 
   // HTTP Server
   /**
@@ -39,7 +31,7 @@ public final class StreackLib {
     return new HTTPServer(hostname, port, libinit.pluginSelf);
   }
 
-  //Conf Handle
+  // Conf Handle
   /**
    * 获取一个指向一个文件的配置文件对象。使用此对象方法可以更快捷地操作配置文件。建议使用前先使用Bukkit自带的释放配置文件以放出默认配置文件。
    * @param file 配置文件的对象

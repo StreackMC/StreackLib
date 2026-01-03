@@ -10,11 +10,12 @@ import org.bukkit.scheduler.BukkitRunnable;
 
 import com.github.streackmc.StreackLib.self.UpdateChecker;
 import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
 public class libinit extends JavaPlugin {
-  private final int CONFIG_VERSION = 2;
+  private int CONFIG_VERSION = 0;
 
   // 共享变量
   public static File pluginDataPath;
@@ -37,8 +38,16 @@ public class libinit extends JavaPlugin {
       "                                                                   "
     );
     saveDefaultConfig();
-    // 判断构建版本
-    if (StreackLib.isPreviewBuild()) {
+    // 读取构建信息
+    try {
+      StreackLib.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
+      StreackLib.defaultConf = new SConfig(manager.getResourceAsFile("/config.yml"), "yml");
+    } catch (Exception e) {
+      logger.severe("未能获取构建信息：" + e.getLocalizedMessage());
+      e.printStackTrace();
+      this.getPluginLoader().disablePlugin(this);
+    }
+    if (manager.isPreviewBuild()) {
       getLogger().warning("当前StreackLib为预览版构建，可能存在意料之外的错误。如有发现请及时提出Issue以便我们改进！→ https://github.com/StreackMC/StreackLib/issues/new ");
     }
     // 填充共享变量
@@ -74,7 +83,7 @@ public class libinit extends JavaPlugin {
     // debug mode
     if (StreackLib.conf.getBoolean("debug", false)) {
       logger.warn("调试模式已启用，你会因此收到更多消息");
-      logger.debug("当前环境信息：\n" + debugentry.generateDebugInfo());
+      logger.debug("当前环境信息：\n" + manager.generateDebugInfo());
     }
   }
 

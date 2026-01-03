@@ -1,0 +1,124 @@
+package com.github.streackmc.StreackLib.self;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
+import java.lang.management.RuntimeMXBean;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Random;
+
+import com.github.streackmc.StreackLib.StreackLib;
+
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
+import oshi.hardware.GlobalMemory;
+import oshi.hardware.GraphicsCard;
+import oshi.hardware.HardwareAbstractionLayer;
+
+/**
+ * 提供插件内部管理的类
+ * @author kdxiaoyi
+ * @since 0.4.1
+ */
+public class manager {
+
+  /**
+   * 提取JAR内部资源文件
+   * @param name 要提取的资源文件
+   * @return 资源文件对象
+   * @throws FileNotFoundException 没有找到指定的资源文件
+   * @throws IOException 无法创建指定的临时文件
+   */
+  public static File getResourceAsFile(String name) throws Exception {
+    InputStream in = StreackLib.class.getResourceAsStream("/plugin.yml");
+    if (in == null) {
+      throw new FileNotFoundException(String.format("没有找到 %s ，打包时是否包括了它？", name));
+    }
+    Path tmp = File.createTempFile(String.valueOf(new Random().nextLong(10 ^ 2)), ".tmp").toPath();
+    Files.copy(in, tmp, StandardCopyOption.REPLACE_EXISTING);
+    tmp.toFile().deleteOnExit();
+    return tmp.toFile();
+  }
+
+  /**
+   * 获取当前StreackLib是否为预览版构建
+   * 
+   * @return 若为预览版构建则返回true，否则返回false
+   */
+  public static boolean isPreviewBuild() {
+    if (System.getProperty("build.type", "preview").equals("release")) {
+      return false;
+    }
+    return true;
+  }
+
+    /**
+   * 生成当前环境信息
+   * @return 环境信息
+   */
+  public static String generateDebugInfo() {
+    /* JVM Info */
+    MemoryMXBean mmxb = ManagementFactory.getMemoryMXBean();
+    RuntimeMXBean rmxb = ManagementFactory.getRuntimeMXBean();
+    
+    /* Hardware */
+    SystemInfo si = new SystemInfo();
+    HardwareAbstractionLayer hw = si.getHardware();
+    CentralProcessor cpu = hw.getProcessor();
+    GlobalMemory mem = hw.getMemory();
+    GraphicsCard[] gpus = hw.getGraphicsCards().toArray(new GraphicsCard[0]);
+
+    /* Get GPU List */
+    String gpu_listed = "";
+    int loop = 0;
+    for (GraphicsCard g : gpus) {
+      loop++;
+      if (loop > 1) {
+        gpu_listed += "\n                  ";
+      }
+      gpu_listed += "[" + loop + "] " + g.getName() + " <" + g.getVendor() + ">";
+    }
+    System.out.println(
+        );
+
+    /* Build */
+    return
+        /* 系统核心信息 */
+        "==> Running Time Meta" +
+        "\nuser.name       = " + System.getProperty("user.name") +
+        "\nuser.dir        = " + System.getProperty("user.dir") +
+        "\nuser.home       = " + System.getProperty("user.home") +
+        "\njava.version    = " + System.getProperty("java.version") +
+        "\njava.home       = " + System.getProperty("java.home") +
+        "\nStarted Since   = " + java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()),java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS")) + " | " + rmxb.getStartTime() +
+        "\nJVM Name        = " + rmxb.getName() +
+        "\nJVM Cmdline     = " + String.join(" ",rmxb.getInputArguments()) +
+        "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / " + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
+        /* 操作系统信息 */
+        "\n==> OS Info" +
+        "\nos.name         = " + System.getProperty("os.name") +
+        "\nos.version      = " + System.getProperty("os.version") +
+        "\nos.arch         = " + System.getProperty("os.arch") +
+        /* 设备信息 */
+        "\n==> Hardware Info" +
+        "\nCPU             = " + cpu.getProcessorIdentifier().getName() +
+        "\nCPU Core        = " + cpu.getLogicalProcessorCount() + "x Logical / " + cpu.getPhysicalProcessorCount() + "x Physical" +
+        "\nMemory          = " + (mem.getAvailable() / 1024 / 1024) + " MB free / "  + (mem.getTotal() / 1024 / 1024) + " MB in total" +
+        "\nGPUs            = " + gpu_listed +
+        /* 路径与编码 */
+        "\n==> File System" +
+        "\njava.io.tmpdir  = " + System.getProperty("java.io.tmpdir") +
+        "\nfile.encoding   = " + System.getProperty("file.encoding") +
+        "\nfile.separator  = " + System.getProperty("file.separator") +
+        /* 环境变量（常用） */
+        "\n==> Env" +
+        "\n$JAVA_HOME      = " + System.getenv("JAVA_HOME") +
+        "\n$PATH           = " + System.getenv("PATH") +
+        "\n$CLASSPATH      = " + System.getenv("CLASSPATH");
+  }
+}

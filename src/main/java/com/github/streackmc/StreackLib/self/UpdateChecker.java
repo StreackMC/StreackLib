@@ -32,7 +32,8 @@ public class UpdateChecker {
 
   private static final List<String> VERSION_URLS = Arrays.asList(
       "https://raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json",
-      "https://gh.kdxiaoyi.top/raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json");
+      "https://gh.kdxiaoyi.top/raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json"
+    );
   private static final AtomicReference<CompletableFuture<Void>> activeTask = new AtomicReference<>();
   private static final String USER_AGENT = "StreackLib-UpdateChecker/0.4.1";
 
@@ -76,16 +77,15 @@ public class UpdateChecker {
       try {
         logger.info("开始检查StreackLib更新...");
 
-        String currentVersion = System.getProperty("build.version", null);
+        String currentVersion = manager.getBuildVersion();
+        
         if (currentVersion == null) {
-          logger.severe("无法获取当前版本号，请将此问题反馈给开发者！");
-          return;
+          throw new Exception("无法获取当前正在运行的版本");
         }
 
         JsonObject versionInfo = fetchVersionInfo();
         if (versionInfo == null) {
-          logger.severe("无法获取新版本信息，检查你的网络后重试。");
-          return;
+          throw new Exception("无法获取新版本信息，检查你的网络后重试。");
         }
 
         String latestVersion = versionInfo.get("version").getAsString();

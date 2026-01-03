@@ -22,6 +22,7 @@ import oshi.hardware.HardwareAbstractionLayer;
 
 /**
  * 提供插件内部管理的类
+ * 
  * @author kdxiaoyi
  * @since 0.4.1
  */
@@ -29,10 +30,11 @@ public class manager {
 
   /**
    * 提取JAR内部资源文件
+   * 
    * @param name 要提取的资源文件
    * @return 资源文件对象
    * @throws FileNotFoundException 没有找到指定的资源文件
-   * @throws IOException 无法创建指定的临时文件
+   * @throws IOException           无法创建指定的临时文件
    */
   public static File getResourceAsFile(String name) throws Exception {
     InputStream in = StreackLib.class.getResourceAsStream("/plugin.yml");
@@ -57,15 +59,25 @@ public class manager {
     return true;
   }
 
-    /**
+  /**
+   * 获取当前StreackLib的版本
+   * 
+   * @return 版本信息
+   */
+  public static String getBuildVersion() {
+    return StreackLib.buildConf.getString("version", null);
+  }
+
+  /**
    * 生成当前环境信息
+   * 
    * @return 环境信息
    */
   public static String generateDebugInfo() {
     /* JVM Info */
     MemoryMXBean mmxb = ManagementFactory.getMemoryMXBean();
     RuntimeMXBean rmxb = ManagementFactory.getRuntimeMXBean();
-    
+
     /* Hardware */
     SystemInfo si = new SystemInfo();
     HardwareAbstractionLayer hw = si.getHardware();
@@ -83,22 +95,26 @@ public class manager {
       }
       gpu_listed += "[" + loop + "] " + g.getName() + " <" + g.getVendor() + ">";
     }
-    System.out.println(
-        );
+    System.out.println();
 
     /* Build */
     return
-        /* 系统核心信息 */
-        "==> Running Time Meta" +
+    /* 系统核心信息 */
+    "==> Running Time Meta" +
         "\nuser.name       = " + System.getProperty("user.name") +
         "\nuser.dir        = " + System.getProperty("user.dir") +
         "\nuser.home       = " + System.getProperty("user.home") +
         "\njava.version    = " + System.getProperty("java.version") +
         "\njava.home       = " + System.getProperty("java.home") +
-        "\nStarted Since   = " + java.time.LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()),java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS")) + " | " + rmxb.getStartTime() +
+        "\nStarted Since   = "
+        + java.time.LocalDateTime
+            .ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()), java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"))
+        + " | " + rmxb.getStartTime() +
         "\nJVM Name        = " + rmxb.getName() +
-        "\nJVM Cmdline     = " + String.join(" ",rmxb.getInputArguments()) +
-        "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / " + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
+        "\nJVM Cmdline     = " + String.join(" ", rmxb.getInputArguments()) +
+        "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / "
+        + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
         /* 操作系统信息 */
         "\n==> OS Info" +
         "\nos.name         = " + System.getProperty("os.name") +
@@ -107,8 +123,10 @@ public class manager {
         /* 设备信息 */
         "\n==> Hardware Info" +
         "\nCPU             = " + cpu.getProcessorIdentifier().getName() +
-        "\nCPU Core        = " + cpu.getLogicalProcessorCount() + "x Logical / " + cpu.getPhysicalProcessorCount() + "x Physical" +
-        "\nMemory          = " + (mem.getAvailable() / 1024 / 1024) + " MB free / "  + (mem.getTotal() / 1024 / 1024) + " MB in total" +
+        "\nCPU Core        = " + cpu.getLogicalProcessorCount() + "x Logical / " + cpu.getPhysicalProcessorCount()
+        + "x Physical" +
+        "\nMemory          = " + (mem.getAvailable() / 1024 / 1024) + " MB free / " + (mem.getTotal() / 1024 / 1024)
+        + " MB in total" +
         "\nGPUs            = " + gpu_listed +
         /* 路径与编码 */
         "\n==> File System" +

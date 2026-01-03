@@ -15,7 +15,7 @@ import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
 public class libinit extends JavaPlugin {
-  private int CONFIG_VERSION = 0;
+  private Long CONFIG_VERSION = 0L;
 
   // 共享变量
   public static JavaPlugin pluginSelf;
@@ -46,6 +46,7 @@ public class libinit extends JavaPlugin {
     try {
       StreackLib.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
       StreackLib.defaultConf = new SConfig(manager.getResourceAsFile("/config.yml"), "yml");
+      CONFIG_VERSION = StreackLib.defaultConf.getLong("version");
     } catch (Exception e) {
       logger.severe("未能获取构建信息：" + e.getLocalizedMessage());
       e.printStackTrace();

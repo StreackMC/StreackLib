@@ -38,27 +38,52 @@ public class UpdateChecker {
   private static final String USER_AGENT = "StreackLib-UpdateChecker/0.4.1";
 
   /**
-   * 比较 x.x.x 格式的版本号
-   * 
-   * @return true 如果 latest 比 current 新
+   * 比较 x.x.x…… 格式的版本号
+   *
+   * @return true 当且仅当 latest 比 current 新（严格大于）
+   * @throws IllegalArgumentException 如果任一字符串为空、null 或含有非数字段
    */
   public static boolean isNewer(String current, String latest) {
-    String[] currentParts = current.split(".");
-    String[] latestParts = latest.split(".");
-
-    int maxLength = Math.max(currentParts.length, latestParts.length);
-
-    for (int i = 0; i < maxLength; i++) {
-      int currentPart = i < currentParts.length ? Integer.parseInt(currentParts[i]) : 0;
-      int latestPart = i < latestParts.length ? Integer.parseInt(latestParts[i]) : 0;
-
-      if (latestPart > currentPart) {
-        return true;
-      } else if (latestPart < currentPart) {
-        return false;
-      }
+    if (current == null || latest == null) {
+      throw new IllegalArgumentException("版本号不能为 null");
     }
-    return false;
+    if (current.isEmpty() || latest.isEmpty()) {
+      throw new IllegalArgumentException("版本号不能为空串");
+    }
+
+    String[] currParts = current.split("\\.");
+    String[] lateParts = latest.split("\\.");
+
+    int len = Math.max(currParts.length, lateParts.length);
+    for (int i = 0; i < len; i++) {
+      int c = i < currParts.length ? parseSegment(currParts[i], true) : 0;
+      int l = i < lateParts.length ? parseSegment(lateParts[i], true) : 0;
+
+      if (l > c)
+        return true;
+      if (l < c)
+        return false;
+    }
+    return false; // 完全相等
+  }
+  
+  /**
+   * 将目标文本转为整数
+   * 
+   * @param seg            原文本
+   * @param allowFrontZero 是否允许前导零
+   * @throws IllegalArgumentException
+   * @return
+   */
+  private static int parseSegment(String seg, boolean allowFrontZero) {
+    if (!seg.matches("\\d+")) {
+      throw new IllegalArgumentException("非法字符段: " + seg);
+    }
+    // 禁止前导零的“超长”段（如 00123456789）防止歧义
+    if (seg.length() > 1 && seg.startsWith("0") && !allowFrontZero) {
+      throw new IllegalArgumentException("不允许前导零: " + seg);
+    }
+    return Integer.parseInt(seg);
   }
 
   /**

@@ -5,7 +5,7 @@
     "https://gh.kdxiaoyi.top/github.com/StreackMC/StreackLib/releases/download/0.4.1/StreackLib-0.4.1.jar"
   ],
   "changelog": "测试用发版文件，无需更新",
-  "is_release": true,
+  "is_release": false,
   "build_time": "1980-01-01 00:00:00",
   "git_hash": "000000"
 }

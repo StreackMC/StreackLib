@@ -27,6 +27,9 @@ import oshi.hardware.HardwareAbstractionLayer;
  */
 public class manager {
 
+  public manager() {}// 禁止实例化
+
+
   /**
    * 提取JAR内部资源文件
    * 

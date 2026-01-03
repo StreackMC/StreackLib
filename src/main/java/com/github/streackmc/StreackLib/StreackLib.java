@@ -12,6 +12,7 @@ public final class StreackLib {
   public static SConfig conf;
   public static SConfig defaultConf;
   public static SConfig buildConf;
+  public static File dataPath;
 
   // HTTP Server
   /**

@@ -17,7 +17,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import com.github.streackmc.StreackLib.StreackLib;
-import com.github.streackmc.StreackLib.libinit;
 import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -209,7 +208,7 @@ public class UpdateChecker {
 
     try {
       // 准备目标文件夹
-      Path pluginFolder = libinit.pluginDataPath.toPath().resolve("../");
+      Path pluginFolder = StreackLib.dataPath.toPath().resolve("../");
       Path updateFolder = pluginFolder.resolve("../update");
       SFile.mkdir(pluginFolder.toFile(), "update");
 

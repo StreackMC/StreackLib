@@ -1,17 +1,25 @@
 package com.github.streackmc.StreackLib.utils;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import org.bukkit.plugin.java.JavaPlugin;
+
 import com.github.streackmc.StreackLib.StreackLib;
-import com.github.streackmc.StreackLib.libinit;
 import com.github.streackmc.StreackLib.self.logger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import fi.iki.elonen.NanoHTTPD;
-import org.bukkit.plugin.java.JavaPlugin;
-import java.io.*;
-import java.nio.channels.FileChannel;
-import java.nio.channels.Channels;
-import java.nio.file.StandardOpenOption;
-import java.util.*;
-import java.util.concurrent.*;
 
 /**
  * 基于 NanoHTTPD 的简易转发服务器。
@@ -193,8 +201,8 @@ public class HTTPServer extends NanoHTTPD {
     }
     // 文件传递
     try {
-      SFile.mkdir(libinit.pluginDataPath, "HTTPServer");
-      File root = new File(libinit.pluginDataPath, "HTTPServer");
+      SFile.mkdir(StreackLib.dataPath, "HTTPServer");
+      File root = new File(StreackLib.dataPath, "HTTPServer");
       File reach = new File(root, uri).getCanonicalFile();
       logger.debug(getServerFullName() + "请求#" + id + " 正在获取文件 " + reach.getAbsolutePath());
       // 防止路径穿越

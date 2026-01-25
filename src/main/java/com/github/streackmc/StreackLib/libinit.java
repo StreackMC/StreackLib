@@ -86,11 +86,11 @@ public class libinit extends JavaPlugin {
         // 移除 1 秒前的记录
         while (!StreackLib.tickTimes.isEmpty() && now - StreackLib.tickTimes.peekFirst() > 1000) {
           StreackLib.tickTimes.pollFirst();
-          logger.debug("更新currentTPS为：" + StreackLib.currentTPS);
         }
 
         // 队列大小即为最近 1 秒的 tick 数（理想为 20）
-        StreackLib.currentTPS = StreackLib.tickTimes.size();
+        StreackLib.currentTPS = StreackLib.tickTimes.size();//TODO：不稳定
+        logger.debug("更新currentTPS为：" + StreackLib.currentTPS);// TODO:优化日志展示
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
     // 完成

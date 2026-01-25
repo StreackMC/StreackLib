@@ -38,8 +38,13 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 ```
 
 ### 目录
-#### 公开类
+#### 通用
 
+* [StreackLib](./class//StreackLib.md)
 * [HTTPServer](./class/HTTPServer.md)
 * [SConf](./class/SConf.md)
 * [SFile](./class/SFile.md)
+
+#### Bukkit/Spigot/Paper
+
+* [SBukkit](./class/Bukkit/SBukkit.md)

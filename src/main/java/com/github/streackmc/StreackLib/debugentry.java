@@ -236,4 +236,8 @@ public class debugentry {
 
     info("==> all tests done.");
   }
+
+  public static boolean isDebugMode() {
+    return StreackLib.conf.getBoolean("debug", false);
+  }
 }

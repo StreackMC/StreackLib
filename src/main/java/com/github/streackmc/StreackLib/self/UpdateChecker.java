@@ -30,7 +30,7 @@ import com.google.gson.JsonParser;
  */
 public class UpdateChecker {
 
-  private static final List<String> VERSION_URLS = Arrays.asList(
+  private static final List<String> VERSION_URLS = Arrays.asList(//TODO:目前还没有稳定的API方法
       "https://raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json",
       "https://gh.kdxiaoyi.top/raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json");
   private static final AtomicReference<CompletableFuture<Void>> activeTask = new AtomicReference<>();

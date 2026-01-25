@@ -64,13 +64,18 @@ public class libinit extends JavaPlugin {
     logger.info("初始化成功！正在启用组件。");
     EnableHTTPServer();
     // 计划自动更新
-    UpdateCheckTask = new BukkitRunnable() {
-      @Override
-      public void run() {
-        UpdateChecker.checkUpdate();
-      }
-    };
-    UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);
+    if (!debugentry.isDebugMode()) {
+      logger.info("强制跳过更新检查，因为此功能尚未完成。");
+      return;
+    } else {
+      UpdateCheckTask = new BukkitRunnable() {
+        @Override
+        public void run() {
+          UpdateChecker.checkUpdate();
+        }
+      };
+      UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);
+    }
     // 完成
     logger.info("已启用StreackLib v" + getDescription().getVersion() + "");
   }
@@ -83,7 +88,7 @@ public class libinit extends JavaPlugin {
   private void LoadConf() {
     StreackLib.conf.startAutoReload();
     // debug mode
-    if (StreackLib.conf.getBoolean("debug", false)) {
+    if (debugentry.isDebugMode()) {
       logger.warn("调试模式已启用，你会因此收到更多消息");
       logger.debug("当前环境信息：\n" + manager.generateDebugInfo());
     }

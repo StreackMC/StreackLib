@@ -78,7 +78,35 @@ jobs:
           echo "Generated version_info.json:"
           cat version_info.json
 
-      # 6. 推送 version_info.json 到 version 分支
+      # 6. 发布 Release (修改 files 参数)
+      - name: Create Release & Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: v${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
+          files: |
+            target/*.jar
+            version_info.json
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 7. 发布到 Maven Central 与 GitHub Packages
+      - name: Publish to Maven Central & GitHub Packages
+        run: mvn -B deploy -Prelease -Dmaven.test.skip=true
+        env:
+          # Maven Central 认证（Sonatype OSSRH）
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}      # Sonatype 账号
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}      # Sonatype 密码
+          # 签名用 GPG
+          MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }} # base64 编码的私钥
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+          # GitHub Packages 认证
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 8. 推送 version_info.json 到 version 分支
       - name: Push to version branch
         run: |
           # 创建或切换到 version 分支
@@ -103,22 +131,3 @@ jobs:
             git push origin version
             echo "已推送 version_info.json 到 version 分支"
           fi
-
-      # 7. 切换回主分支继续发布
-      - name: Switch back to main
-        run: git checkout ${{ github.ref_name }}
-
-      # 8. 发布 Release (修改 files 参数)
-      - name: Create Release & Upload Assets
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: v${{ github.ref_name }}
-          body: ${{ steps.changelog.outputs.body }}
-          files: |
-            target/*.jar
-            version_info.json
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -75,36 +75,36 @@ public final class StreackLib {
     return conf.getBoolean("debug", false);
   }
 
-  private static final java.util.Map<Character, String> COLORS = new java.util.HashMap<>();
+  public static final java.util.Map<Character, String> MC_FORMAT_COLORS = new java.util.HashMap<>();
   static {
-    COLORS.put('0', "#000000");
-    COLORS.put('1', "#0000AA");
-    COLORS.put('2', "#00AA00");
-    COLORS.put('3', "#00AAAA");
-    COLORS.put('4', "#AA0000");
-    COLORS.put('5', "#AA00AA");
-    COLORS.put('6', "#FFAA00");
-    COLORS.put('7', "#AAAAAA");
-    COLORS.put('8', "#555555");
-    COLORS.put('9', "#5555FF");
-    COLORS.put('a', "#55FF55");
-    COLORS.put('b', "#55FFFF");
-    COLORS.put('c', "#FF5555");
-    COLORS.put('d', "#FF55FF");
-    COLORS.put('e', "#FFFF55");
-    COLORS.put('f', "#FFFFFF");
-    COLORS.put('g', "#DDD605");
-    COLORS.put('h', "#E3D4D1");
-    COLORS.put('i', "#CECACA");
-    COLORS.put('j', "#443A3B");
-    COLORS.put('m', "#971607");
-    COLORS.put('n', "#B4684D");
-    COLORS.put('p', "#DEB12D");
-    COLORS.put('q', "#47A036");
-    COLORS.put('s', "#2CBAA8");
-    COLORS.put('t', "#21497B");
-    COLORS.put('u', "#9A5CC6");
-    COLORS.put('v', "#EB7114");
+    MC_FORMAT_COLORS.put('0', "#000000");
+    MC_FORMAT_COLORS.put('1', "#0000AA");
+    MC_FORMAT_COLORS.put('2', "#00AA00");
+    MC_FORMAT_COLORS.put('3', "#00AAAA");
+    MC_FORMAT_COLORS.put('4', "#AA0000");
+    MC_FORMAT_COLORS.put('5', "#AA00AA");
+    MC_FORMAT_COLORS.put('6', "#FFAA00");
+    MC_FORMAT_COLORS.put('7', "#AAAAAA");
+    MC_FORMAT_COLORS.put('8', "#555555");
+    MC_FORMAT_COLORS.put('9', "#5555FF");
+    MC_FORMAT_COLORS.put('a', "#55FF55");
+    MC_FORMAT_COLORS.put('b', "#55FFFF");
+    MC_FORMAT_COLORS.put('c', "#FF5555");
+    MC_FORMAT_COLORS.put('d', "#FF55FF");
+    MC_FORMAT_COLORS.put('e', "#FFFF55");
+    MC_FORMAT_COLORS.put('f', "#FFFFFF");
+    MC_FORMAT_COLORS.put('g', "#DDD605");
+    MC_FORMAT_COLORS.put('h', "#E3D4D1");
+    MC_FORMAT_COLORS.put('i', "#CECACA");
+    MC_FORMAT_COLORS.put('j', "#443A3B");
+    MC_FORMAT_COLORS.put('m', "#971607");
+    MC_FORMAT_COLORS.put('n', "#B4684D");
+    MC_FORMAT_COLORS.put('p', "#DEB12D");
+    MC_FORMAT_COLORS.put('q', "#47A036");
+    MC_FORMAT_COLORS.put('s', "#2CBAA8");
+    MC_FORMAT_COLORS.put('t', "#21497B");
+    MC_FORMAT_COLORS.put('u', "#9A5CC6");
+    MC_FORMAT_COLORS.put('v', "#EB7114");
   }
   /**
    * 将MC格式化代码代码(§)转换为HTML
@@ -115,7 +115,7 @@ public final class StreackLib {
    * @return 处理后的文本
    * @since 0.4.3
    */
-  public static String MCColorsToHtml(String text) {
+  public static String MCMC_FORMAT_COLORSToHtml(String text) {
     if (text == null || text.isEmpty())
       return "<span></span>";
 
@@ -139,8 +139,8 @@ public final class StreackLib {
         if (code == 'r') {
           bold = italic = underline = strikethrough = obfuscated = false;
           color = null;
-        } else if (COLORS.containsKey(code)) {
-          color = COLORS.get(code);
+        } else if (MC_FORMAT_COLORS.containsKey(code)) {
+          color = MC_FORMAT_COLORS.get(code);
         } else if (code == 'l')
           bold = true;
         else if (code == 'o')
@@ -231,7 +231,7 @@ public final class StreackLib {
    * @return 处理后的文本
    * @since 0.4.3
    */
-  public static String stripMCColors(String text) {
+  public static String stripMCMC_FORMAT_COLORS(String text) {
     return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
   }
 

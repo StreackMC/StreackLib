@@ -2,26 +2,42 @@ package com.github.streackmc.StreackLib;
 
 import java.io.File;
 
+import javax.annotation.Nullable;
+
+import org.apache.logging.log4j.util.InternalApi;
+
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
+/**
+ * 杂项工具类，也作为其它工具类的跳板。
+ * 作跳板用时和new Sxxx()并没有什么区别（（
+ */
 public final class StreackLib {
   private StreackLib() {
   }
-  
+
+  @InternalApi
   public static SConfig conf;
+  @InternalApi
   public static SConfig defaultConf;
+  @InternalApi
   public static SConfig buildConf;
+  @InternalApi
   public static File dataPath;
 
-  // HTTP Server
+  // ===================== HTTP Server =====================
+
   /**
-   * 获取一个HTTPServer对象
+   * 获取内联HTTPServer对象
+   * 该对象由StreackLib依据配置文件启动，可能受用户影响无效
    * @return 获取到的对象；若当前未启动服务器则为null
    */
+  @Nullable
   public static HTTPServer getHttpServer() {
     return libinit.httpServer;
   }
+
   /**
    * 新建一个HTTPServer对象
    * @param hostname 监听地址
@@ -32,7 +48,8 @@ public final class StreackLib {
     return new HTTPServer(hostname, port, libinit.pluginSelf);
   }
 
-  // Conf Handle
+  // ===================== Conf Handle =====================
+
   /**
    * 获取一个指向一个文件的配置文件对象。使用此对象方法可以更快捷地操作配置文件。建议使用前先使用Bukkit自带的释放配置文件以放出默认配置文件。
    * @param file 配置文件的对象
@@ -42,4 +59,6 @@ public final class StreackLib {
   public static SConfig initConf(File file, String type) {
     return new SConfig(file, type);
   }
+
+  // ===================== Other Utils =====================
 }

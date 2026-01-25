@@ -75,6 +75,37 @@ public final class StreackLib {
     return conf.getBoolean("debug", false);
   }
 
+  private static final java.util.Map<Character, String> COLORS = new java.util.HashMap<>();
+  static {
+    COLORS.put('0', "#000000");
+    COLORS.put('1', "#0000AA");
+    COLORS.put('2', "#00AA00");
+    COLORS.put('3', "#00AAAA");
+    COLORS.put('4', "#AA0000");
+    COLORS.put('5', "#AA00AA");
+    COLORS.put('6', "#FFAA00");
+    COLORS.put('7', "#AAAAAA");
+    COLORS.put('8', "#555555");
+    COLORS.put('9', "#5555FF");
+    COLORS.put('a', "#55FF55");
+    COLORS.put('b', "#55FFFF");
+    COLORS.put('c', "#FF5555");
+    COLORS.put('d', "#FF55FF");
+    COLORS.put('e', "#FFFF55");
+    COLORS.put('f', "#FFFFFF");
+    COLORS.put('g', "#DDD605");
+    COLORS.put('h', "#E3D4D1");
+    COLORS.put('i', "#CECACA");
+    COLORS.put('j', "#443A3B");
+    COLORS.put('m', "#971607");
+    COLORS.put('n', "#B4684D");
+    COLORS.put('p', "#DEB12D");
+    COLORS.put('q', "#47A036");
+    COLORS.put('s', "#2CBAA8");
+    COLORS.put('t', "#21497B");
+    COLORS.put('u', "#9A5CC6");
+    COLORS.put('v', "#EB7114");
+  }
   /**
    * 将MC格式化代码代码(§)转换为HTML
    * 支持：颜色代码、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)
@@ -94,36 +125,6 @@ public final class StreackLib {
     boolean bold = false, italic = false, underline = false, strikethrough = false, obfuscated = false;
     String color = null;
 
-    java.util.Map<Character, String> colors = new java.util.HashMap<>();
-    colors.put('0', "#000000");
-    colors.put('1', "#0000AA");
-    colors.put('2', "#00AA00");
-    colors.put('3', "#00AAAA");
-    colors.put('4', "#AA0000");
-    colors.put('5', "#AA00AA");
-    colors.put('6', "#FFAA00");
-    colors.put('7', "#AAAAAA");
-    colors.put('8', "#555555");
-    colors.put('9', "#5555FF");
-    colors.put('a', "#55FF55");
-    colors.put('b', "#55FFFF");
-    colors.put('c', "#FF5555");
-    colors.put('d', "#FF55FF");
-    colors.put('e', "#FFFF55");
-    colors.put('f', "#FFFFFF");
-    colors.put('g', "#DDD605");
-    colors.put('h', "#E3D4D1");
-    colors.put('i', "#CECACA");
-    colors.put('j', "#443A3B");
-    colors.put('m', "#971607");
-    colors.put('n', "#B4684D");
-    colors.put('p', "#DEB12D");
-    colors.put('q', "#47A036");
-    colors.put('s', "#2CBAA8");
-    colors.put('t', "#21497B");
-    colors.put('u', "#9A5CC6");
-    colors.put('v', "#EB7114");
-
     for (int i = 0; i < text.length(); i++) {
       char c = text.charAt(i);
 
@@ -138,8 +139,8 @@ public final class StreackLib {
         if (code == 'r') {
           bold = italic = underline = strikethrough = obfuscated = false;
           color = null;
-        } else if (colors.containsKey(code)) {
-          color = colors.get(code);
+        } else if (COLORS.containsKey(code)) {
+          color = COLORS.get(code);
         } else if (code == 'l')
           bold = true;
         else if (code == 'o')
@@ -186,28 +187,41 @@ public final class StreackLib {
    */
   public static String wrapSpan(String text, String color, boolean bold, boolean italic,
       boolean underline, boolean strikethrough, boolean obfuscated) {
+    // HTML特殊字符转义（必须先转义&）
+    text = text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;");
+
+    StringBuilder attrs = new StringBuilder();
     StringBuilder style = new StringBuilder();
-    if (obfuscated)
-      style.append("class=\"MC-format-obfuscated\" ");
-    if (color != null)
+
+    if (obfuscated) {
+      attrs.append("class=\"MC-format-obfuscated\" ");
+    }
+    if (color != null) {
       style.append("color: ").append(color).append(";");
-    if (bold)
+    }
+    if (bold) {
       style.append("font-weight: bold;");
-    if (italic)
+    }
+    if (italic) {
       style.append("font-style: italic;");
+    }
 
-    String decoration = "";
-    if (strikethrough && underline)
-      decoration = "text-decoration: line-through underline;";
-    else if (strikethrough)
-      decoration = "text-decoration: line-through;";
-    else if (underline)
-      decoration = "text-decoration: underline;";
-    style.append(decoration);
+    if (strikethrough && underline) {
+      style.append("text-decoration: line-through underline;");
+    } else if (strikethrough) {
+      style.append("text-decoration: line-through;");
+    } else if (underline) {
+      style.append("text-decoration: underline;");
+    }
 
-    return String.format("<span %s>%s</span>",
-        style.length() > 0 ? "style=\"" + style.toString() + "\"" : "",
-        text);
+    if (style.length() > 0) {
+      attrs.append("style=\"").append(style).append("\"");
+    }
+
+    return String.format("<span %s>%s</span>", attrs.toString().trim(), text);
   }
 
   /**

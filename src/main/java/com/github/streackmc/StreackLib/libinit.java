@@ -76,6 +76,23 @@ public class libinit extends JavaPlugin {
       };
       UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);
     }
+    // TPS追踪
+    new BukkitRunnable() {
+      @Override
+      public void run() {
+        long now = System.currentTimeMillis();
+        StreackLib.tickTimes.addLast(now);
+
+        // 移除 1 秒前的记录
+        while (!StreackLib.tickTimes.isEmpty() && now - StreackLib.tickTimes.peekFirst() > 1000) {
+          StreackLib.tickTimes.pollFirst();
+          logger.debug("更新currentTPS为：" + StreackLib.currentTPS);
+        }
+
+        // 队列大小即为最近 1 秒的 tick 数（理想为 20）
+        StreackLib.currentTPS = StreackLib.tickTimes.size();
+      }
+    }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
     // 完成
     logger.info("已启用StreackLib v" + getDescription().getVersion() + "");
   }

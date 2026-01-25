@@ -1,6 +1,8 @@
 package com.github.streackmc.StreackLib;
 
 import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import javax.annotation.Nullable;
 
@@ -19,6 +21,9 @@ import com.github.streackmc.StreackLib.utils.SConfig;
 public final class StreackLib {
   private StreackLib() {
   }
+
+  static final Deque<Long> tickTimes = new ArrayDeque<>();
+  public static double currentTPS = -1.0;
 
   @InternalApi
   public static SConfig conf;
@@ -115,7 +120,7 @@ public final class StreackLib {
    * @return 处理后的文本
    * @since 0.4.3
    */
-  public static String MCMC_FORMAT_COLORSToHtml(String text) {
+  public static String MColorsToHtml(String text) {
     if (text == null || text.isEmpty())
       return "<span></span>";
 
@@ -231,7 +236,7 @@ public final class StreackLib {
    * @return 处理后的文本
    * @since 0.4.3
    */
-  public static String stripMCMC_FORMAT_COLORS(String text) {
+  public static String stripMCColors(String text) {
     return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
   }
 

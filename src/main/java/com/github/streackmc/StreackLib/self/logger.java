@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.logging.log4j.util.InternalApi;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -38,6 +39,7 @@ import com.github.streackmc.StreackLib.debugentry;
  * @author kdxiaoyi 审计
  * @since 0.4.0
  */
+@InternalApi
 public final class logger {
 
   /* ===================== 对外 API ===================== */

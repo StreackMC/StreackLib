@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.logging.log4j.util.InternalApi;
 import org.ini4j.Ini;
 import org.yaml.snakeyaml.Yaml;
 
@@ -28,6 +29,8 @@ import com.moandjiezana.toml.TomlWriter;
  */
 public class debugentry {
 
+  @Deprecated
+  @InternalApi
   public static void main(String[] args) {
 
     // if (StreackLib.initConf(new File("./mcserver/plugins/StreackLib/config.yml"), "yml").getBoolean("http-server.allow-file-transport")) {info("passed");} else {warn("blocked");}

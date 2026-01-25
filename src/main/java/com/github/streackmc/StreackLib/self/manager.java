@@ -11,6 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
+import org.apache.logging.log4j.util.InternalApi;
+
 import com.github.streackmc.StreackLib.StreackLib;
 
 import oshi.SystemInfo;
@@ -25,6 +27,7 @@ import oshi.hardware.HardwareAbstractionLayer;
  * @author kdxiaoyi
  * @since 0.4.1
  */
+@InternalApi
 public class manager {
 
   public manager() {}// 禁止实例化

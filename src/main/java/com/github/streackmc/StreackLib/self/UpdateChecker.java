@@ -17,6 +17,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.logging.log4j.util.InternalApi;
+
 import com.github.streackmc.StreackLib.StreackLib;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -28,6 +30,7 @@ import com.google.gson.JsonParser;
  * @author kdxiaoyi
  * @since 0.4.1
  */
+@InternalApi
 public class UpdateChecker {
 
   private static final List<String> VERSION_URLS = Arrays.asList(//TODO:目前还没有稳定的API方法

@@ -12,6 +12,9 @@ import com.github.streackmc.StreackLib.utils.SConfig;
 /**
  * 杂项工具类，也作为其它工具类的跳板。
  * 作跳板用时和new Sxxx()并没有什么区别（（
+ * 
+ * @author kdxiaoyi
+ * @since 0.4.3
  */
 public final class StreackLib {
   private StreackLib() {
@@ -61,4 +64,161 @@ public final class StreackLib {
   }
 
   // ===================== Other Utils =====================
+
+  /**
+   * 获取当前StreackLib的调试状态
+   * 
+   * @return
+   * @since 0.4.3
+   */
+  public static boolean isDebugMode() {
+    return conf.getBoolean("debug", false);
+  }
+
+  /**
+   * 将MC格式化代码代码(§)转换为HTML
+   * 支持：颜色代码、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)
+   * 根据MCWIKI，添加了对基岩版的格式支持
+   * 
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.4.3
+   */
+  public static String MCColorsToHtml(String text) {
+    if (text == null || text.isEmpty())
+      return "<span></span>";
+
+    StringBuilder html = new StringBuilder("<span>");
+    StringBuilder currentText = new StringBuilder();
+
+    boolean bold = false, italic = false, underline = false, strikethrough = false, obfuscated = false;
+    String color = null;
+
+    java.util.Map<Character, String> colors = new java.util.HashMap<>();
+    colors.put('0', "#000000");
+    colors.put('1', "#0000AA");
+    colors.put('2', "#00AA00");
+    colors.put('3', "#00AAAA");
+    colors.put('4', "#AA0000");
+    colors.put('5', "#AA00AA");
+    colors.put('6', "#FFAA00");
+    colors.put('7', "#AAAAAA");
+    colors.put('8', "#555555");
+    colors.put('9', "#5555FF");
+    colors.put('a', "#55FF55");
+    colors.put('b', "#55FFFF");
+    colors.put('c', "#FF5555");
+    colors.put('d', "#FF55FF");
+    colors.put('e', "#FFFF55");
+    colors.put('f', "#FFFFFF");
+    colors.put('g', "#DDD605");
+    colors.put('h', "#E3D4D1");
+    colors.put('i', "#CECACA");
+    colors.put('j', "#443A3B");
+    colors.put('m', "#971607");
+    colors.put('n', "#B4684D");
+    colors.put('p', "#DEB12D");
+    colors.put('q', "#47A036");
+    colors.put('s', "#2CBAA8");
+    colors.put('t', "#21497B");
+    colors.put('u', "#9A5CC6");
+    colors.put('v', "#EB7114");
+
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+
+      if (c == '§' && i + 1 < text.length()) {
+        char code = Character.toLowerCase(text.charAt(i + 1));
+
+        if (currentText.length() > 0) {
+          html.append(wrapSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
+          currentText = new StringBuilder();
+        }
+
+        if (code == 'r') {
+          bold = italic = underline = strikethrough = obfuscated = false;
+          color = null;
+        } else if (colors.containsKey(code)) {
+          color = colors.get(code);
+        } else if (code == 'l')
+          bold = true;
+        else if (code == 'o')
+          italic = true;
+        else if (code == 'n')
+          underline = true;
+        else if (code == 'm')
+          strikethrough = true;
+        else if (code == 'k')
+          obfuscated = true;
+
+        i++;
+      } else if (c == '\n') {
+        if (currentText.length() > 0) {
+          html.append(wrapSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
+          currentText = new StringBuilder();
+        }
+        html.append("<br>");
+      } else {
+        currentText.append(c);
+      }
+    }
+
+    if (currentText.length() > 0) {
+      html.append(wrapSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
+    }
+
+    html.append("</span>");
+    return html.toString();
+  }
+
+  /**
+   * 包装文本为带样式的span标签
+   * 
+   * @param text          要包装的文本
+   * @param color         颜色代码（如#RRGGBB），null表示默认颜色
+   * @param bold          是否加粗
+   * @param italic        是否斜体
+   * @param underline     是否下划线
+   * @param strikethrough 是否删除线
+   * @param obfuscated    是否乱码
+   * @return 包装好的span标签
+   * @since 0.4.3
+   */
+  public static String wrapSpan(String text, String color, boolean bold, boolean italic,
+      boolean underline, boolean strikethrough, boolean obfuscated) {
+    StringBuilder style = new StringBuilder();
+    if (obfuscated)
+      style.append("class=\"MC-format-obfuscated\" ");
+    if (color != null)
+      style.append("color: ").append(color).append(";");
+    if (bold)
+      style.append("font-weight: bold;");
+    if (italic)
+      style.append("font-style: italic;");
+
+    String decoration = "";
+    if (strikethrough && underline)
+      decoration = "text-decoration: line-through underline;";
+    else if (strikethrough)
+      decoration = "text-decoration: line-through;";
+    else if (underline)
+      decoration = "text-decoration: underline;";
+    style.append(decoration);
+
+    return String.format("<span %s>%s</span>",
+        style.length() > 0 ? "style=\"" + style.toString() + "\"" : "",
+        text);
+  }
+
+  /**
+   * 清除所有Minecraft格式化代码
+   * 
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.4.3
+   */
+  public static String stripMCColors(String text) {
+    return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
+  }
+
 }

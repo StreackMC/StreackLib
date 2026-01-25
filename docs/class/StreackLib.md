@@ -10,3 +10,6 @@
 | 方法 | 概述 |
 |:-:|:----|
 | `boolean` `isDebugMode()` |  |
+| `String` `MCColorsToHtml(String text)` | 将MC格式化文本转为HTML |
+| `String` `stripMCColors(String text)` | 移除文本中全部格式化代码 |
+| `String` `wrapSpan(String text, String color, boolean bold, boolean italic, boolean underline, boolean strikethrough, boolean obfuscated)` | 将文本进行格式化处理并输出为HTML |

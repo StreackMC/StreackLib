@@ -1,0 +1,62 @@
+package com.github.streackmc.StreackLib.bukkit;
+
+import org.bukkit.Bukkit;
+
+/**
+ * 提供一些只能在Bukkit/Paper/Spigot平台上使用的方法。
+ * 
+ * @author kdxiaoyi
+ * @author KimiAI
+ * @since 0.4.3
+ */
+public class SBukkit {
+  private SBukkit() {
+  }
+  
+  /**
+   * 获取当前服务器的TPS数值（Ticks Per Second，每秒刻数）
+   * <p>
+   * 通过反射调用 Paper/Spigot 服务端方法获取性能数据。
+   * 兼容 Paper（有实时TPS）和纯 Spigot（只有平均值）。
+   * 
+   * @return double[4] 数组，索引对应：
+   *         [0] = 最近1秒的TPS（Paper为实时计算，Spigot为1分钟平均）
+   *         [1] = 最近1分钟的平均TPS
+   *         [2] = 最近5分钟的平均TPS
+   *         [3] = 最近15分钟的平均TPS
+   *         [4] = 时间戳
+   *         如果发生非致命错误则会返回-1.0
+   * @throws Exception 当服务器不支持TPS查询或反射调用失败时
+   * @author KimiAI
+   * @author kdxiaoyi 审计
+   * @since 0.0.1
+   */
+  public static double[] getServerTPS() throws Exception {
+    double[] tps = new double[5];
+    tps[4] = System.currentTimeMillis();
+    try {
+      // 获取1m/5m/15m TPS
+      java.lang.reflect.Method getTpsMethod = Bukkit.class.getMethod("getTPS");
+      double[] paperTps = (double[]) getTpsMethod.invoke(null);
+      tps[1] = paperTps[0];
+      tps[2] = paperTps[1];
+      tps[3] = paperTps[2];
+      // 获取1s TPS
+      try {
+        java.lang.reflect.Method tickTimeMethod = Bukkit.class.getMethod("getAverageTickTime");
+        double avgTickTime = (Double) tickTimeMethod.invoke(null);
+        if (avgTickTime > 0) {
+          tps[0] = 1000.0 / avgTickTime;
+        } else {
+          tps[0] = 20.0;
+        }
+      } catch (NoSuchMethodException e) {
+        tps[0] = tps[1];
+      }
+      return tps;
+    } catch (Exception e) {
+      throw new Exception("获取TPS时发生未知错误：" + e.getLocalizedMessage(), e);
+    }
+  }
+
+}

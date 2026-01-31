@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import javax.annotation.Nullable;
+
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 
@@ -176,6 +178,7 @@ final class SEvent {
 
   /**
    * 获取所有自定义数据的只读视图。
+   * 注意：若在广播前调用此方法，返回的 Map 仍然是可变的。
    *
    * @return 不可变的 Map 视图
    */
@@ -188,13 +191,17 @@ final class SEvent {
    * 在事件广播前用于设置数据。
    *
    * @param key   键
-   * @param value 值
+   * @param value 值，若为null视作空字符串
    */
-  void putData(String key, Object value) {
+  void putData(String key, @Nullable Object value) {
     if (!(this.data instanceof ConcurrentHashMap)) {
       throw new IllegalStateException("事件已冻结，禁止修改数据");
     }
-    this.data.put(key, value);
+    if (value == null) {
+      this.data.put(key, "<null>");
+    } else {
+      this.data.put(key, value);
+    }
   }
 
   /**

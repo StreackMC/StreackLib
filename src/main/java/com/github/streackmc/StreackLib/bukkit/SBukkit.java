@@ -16,13 +16,10 @@ public class SBukkit {
   }
   
   /**
-   * 获取当前服务器的TPS数值（Ticks Per Second，每秒刻数）
-   * <p>
-   * 通过反射调用 Paper服务端方法获取性能数据。
+   * 获取当前服务器的TPS数值，精确到2位小数。
    * 
    * 你也可以自己使用StreackLib.currentTPS直接获取1s的TPS
-   * 
-   * 注TODO：此方法目前不支持Spigot
+   * 注：此方法不支持Spigot，请改用currentTPS获取。
    * @return double[5] 数组，索引对应：
    *         [0] = 最近1秒的TPS
    *         [1] = 最近1分钟的平均TPS
@@ -41,9 +38,9 @@ public class SBukkit {
     try {
       // 获取1m/5m/15m TPS
       double[] paperTps = (double[]) Bukkit.getTPS();
-      tps[1] = paperTps[0];
-      tps[2] = paperTps[1];
-      tps[3] = paperTps[2];
+      tps[1] = Math.round(paperTps[0] * 100.0 / 100.0);
+      tps[2] = Math.round(paperTps[1] * 100.0 / 100.0);
+      tps[3] = Math.round(paperTps[2] * 100.0 / 100.0);
       // 获取1s TPS
       tps[0] = StreackLib.currentTPS;
       return tps;

@@ -89,7 +89,7 @@ public class libinit extends JavaPlugin {
         }
 
         // 队列大小即为最近 1 秒的 tick 数（理想为 20）
-        StreackLib.currentTPS = StreackLib.tickTimes.size();//TODO：不稳定
+        StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size() * 100.0 / 100.0); // TODO:优化TPS计算逻辑
         logger.debug("更新currentTPS为：" + StreackLib.currentTPS);// TODO:优化日志展示
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次

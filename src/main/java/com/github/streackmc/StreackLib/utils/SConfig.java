@@ -106,12 +106,14 @@ public class SConfig {
    * @see #SConfig(File, String)
    * @since 0.4.4
    */
-  public static SConfig initInput(String conf, String ctype) throws Exception {
-    File tmp = Files.createTempFile("sconfig-tmp-", ctype).toFile();
-    Writer w = Files.newBufferedWriter(tmp.toPath(), StandardCharsets.UTF_8);
-    w.write(conf);
-    w.close();
-    return new SConfig(tmp, ctype);
+  public SConfig(String conf, String ctype, String suffix) throws Exception {
+    this.type = parseType(ctype);
+    this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
+    try (Writer w = Files.newBufferedWriter(this.conf.toPath(), StandardCharsets.UTF_8)) {
+      w.write(conf);
+    } catch (IOException e) {
+      throw e;
+    }
   }
 
   /**

@@ -84,6 +84,49 @@ public class SConfig {
     load();
   }
 
+  /**
+   * 构造配置对象
+   * @param file 配置文件
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * @throws UnsupportedOperationException 不支持的格式
+   * @since 0.4.4
+   */
+  public SConfig(Path file, String ctype) {
+    this.conf = file.toFile();
+    this.type = parseType(ctype);
+    load();
+  }
+
+  /**
+   * 构造临时配置对象
+   * @param conf 配置文件内容原始来源
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws IOException 读写错误
+   * @see #SConfig(File, String)
+   * @since 0.4.4
+   */
+  public static SConfig initInput(String conf, String ctype) throws Exception {
+    File tmp = Files.createTempFile("sconfig-tmp-", ctype).toFile();
+    Writer w = Files.newBufferedWriter(tmp.toPath(), StandardCharsets.UTF_8);
+    w.write(conf);
+    w.close();
+    return new SConfig(tmp, ctype);
+  }
+
+  /**
+   * 构造配置对象
+   * @param path 配置文件路径
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * @throws UnsupportedOperationException 不支持的格式
+   * @since 0.4.4
+   */
+  public SConfig(String path, String ctype) {
+    this.conf = new File(path);
+    this.type = parseType(ctype);
+    load();
+  }
+
   private static ConfigType parseType(String ctype) {
     if (ctype == null) throw new IllegalArgumentException("ctype 不能为空");
     switch (ctype.toLowerCase(Locale.ROOT)) {

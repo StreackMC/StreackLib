@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -16,8 +17,6 @@ import com.github.streackmc.StreackLib.self.manager;
 /**
  * 事件构建器，用于链式设置事件数据并执行广播。
  * 
- * 线程安全说明：此类实例非线程安全，应在单线程中完成构造后广播。
- * 
  * @author KimiAI 编写
  * @author kdxiaoyi 审计
  * @since 0.4.4
@@ -26,7 +25,7 @@ import com.github.streackmc.StreackLib.self.manager;
 class EventBuilder {
   private final String name;
   private final SEvent event;
-  private volatile boolean broadcasted = false;
+  private final AtomicBoolean broadcasted = new AtomicBoolean(false);
 
   /**
    * 包级私有构造器，仅允许 SEventCentral 创建。
@@ -48,7 +47,7 @@ class EventBuilder {
    * @throws IllegalStateException 如果已经执行过广播
    */
   public EventBuilder set(String key, Object value) {
-    if (broadcasted) {
+    if (broadcasted.get()) {
       throw new IllegalStateException("事件已广播，禁止修改数据");
     }
     Objects.requireNonNull(key, "数据键名不能为 null");
@@ -65,13 +64,13 @@ class EventBuilder {
    * 异常信息将通过 logger.serve 记录。
    */
   public void broadcast() {
-    if (broadcasted) {
+    if (!broadcasted.compareAndSet(false, true)) {
       throw new IllegalStateException("事件已广播，禁止重复广播");
     }
-    this.broadcasted = true;
-    this.event.freeze(); // 冻结数据，确保不可变性
+    this.event.freeze();
     SEventCentral.dispatchEvent(name, event);
   }
+
 }
 
 /**

@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import javax.annotation.Nullable;
+
 import org.ini4j.Ini;
 import org.ini4j.Profile;
 import org.yaml.snakeyaml.DumperOptions;
@@ -101,12 +103,13 @@ public class SConfig {
    * 构造临时配置对象
    * @param conf 配置文件内容原始来源
    * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException 读写错误
    * @see #SConfig(File, String)
    * @since 0.4.4
    */
-  public SConfig(String conf, String ctype, String suffix) throws Exception {
+  public SConfig(String conf, String ctype, @Nullable String suffix) throws Exception {
     this.type = parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
     try (Writer w = Files.newBufferedWriter(this.conf.toPath(), StandardCharsets.UTF_8)) {

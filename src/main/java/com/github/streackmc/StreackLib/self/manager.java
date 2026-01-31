@@ -110,10 +110,6 @@ public class manager {
 
     /* Build */
     return
-    /* StreackLib信息 */
-    "==> StreackLib Meta" +
-        "\nbuild.version   = " + getBuildVersion() +
-        "\nbuild.type      = " + System.getProperty("build.type", "preview") +
         /* 系统核心信息 */
         "==> Running Time Meta" +
         "\nlocalTimestamp  = " + System.currentTimeMillis() +

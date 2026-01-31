@@ -18,6 +18,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.Gson;
 import com.moandjiezana.toml.TomlWriter;
@@ -41,6 +42,13 @@ public class debugentry {
     info(">>>>>>>>>> TEST STARTED <<<<<<<<<<");
     info("========== Basic Info ==========");
     info("\n" + manager.generateDebugInfo());
+    info("======= SEventCentral.java =======");
+    try {
+      test_SEvent();
+    } catch (Exception e) {
+      err("[!] Caught Error @[ebugentry.test/SEventCentral] :" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
     info("========== SConfig.java ==========");
     try {
       test_SConfig("./target/debugCI-tmp/SConfig");
@@ -134,48 +142,48 @@ public class debugentry {
 
     // JSON
     Files.write(json.toPath(),
-      ("{\n" +
-        "  \"str\": \"hello\",\n" +
-        "  \"num\": 123,\n" +
-        "  \"dbl\": 3.14,\n" +
-        "  \"bool\": true,\n" +
-        "  \"list\": [\"a\", \"b\", \"c\"],\n" +
-        "  \"sec\": { \"k1\": \"v1\", \"k2\": 42 }\n" +
-        "}").getBytes(StandardCharsets.UTF_8));
+        ("{\n" +
+            "  \"str\": \"hello\",\n" +
+            "  \"num\": 123,\n" +
+            "  \"dbl\": 3.14,\n" +
+            "  \"bool\": true,\n" +
+            "  \"list\": [\"a\", \"b\", \"c\"],\n" +
+            "  \"sec\": { \"k1\": \"v1\", \"k2\": 42 }\n" +
+            "}").getBytes(StandardCharsets.UTF_8));
 
     // YAML
     Files.write(yaml.toPath(),
-      ("str: hello\n" +
-        "num: 123\n" +
-        "dbl: 3.14\n" +
-        "bool: true\n" +
-        "list: [a, b, c]\n" +
-        "sec:\n" +
-        "  k1: v1\n" +
-        "  k2: 42\n").getBytes(StandardCharsets.UTF_8));
+        ("str: hello\n" +
+            "num: 123\n" +
+            "dbl: 3.14\n" +
+            "bool: true\n" +
+            "list: [a, b, c]\n" +
+            "sec:\n" +
+            "  k1: v1\n" +
+            "  k2: 42\n").getBytes(StandardCharsets.UTF_8));
 
     // TOML
     Files.write(toml.toPath(),
-      ("str = \"hello\"\n" +
-        "num = 123\n" +
-        "dbl = 3.14\n" +
-        "bool = true\n" +
-        "list = [\"a\", \"b\", \"c\"]\n" +
-        "[sec]\n" +
-        "k1 = \"v1\"\n" +
-        "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
+        ("str = \"hello\"\n" +
+            "num = 123\n" +
+            "dbl = 3.14\n" +
+            "bool = true\n" +
+            "list = [\"a\", \"b\", \"c\"]\n" +
+            "[sec]\n" +
+            "k1 = \"v1\"\n" +
+            "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
 
     // INI
     Files.write(ini.toPath(),
-      ("[keys]\n" +
-          "str = hello\n" +
-          "num = 123\n" +
-          "dbl = 3.14\n" +
-          "bool = true\n" +
-          "list = [\"a\", \"b\", \"c\"]\n" +
-          "[sec]\n" +
-          "k1 = v1\n" +
-          "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
+        ("[keys]\n" +
+            "str = hello\n" +
+            "num = 123\n" +
+            "dbl = 3.14\n" +
+            "bool = true\n" +
+            "list = [\"a\", \"b\", \"c\"]\n" +
+            "[sec]\n" +
+            "k1 = v1\n" +
+            "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
 
     // 2) 分别对每种格式执行相同测试
     for (File f : new File[] { json, yaml, toml, ini }) {
@@ -241,6 +249,19 @@ public class debugentry {
     }
 
     info("==> all tests done.");
+  }
+  
+  private static void test_SEvent() throws Exception {
+    final String STR = "test:test";
+    @SuppressWarnings("unused")
+    int Id = SEventCentral.addEventListener(STR, event -> {
+      info("监听到测试事件，模式：永久。" + event.getTimestamp() + "\nCaller = " + event.getCaller());
+    });
+    SEventCentral.addWeakEventListener(STR, event -> {
+      info("监听到测试事件，模式：临时。"  + event.getTimestamp() + "\nCaller = " + event.getCaller());
+    });
+    info("正在触发事件……");
+    SEventCentral.broadcastEvent(STR).broadcast();
   }
 
   /**

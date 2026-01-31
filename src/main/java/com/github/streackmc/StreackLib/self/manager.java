@@ -192,6 +192,8 @@ public class manager {
    *         4: method
    *         <p>
    *         5: line ("-1"表示InternalCall)
+   * @see #getCallerMethod
+   * @since 0.4.4
    */
   @Internal
   public static List<String> getCaller(@Nullable String filter) {
@@ -232,5 +234,14 @@ public class manager {
             "InternalCall",
             "method",
             "-1")));
+  }
+  /**
+   * 提供给getCaller的过滤器常量
+   * @since 0.4.4
+   */
+  @Internal
+  public class getCallerMethod {
+    final String DEFAULT = "";
+    final String ALLOW_INTERNAL = "allowInternal";
   }
 }

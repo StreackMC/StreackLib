@@ -64,7 +64,7 @@ public class libinit extends JavaPlugin {
     logger.info("初始化成功！正在启用组件。");
     EnableHTTPServer();
     // 计划自动更新
-    if (!debugentry.isDebugMode()) {
+    if (!StreackLib.isDebugMode()) {
       logger.info("强制跳过更新检查，因为此功能尚未完成。");
       return;
     } else {
@@ -105,7 +105,7 @@ public class libinit extends JavaPlugin {
   private void LoadConf() {
     StreackLib.conf.startAutoReload();
     // debug mode
-    if (debugentry.isDebugMode()) {
+    if (StreackLib.isDebugMode()) {
       logger.warn("调试模式已启用，你会因此收到更多消息");
       logger.debug("当前环境信息：\n" + manager.generateDebugInfo());
     }

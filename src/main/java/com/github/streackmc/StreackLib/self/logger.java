@@ -10,7 +10,7 @@ import org.apache.logging.log4j.util.InternalApi;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
-import com.github.streackmc.StreackLib.debugentry;
+import com.github.streackmc.StreackLib.StreackLib;
 
 /**
  * 全局静态日志工具，自动根据运行环境选择日志后端。
@@ -52,7 +52,7 @@ public final class logger {
    *             若最后一个参数为 Throwable，则对 severe/error 系列方法会将其作为异常输出；其它级别会将堆栈附加到消息。
    */
   public static void debug(@NotNull Object... args) {
-    if (!debugentry.isDebugMode()) {
+    if (!StreackLib.isDebugMode()) {
       return;
     }
     Payload p = extract(args);

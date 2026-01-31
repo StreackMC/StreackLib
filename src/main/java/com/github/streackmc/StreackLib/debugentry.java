@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.util.InternalApi;
 import org.ini4j.Ini;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.self.manager;
@@ -27,10 +28,12 @@ import com.moandjiezana.toml.TomlWriter;
  * @author KimiAI 编写框架
  * @author kdxiaoyi 审核
  */
+@InternalApi
+@VisibleForTesting
 public class debugentry {
 
-  @Deprecated
   @InternalApi
+  @VisibleForTesting
   public static void main(String[] args) {
 
     // if (StreackLib.initConf(new File("./mcserver/plugins/StreackLib/config.yml"), "yml").getBoolean("http-server.allow-file-transport")) {info("passed");} else {warn("blocked");}
@@ -240,6 +243,12 @@ public class debugentry {
     info("==> all tests done.");
   }
 
+  /**
+   * @see #StreackLib.isDebugMode()
+   * @deprecated 请使用StreackLib中的同名方法
+   * @return 当前是否是调试模式
+   */
+  @Deprecated
   public static boolean isDebugMode() {
     return StreackLib.conf.getBoolean("debug", false);
   }

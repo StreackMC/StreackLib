@@ -23,7 +23,7 @@ public class SBukkit {
    * 你也可以自己使用StreackLib.currentTPS直接获取1s的TPS
    * 
    * 注TODO：此方法目前不支持Spigot
-   * @return double[4] 数组，索引对应：
+   * @return double[5] 数组，索引对应：
    *         [0] = 最近1秒的TPS
    *         [1] = 最近1分钟的平均TPS
    *         [2] = 最近5分钟的平均TPS

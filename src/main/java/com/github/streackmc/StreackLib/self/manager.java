@@ -104,8 +104,13 @@ public class manager {
 
     /* Build */
     return
-    /* 系统核心信息 */
-    "==> Running Time Meta" +
+      /* StreackLib信息 */
+      "==> StreackLib Meta" +
+        "\nbuild.version   = " + getBuildVersion() +
+        "\nbuild.type      = " + System.getProperty("build.type", "preview") +
+      /* 系统核心信息 */
+      "==> Running Time Meta" +
+        "\nlocalTimestamp  = " + System.currentTimeMillis() +
         "\nuser.name       = " + System.getProperty("user.name") +
         "\nuser.dir        = " + System.getProperty("user.dir") +
         "\nuser.home       = " + System.getProperty("user.home") +
@@ -115,31 +120,32 @@ public class manager {
         + java.time.LocalDateTime
             .ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()), java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"))
-        + " | " + rmxb.getStartTime() +
+            + " | " + rmxb.getStartTime() +
         "\nJVM Name        = " + rmxb.getName() +
         "\nJVM Cmdline     = " + String.join(" ", rmxb.getInputArguments()) +
         "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / "
         + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
-        /* 操作系统信息 */
-        "\n==> OS Info" +
+        "\nJava PID         = " + rmxb.getPid() +
+      /* 操作系统信息 */
+      "\n==> OS Info" +
         "\nos.name         = " + System.getProperty("os.name") +
         "\nos.version      = " + System.getProperty("os.version") +
         "\nos.arch         = " + System.getProperty("os.arch") +
-        /* 设备信息 */
-        "\n==> Hardware Info" +
+      /* 设备信息 */
+      "\n==> Hardware Info" +
         "\nCPU             = " + cpu.getProcessorIdentifier().getName() +
         "\nCPU Core        = " + cpu.getLogicalProcessorCount() + "x Logical / " + cpu.getPhysicalProcessorCount()
         + "x Physical" +
         "\nMemory          = " + (mem.getAvailable() / 1024 / 1024) + " MB free / " + (mem.getTotal() / 1024 / 1024)
         + " MB in total" +
         "\nGPUs            = " + gpu_listed +
-        /* 路径与编码 */
-        "\n==> File System" +
+      /* 路径与编码 */
+      "\n==> File System" +
         "\njava.io.tmpdir  = " + System.getProperty("java.io.tmpdir") +
         "\nfile.encoding   = " + System.getProperty("file.encoding") +
         "\nfile.separator  = " + System.getProperty("file.separator") +
-        /* 环境变量（常用） */
-        "\n==> Env" +
+      /* 环境变量（常用） */
+      "\n==> Env" +
         "\n$JAVA_HOME      = " + System.getenv("JAVA_HOME") +
         "\n$PATH           = " + System.getenv("PATH") +
         "\n$CLASSPATH      = " + System.getenv("CLASSPATH");

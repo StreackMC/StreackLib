@@ -40,7 +40,8 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 ### 目录
 #### 通用
 
-* [StreackLib](./class//StreackLib.md)
+* [StreackLib](./class/StreackLib.md)
+* [SEventCentral](./class/SEventCentral.md)
 * [HTTPServer](./class/HTTPServer.md)
 * [SConf](./class/SConf.md)
 * [SFile](./class/SFile.md)

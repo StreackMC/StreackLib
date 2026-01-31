@@ -11,65 +11,6 @@ import java.util.function.Consumer;
 import com.github.streackmc.StreackLib.self.logger;
 
 /**
- * 事件构建器，用于链式设置事件数据并执行广播。
- * 
- * @author KimiAI 编写
- * @author kdxiaoyi 审计
- * @since 0.4.4
- * @see SEventCentral#broadcastEvent(String)
- */
-class EventBuilder {
-  private final String name;
-  private final SEvent event;
-  private final AtomicBoolean broadcasted = new AtomicBoolean(false);
-
-  /**
-   * 包级私有构造器，仅允许 SEventCentral 创建。
-   *
-   * @param name 事件名称
-   */
-  EventBuilder(String name) {
-    this.name = name;
-    this.event = new SEvent(true);
-  }
-
-  /**
-   * 设置事件的自定义数据键值对。
-   * 可以链式调用以设置多个属性。
-   *
-   * @param key   数据键名，不能为 null
-   * @param value 数据值，可以为 null
-   * @return 当前构建器实例，支持链式调用
-   * @throws IllegalStateException 如果已经执行过广播
-   */
-  public EventBuilder set(String key, Object value) {
-    if (broadcasted.get()) {
-      throw new IllegalStateException("事件已广播，禁止修改数据");
-    }
-    Objects.requireNonNull(key, "数据键名不能为 null");
-    this.event.putData(key, value);
-    return this;
-  }
-
-  /**
-   * 执行事件广播，将事件分发给所有已注册的监听器。
-   * 广播完成后，事件对象进入只读状态，后续 set 调用将抛出异常。
-   * 
-   * <p>
-   * 异常处理策略：单个监听器的异常不会影响其他监听器的执行，
-   * 异常信息将通过 logger.serve 记录。
-   */
-  public void broadcast() {
-    if (!broadcasted.compareAndSet(false, true)) {
-      throw new IllegalStateException("事件已广播，禁止重复广播");
-    }
-    this.event.freeze();
-    SEventCentral.dispatchEvent(name, event);
-  }
-
-}
-
-/**
  * 事件处理中心，负责事件的监听注册、移除与广播分发。
  * 仿照 JavaScript 的事件驱动模型，提供高性能的线程安全实现。
  * 
@@ -106,6 +47,65 @@ class EventBuilder {
  * @since 0.4.4
  */
 public final class SEventCentral {
+
+  /**
+   * 事件构建器，用于链式设置事件数据并执行广播。
+   * 
+   * @author KimiAI 编写
+   * @author kdxiaoyi 审计
+   * @since 0.4.4
+   * @see SEventCentral#broadcastEvent(String)
+   */
+  public final static class EventBuilder {
+    private final String name;
+    private final SEvent event;
+    private final AtomicBoolean broadcasted = new AtomicBoolean(false);
+
+    /**
+     * 包级私有构造器，仅允许 SEventCentral 创建。
+     *
+     * @param name 事件名称
+     */
+    EventBuilder(String name) {
+      this.name = name;
+      this.event = new SEvent(true);
+    }
+
+    /**
+     * 设置事件的自定义数据键值对。
+     * 可以链式调用以设置多个属性。
+     *
+     * @param key   数据键名，不能为 null
+     * @param value 数据值，可以为 null
+     * @return 当前构建器实例，支持链式调用
+     * @throws IllegalStateException 如果已经执行过广播
+     */
+    public EventBuilder set(String key, Object value) {
+      if (broadcasted.get()) {
+        throw new IllegalStateException("事件已广播，禁止修改数据");
+      }
+      Objects.requireNonNull(key, "数据键名不能为 null");
+      this.event.putData(key, value);
+      return this;
+    }
+
+    /**
+     * 执行事件广播，将事件分发给所有已注册的监听器。
+     * 广播完成后，事件对象进入只读状态，后续 set 调用将抛出异常。
+     * 
+     * <p>
+     * 异常处理策略：单个监听器的异常不会影响其他监听器的执行，
+     * 异常信息将通过 logger.serve 记录。
+     */
+    public void broadcast() {
+      if (!broadcasted.compareAndSet(false, true)) {
+        throw new IllegalStateException("事件已广播，禁止重复广播");
+      }
+      this.event.freeze();
+      SEventCentral.dispatchEvent(name, event);
+    }
+
+  }
 
   /**
    * StreackLib内部事件集合
@@ -271,7 +271,7 @@ public final class SEventCentral {
    */
   public static EventBuilder broadcastEvent(String name) {
     Objects.requireNonNull(name, "事件名不能为 null");
-    return new EventBuilder(name);
+    return new SEventCentral.EventBuilder(name);
   }
 
   /**

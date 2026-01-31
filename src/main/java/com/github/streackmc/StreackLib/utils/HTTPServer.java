@@ -7,7 +7,6 @@ import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -17,6 +16,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.self.manager;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import fi.iki.elonen.NanoHTTPD;
@@ -93,7 +93,7 @@ public class HTTPServer extends NanoHTTPD {
   public void stopServer() {
     if (isAlive()) {
       stop();
-      logger.info("已停止" + getServerFullName() + ".\nfrom " + getCaller());
+      logger.info("已停止" + getServerFullName() + ".\nfrom " + manager.getCaller(null).get(0));
     }
   }
 
@@ -115,11 +115,11 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void registerHandler(String path, Handler handler) throws Exception {
     if (handlerMap.containsKey(path)) {
-      logger.warning(getServerFullName() + "无法注册在 " + path + "上的事件处理器：该路径已被占用\nfrom " + getCaller());
+      logger.warning(getServerFullName() + "无法注册在 " + path + "上的事件处理器：该路径已被占用\nfrom " + manager.getCaller(null).get(0));
       throw new Exception("在" + path + "上的事件处理器已被注册");
     } else {
       handlerMap.put(path, handler);
-      logger.info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+      logger.info(getServerFullName() + "注册在 " + path + "上的事件处理器.\nfrom " + manager.getCaller(null).get(0));
     }
   }
 
@@ -130,39 +130,21 @@ public class HTTPServer extends NanoHTTPD {
    */
   public void removeHandler(String path) {
     if (path == null) {
-      logger.warning(getServerFullName() + "未能取消注册事件处理器，因为目标地址是 null .\nfrom " + getCaller());
+      logger.warning(getServerFullName() + "未能取消注册事件处理器，因为目标地址是 null .\nfrom " + manager.getCaller(null).get(0));
     }
     if (handlerMap.remove(path) != null) {
-      logger.info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + getCaller());
+      logger.info(getServerFullName() + "取消注册在 " + path + "上的事件处理器.\nfrom " + manager.getCaller(null).get(0));
     } else {
-      logger.warning(getServerFullName() + "未能取消注册在 " + path + "上的事件处理器：该路径未被注册.\nfrom " + getCaller());
+      logger.warning(getServerFullName() + "未能取消注册在 " + path + "上的事件处理器：该路径未被注册.\nfrom " + manager.getCaller(null).get(0));
     }
   }
-
-  private static final Set<String> SKIP_CLASS = Set.of(
-      HTTPServer.class.getName(),
-      "java.lang.reflect.Method",
-      "jdk.internal.reflect.NativeMethodAccessorImpl",
-      "jdk.internal.reflect.DelegatingMethodAccessorImpl");
 
   /**
-   * 返回第一个非 HTTPServer 且非反射的调用者
-   * 格式：SimpleClassName:method@line
+   * 获取服务器全名
+   * @return 
+   * @since 0.4.4
    */
-  private String getCaller() {
-    StackTraceElement[] st = Thread.currentThread().getStackTrace();
-    for (int i = 2; i < st.length; i++) { // 0=getStackTrace, 1=getCaller
-      String cls = st[i].getClassName();
-      if (!SKIP_CLASS.contains(cls)) {
-        return st[i].getClassName()
-            + ":" + st[i].getMethodName()
-            + "@" + st[i].getLineNumber();
-      }
-    }
-    return "StreackLib-Self_Call";
-  }
-
-  private String getServerFullName() {
+  public String getServerFullName() {
     return " HTTPServer[" + listenAddress + "] ";
   }
 

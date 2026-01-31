@@ -10,8 +10,11 @@ import java.lang.management.RuntimeMXBean;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Set;
 
-import org.apache.logging.log4j.util.InternalApi;
+import org.jetbrains.annotations.ApiStatus.Internal;
+import org.jetbrains.annotations.Nullable;
 
 import com.github.streackmc.StreackLib.StreackLib;
 
@@ -27,7 +30,7 @@ import oshi.hardware.HardwareAbstractionLayer;
  * @author kdxiaoyi
  * @since 0.4.1
  */
-@InternalApi
+@Internal
 public class manager {
 
   private manager() {}// 禁止实例化
@@ -41,6 +44,7 @@ public class manager {
    * @throws FileNotFoundException 没有找到指定的资源文件
    * @throws IOException           无法创建指定的临时文件
    */
+  @Internal
   public static File getResourceAsFile(String name) throws Exception {
     InputStream in = StreackLib.class.getResourceAsStream(name);
     if (in == null) {
@@ -57,6 +61,7 @@ public class manager {
    * 
    * @return 若为预览版构建则返回true，否则返回false
    */
+  @Internal
   public static boolean isPreviewBuild() {
     if (System.getProperty("build.type", "preview").equals("release")) {
       return false;
@@ -78,6 +83,7 @@ public class manager {
    * 
    * @return 环境信息
    */
+  @Internal
   public static String generateDebugInfo() {
     /* JVM Info */
     MemoryMXBean mmxb = ManagementFactory.getMemoryMXBean();
@@ -104,12 +110,12 @@ public class manager {
 
     /* Build */
     return
-      /* StreackLib信息 */
-      "==> StreackLib Meta" +
+    /* StreackLib信息 */
+    "==> StreackLib Meta" +
         "\nbuild.version   = " + getBuildVersion() +
         "\nbuild.type      = " + System.getProperty("build.type", "preview") +
-      /* 系统核心信息 */
-      "==> Running Time Meta" +
+        /* 系统核心信息 */
+        "==> Running Time Meta" +
         "\nlocalTimestamp  = " + System.currentTimeMillis() +
         "\nuser.name       = " + System.getProperty("user.name") +
         "\nuser.dir        = " + System.getProperty("user.dir") +
@@ -120,34 +126,111 @@ public class manager {
         + java.time.LocalDateTime
             .ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()), java.time.ZoneId.systemDefault())
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"))
-            + " | " + rmxb.getStartTime() +
+        + " | " + rmxb.getStartTime() +
         "\nJVM Name        = " + rmxb.getName() +
         "\nJVM Cmdline     = " + String.join(" ", rmxb.getInputArguments()) +
         "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / "
         + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
         "\nJava PID         = " + rmxb.getPid() +
-      /* 操作系统信息 */
-      "\n==> OS Info" +
+        /* 操作系统信息 */
+        "\n==> OS Info" +
         "\nos.name         = " + System.getProperty("os.name") +
         "\nos.version      = " + System.getProperty("os.version") +
         "\nos.arch         = " + System.getProperty("os.arch") +
-      /* 设备信息 */
-      "\n==> Hardware Info" +
+        /* 设备信息 */
+        "\n==> Hardware Info" +
         "\nCPU             = " + cpu.getProcessorIdentifier().getName() +
         "\nCPU Core        = " + cpu.getLogicalProcessorCount() + "x Logical / " + cpu.getPhysicalProcessorCount()
         + "x Physical" +
         "\nMemory          = " + (mem.getAvailable() / 1024 / 1024) + " MB free / " + (mem.getTotal() / 1024 / 1024)
         + " MB in total" +
         "\nGPUs            = " + gpu_listed +
-      /* 路径与编码 */
-      "\n==> File System" +
+        /* 路径与编码 */
+        "\n==> File System" +
         "\njava.io.tmpdir  = " + System.getProperty("java.io.tmpdir") +
         "\nfile.encoding   = " + System.getProperty("file.encoding") +
         "\nfile.separator  = " + System.getProperty("file.separator") +
-      /* 环境变量（常用） */
-      "\n==> Env" +
+        /* 环境变量（常用） */
+        "\n==> Env" +
         "\n$JAVA_HOME      = " + System.getenv("JAVA_HOME") +
         "\n$PATH           = " + System.getenv("PATH") +
         "\n$CLASSPATH      = " + System.getenv("CLASSPATH");
+  }
+
+  private static final Set<String> SKIP_PACKAGES = Set.of(// 栈追踪白名单
+      "java.lang.", // 跳过 Thread 等 JDK 基础类
+      "sun.reflect.", // 跳过反射内部实现
+      "java.lang.reflect.", // 跳过反射 API
+      "com.github.streackmc.StreackLib.self.", // StreackLib自身
+      "com.github.streackmc.StreackLib.utils.",
+      "com.github.streackmc.StreackLib.bukkit.",
+      "com.github.streackmc.StreackLib.fabric.",
+      "com.github.streackmc.StreackLib.forge.",
+      "com.github.streackmc.StreackLib.neoforge.",
+      "com.github.streackmc.StreackLib.");
+  private static final Set<String> SKIP_PACKAGES_WITHOUT_STREACKLIB = Set.of(// 栈追踪白名单，不含StreackLib
+      "java.lang.", // 跳过 Thread 等 JDK 基础类
+      "sun.reflect.", // 跳过反射内部实现
+      "java.lang.reflect.", // 跳过反射 API
+      "com.github.streackmc.StreackLib.self.manager" // 不允许追踪到self.manager中，否则总是输出getCaller()
+      );
+  private static final StackWalker WALKER = StackWalker.getInstance();
+  
+  /**
+   * 返回第一个非反射的调用者
+   * @param filter 过滤模式，默认不含StreackLib，为"allowInternal"时则可以包含。通常没有意义。
+   * @return 以列表格式存储，索引对应：
+   *         <p>
+   *         0: ClassName:method@line
+   *         <p>
+   *         1: SimpleClassName:method@line
+   *         <p>
+   *         2: ClassName
+   *         <p>
+   *         3: SimpleClassName
+   *         <p>
+   *         4: method
+   *         <p>
+   *         5: line ("-1"表示InternalCall)
+   */
+  @Internal
+  public static List<String> getCaller(@Nullable String filter) {
+    final String filterFinal;
+    if (filter == null) {
+      filterFinal = "";
+    } else {
+      filterFinal = filter;
+    }
+    return WALKER.walk(frames -> frames
+        .skip(1)
+        .filter(frame -> {
+          switch (filterFinal.toLowerCase()) {
+            case "allowinternal":
+              return SKIP_PACKAGES_WITHOUT_STREACKLIB.stream().noneMatch(pkg -> frame.getClassName().startsWith(pkg));
+            default:
+              return SKIP_PACKAGES.stream().noneMatch(pkg -> frame.getClassName().startsWith(pkg));
+          }
+        })
+        .findFirst()
+        .map(frame -> {
+          String fullName = frame.getClassName();
+          String simpleName = fullName.contains(".") ? fullName.substring(fullName.lastIndexOf('.') + 1) : fullName;
+          String method = frame.getMethodName();
+          String line = frame.getLineNumber() > 0 ? String.valueOf(frame.getLineNumber()) : "-1";
+          return List.of(
+              fullName + ":" + method + "@" + line,
+              simpleName + ":" + method + "@" + line,
+              fullName,
+              simpleName,
+              method,
+              line);
+        })
+        .orElse(List.of(
+            "StreackLib-InternalCall:method@-1",
+            "InternalCall:method@-1",
+            "StreackLib-InternalCall",
+            "InternalCall",
+            "method",
+            "-1")));
   }
 }

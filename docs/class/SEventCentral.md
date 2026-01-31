@@ -83,6 +83,8 @@ StreackLib 中的事件名也遵守此规范，存储在 `SEventCentral.internal
 监听器接收的 `SEvent` 对象包含以下元数据：
 
 ```java
+import com.github.streackmc.StreackLib.utils.SEvent;
+
 // 获取事件构造时间戳（毫秒）
 long ts = event.getTimestamp();
 

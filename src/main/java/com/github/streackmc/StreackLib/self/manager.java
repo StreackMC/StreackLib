@@ -153,28 +153,45 @@ public class manager {
         "\n$CLASSPATH      = " + System.getenv("CLASSPATH");
   }
 
-  private static final Set<String> SKIP_PACKAGES = Set.of(// 栈追踪白名单
-      "java.lang.", // 跳过 Thread 等 JDK 基础类
-      "sun.reflect.", // 跳过反射内部实现
-      "java.lang.reflect.", // 跳过反射 API
-      "com.github.streackmc.StreackLib.self.", // StreackLib自身
-      "com.github.streackmc.StreackLib.utils.",
-      "com.github.streackmc.StreackLib.bukkit.",
-      "com.github.streackmc.StreackLib.fabric.",
-      "com.github.streackmc.StreackLib.forge.",
-      "com.github.streackmc.StreackLib.neoforge.",
-      "com.github.streackmc.StreackLib.");
-  private static final Set<String> SKIP_PACKAGES_WITHOUT_STREACKLIB = Set.of(// 栈追踪白名单，不含StreackLib
-      "java.lang.", // 跳过 Thread 等 JDK 基础类
-      "sun.reflect.", // 跳过反射内部实现
-      "java.lang.reflect.", // 跳过反射 API
-      "com.github.streackmc.StreackLib.self.manager" // 不允许追踪到self.manager中，否则总是输出getCaller()
-      );
   private static final StackWalker WALKER = StackWalker.getInstance();
   
   /**
+   * 提供给getCaller的过滤器常量
+   * 
+   * @since 0.4.4
+   */
+  @Internal
+  public class getCallerMethod {
+    public static final Set<String> NO_STREACKLIB = Set.of(// 栈追踪白名单
+        "java.lang.", // 跳过 Thread 等 JDK 基础类
+        "sun.reflect.", // 跳过反射内部实现
+        "java.lang.reflect.", // 跳过反射 API
+        "com.github.streackmc.StreackLib.self.", // StreackLib自身
+        "com.github.streackmc.StreackLib.utils.",
+        "com.github.streackmc.StreackLib.bukkit.",
+        "com.github.streackmc.StreackLib.fabric.",
+        "com.github.streackmc.StreackLib.forge.",
+        "com.github.streackmc.StreackLib.neoforge.",
+        "com.github.streackmc.StreackLib.");
+    public static final Set<String> DFAULT = Set.of(// 栈追踪白名单，不含StreackLib
+        "java.lang.", // 跳过 Thread 等 JDK 基础类
+        "sun.reflect.", // 跳过反射内部实现
+        "java.lang.reflect.", // 跳过反射 API
+        "com.github.streackmc.StreackLib.self.manager" // 不允许追踪到self.manager中，否则总是输出getCaller()
+    );
+    public static final Set<String> FOR_SEVENT = Set.of(// 栈追踪白名单，不含StreackLib
+        "java.lang.", // 跳过 Thread 等 JDK 基础类
+        "sun.reflect.", // 跳过反射内部实现
+        "java.lang.reflect.", // 跳过反射 API
+        "com.github.streackmc.StreackLib.self.manager",
+        "com.github.streackmc.StreackLib.utils.SEvent" // 不允许追踪到utils.SEvent*中
+    );
+  }
+
+  /**
    * 返回第一个非反射的调用者
-   * @param filter 过滤模式，默认不含StreackLib，为"allowInternal"时则可以包含。通常没有意义。
+   * 
+   * @param filter 过滤名单，参见{@link getCallerMethod}，默认使用{@link getCallerMethod#DEFAULT}
    * @return 以列表格式存储，索引对应：
    *         <p>
    *         0: ClassName:method@line
@@ -191,24 +208,16 @@ public class manager {
    * @see #getCallerMethod
    * @since 0.4.4
    */
-  @Internal
-  public static List<String> getCaller(@Nullable String filter) {
-    final String filterFinal;
+  public static List<String> getCaller(@Nullable Set<String> filter) {
+    final Set<String> f;
     if (filter == null) {
-      filterFinal = "";
+      f = getCallerMethod.DFAULT;
     } else {
-      filterFinal = filter;
+      f = filter;
     }
     return WALKER.walk(frames -> frames
         .skip(1)
-        .filter(frame -> {
-          switch (filterFinal.toLowerCase()) {
-            case "allowinternal":
-              return SKIP_PACKAGES_WITHOUT_STREACKLIB.stream().noneMatch(pkg -> frame.getClassName().startsWith(pkg));
-            default:
-              return SKIP_PACKAGES.stream().noneMatch(pkg -> frame.getClassName().startsWith(pkg));
-          }
-        })
+        .filter(frame -> f.stream().noneMatch(pkg -> frame.getClassName().startsWith(pkg)))
         .findFirst()
         .map(frame -> {
           String fullName = frame.getClassName();
@@ -230,14 +239,5 @@ public class manager {
             "InternalCall",
             "method",
             "-1")));
-  }
-  /**
-   * 提供给getCaller的过滤器常量
-   * @since 0.4.4
-   */
-  @Internal
-  public class getCallerMethod {
-    final String DEFAULT = "";
-    final String ALLOW_INTERNAL = "allowInternal";
   }
 }

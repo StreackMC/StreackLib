@@ -45,7 +45,7 @@ final public class SEvent {
     this.timestamp = System.currentTimeMillis();
     this.trust = trust;
 
-    List<String> callers = manager.getCaller("allowInternal");
+    List<String> callers = manager.getCaller(manager.getCallerMethod.FOR_SEVENT);
     this.caller = (callers != null && !callers.isEmpty()) ? callers.get(0) : "unknown";
 
     // 使用 ConcurrentHashMap 确保构建阶段线程安全（即使不当共享）

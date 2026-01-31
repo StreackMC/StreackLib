@@ -30,7 +30,7 @@ import oshi.hardware.HardwareAbstractionLayer;
 @InternalApi
 public class manager {
 
-  public manager() {}// 禁止实例化
+  private manager() {}// 禁止实例化
 
 
   /**

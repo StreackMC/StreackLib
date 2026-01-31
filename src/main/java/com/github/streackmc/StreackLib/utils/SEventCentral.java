@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import com.github.streackmc.StreackLib.bukkit.SBukkit;
 import com.github.streackmc.StreackLib.self.logger;
 
 /**
@@ -47,6 +48,55 @@ import com.github.streackmc.StreackLib.self.logger;
  * @since 0.4.4
  */
 public final class SEventCentral {
+  /**
+   * StreackLib内部事件集合
+   * TODO：未实现
+   * TODO: 整合到对应模块
+   * 命名规则为internalEvents.[模块名].[事件名]
+   */
+  public final static class internalEvents {
+    public final static class HTTPServer {
+    /**
+     * HTTP服务器启动
+     * 
+     * @param address String | 该服务器的监听地址
+     * @param port    int | 该服务器的监听端口
+     * @param id      int | 该服务器的标识符
+     */
+    public static final String STARTED = "streacklib.httpserver:started";
+    /**
+    * HTTP服务器停止
+    * 
+    * @param address String | 该服务器的监听地址
+    * @param port    int | 该服务器的监听端口
+    * @param id      int | 该服务器的标识符
+    */
+    public static final String STOPPED = "streacklib.httpserver:stopped";
+    /**
+     * 接受到请求
+     * <p>
+     * 使用该方法无法对请求做出回应。
+     * 
+     * @param address String | 该服务器的监听地址
+     * @param port    int | 该服务器的监听端口
+     * @param id      int | 该服务器的标识符
+     * @param uri     String | 请求路径
+     * @param origin  String | 请求来源，未经校验，可能因代理等误判
+     * @param method  String | 请求方法
+     * @see HTTPServer#registerHandler(String, Handler)
+     */
+    public static final String ON_REQUEST = "streacklib.httpserver:on_request";
+  }
+  public final static class StreackLib {
+    /**
+     * TPS被刷新
+     * 
+     * @see StreackLib#CURRENT_TPS
+     * @see SBukkit#getServerTPS()
+     */
+    public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
+    }
+  }
 
   /**
    * 事件构建器，用于链式设置事件数据并执行广播。
@@ -105,17 +155,6 @@ public final class SEventCentral {
       SEventCentral.dispatchEvent(name, event);
     }
 
-  }
-
-  /**
-   * StreackLib内部事件集合
-   * 命名规则为internalEvents.[模块名].[事件名]
-   */
-  public final static class internalEvents {
-    public final static class HTTPServer {
-      public static final String STARTED = "streacklib.httpserver:started";
-      public static final String STOPPED = "streacklib.httpserver:stopped";
-    }
   }
 
   /** 原子性 ID 生成器，确保监听器 ID 唯一性 */

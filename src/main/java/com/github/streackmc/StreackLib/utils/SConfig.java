@@ -35,6 +35,7 @@ import org.ini4j.Profile;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
+import com.github.streackmc.StreackLib.StreackLib;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -53,6 +54,15 @@ import com.moandjiezana.toml.TomlWriter;
  */
 public class SConfig {
 
+  public final Long INSTANCE_ID = StreackLib.getUniqueID();
+
+  public final static class EVENTS {
+    /**
+     * 配置文件发生改变
+     * @apiNote 仅由自动重载触发
+     */
+    public final static String CHANGED = "streacklib.sconf:changed";
+  }
 
   /* ==========================================
    * 初始化与变量
@@ -603,6 +613,7 @@ public class SConfig {
               if (changed.toAbsolutePath().equals(confPath)
                   && conf.lastModified() > lastModified) {
                 reload();
+                SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
               }
             }
             key.reset();

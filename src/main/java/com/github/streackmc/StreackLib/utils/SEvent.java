@@ -23,7 +23,7 @@ import com.github.streackmc.StreackLib.self.manager;
  * @since 0.4.4
  */
 final public class SEvent {
-  private final long timestamp;
+  private final Long timestamp;
   private final boolean trust;
   private final String caller;
   private volatile Map<String, Object> data; // volatile 确保安全发布
@@ -41,7 +41,7 @@ final public class SEvent {
   public boolean compareID(Long otherID) {
     if (CALLER_ID == null || otherID == null)
       return false;
-    return this.CALLER_ID == otherID;
+    return this.CALLER_ID.equals(otherID);
   }
 
   /**
@@ -49,7 +49,7 @@ final public class SEvent {
    * 构造的事件 trust 属性为 false，表示非受信任来源。
    * @param id 可选的事件 ID（用于标识发起者）
    */
-  public SEvent(@Nullable long id) {
+  public SEvent(@Nullable Long id) {
     this(false, id);
   }
 
@@ -59,7 +59,7 @@ final public class SEvent {
    * @param trust 是否为受信任事件（true 表示由 SEventCentral 发起）
    * @param id    事件 ID （用于标识发起者）
    */
-  SEvent(boolean trust, @Nullable long id) {
+  SEvent(boolean trust, @Nullable Long id) {
     this.timestamp = System.currentTimeMillis();
     this.trust = trust;
     this.CALLER_ID = id;

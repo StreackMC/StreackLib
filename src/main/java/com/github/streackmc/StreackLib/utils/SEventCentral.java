@@ -278,8 +278,7 @@ public final class SEventCentral {
    * @return 事件构建器，用于链式设置数据和执行广播
    */
   public static EventBuilder broadcastEvent(String name) {
-    Objects.requireNonNull(name, "事件名不能为 null");
-    return new SEventCentral.EventBuilder(name, null);
+    return broadcastEvent(name, null);
   }
 
   /**

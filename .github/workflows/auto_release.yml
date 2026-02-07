@@ -94,40 +94,40 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 7. 发布到 Maven Central 与 GitHub Packages
-      - name: Publish to Maven Central & GitHub Packages
-        run: mvn -B deploy -Prelease -Dmaven.test.skip=true
-        env:
-          # Maven Central 认证（Sonatype OSSRH）
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}      # Sonatype 账号
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}      # Sonatype 密码
-          # 签名用 GPG
-          MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }} # base64 编码的私钥
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
-          # GitHub Packages 认证
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Publish to Maven Central & GitHub Packages
+      #   run: mvn -B deploy -Prelease -Dmaven.test.skip=true
+      #   env:
+      #     # Maven Central 认证（Sonatype OSSRH）
+      #     MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}      # Sonatype 账号
+      #     MAVEN_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}      # Sonatype 密码
+      #     # 签名用 GPG
+      #     MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }} # base64 编码的私钥
+      #     MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+      #     # GitHub Packages 认证
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 8. 推送 version_info.json 到 version 分支
-      - name: Push to version branch
-        run: |
-          # 创建或切换到 version 分支
-          git checkout version 2>/dev/null || git checkout -b version
+      # - name: Push to version branch
+      #   run: |
+      #     # 创建或切换到 version 分支
+      #     git checkout version 2>/dev/null || git checkout -b version
           
-          # 复制 version_info.json 到当前目录
-          # cp version_info.json .
+      #     # 复制 version_info.json 到当前目录
+      #     # cp version_info.json .
           
-          # 配置 git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     # 配置 git
+      #     git config user.name "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 添加文件
-          git add version_info.json
+      #     # 添加文件
+      #     git add version_info.json
           
-          # 检查是否有变化
-          if git diff --staged --quiet; then
-            echo "version_info.json 没有变化，跳过提交"
-          else
-            # 提交并推送
-            git commit -m "Update version_info.json for ${{ github.ref_name }}"
-            git push origin version
-            echo "已推送 version_info.json 到 version 分支"
-          fi
+      #     # 检查是否有变化
+      #     if git diff --staged --quiet; then
+      #       echo "version_info.json 没有变化，跳过提交"
+      #     else
+      #       # 提交并推送
+      #       git commit -m "Update version_info.json for ${{ github.ref_name }}"
+      #       git push origin version
+      #       echo "已推送 version_info.json 到 version 分支"
+      #     fi

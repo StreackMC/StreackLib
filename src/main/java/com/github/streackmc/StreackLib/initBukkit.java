@@ -13,6 +13,7 @@ import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.utils.SEventCentral;
 
 public class initBukkit extends JavaPlugin {
   private Long CONFIG_VERSION = 0L;
@@ -90,7 +91,9 @@ public class initBukkit extends JavaPlugin {
 
         // 队列大小即为最近 1 秒的 tick 数（理想为 20）
         StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size() * 100.0 / 100.0); // TODO:优化TPS计算逻辑
-        logger.debug("更新currentTPS为：" + StreackLib.currentTPS);// TODO:优化日志展示
+        SEventCentral.broadcastEvent(StreackLib.EVENTS.LIVE_TPS_REFRESHED)
+            .set("TPS", StreackLib.currentTPS)
+            .broadcast();
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
     // 完成

@@ -26,7 +26,7 @@ public final class StreackLib {
   public final static class EVENTS {
     /**
      * TPS被刷新
-     * 
+     * @param TPS double | 此刻的TPS
      * @see StreackLib#CURRENT_TPS
      * @see SBukkit#getServerTPS()
      */

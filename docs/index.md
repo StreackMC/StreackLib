@@ -37,7 +37,13 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 }
 ```
 
-### 目录
+### 通用属性
+每个公开的类都有以下若干子属性：
+
+* `final static class EVENTS`：该类可以触发的事件的名称定义集；没有此子类表述不触发事件。
+* `final long INSTANCE_ID`：该类**可以实例化**才存在，表示全局唯一的实例ID。
+
+### 子文档目录
 #### 通用
 
 * [StreackLib](./class/StreackLib.md)

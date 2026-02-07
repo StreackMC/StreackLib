@@ -100,6 +100,14 @@ Object raw = event.getData("key"); // 返回 Object，需自行强转，见后�
 
 // 获取所有数据（只读视图）
 Map<String, Object> all = event.getAllData();
+
+// StreackLib中每个可实例化的类都有一个属性，你可借此判断是否来自该实例：
+StreackLibClass s = new StreackLibClass(/* 可实例化 */);
+if (event.compareID(s.INSTANCE_ID)) {
+  // 来自同一实例
+} else {
+  // 不同
+}
 ```
 
 ## 类型安全

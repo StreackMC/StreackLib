@@ -37,6 +37,7 @@ public class HTTPServer extends NanoHTTPD {
   public int MAX_URI = 2048;
   public long MAX_FILE_SIZE = 20L/* MB */ * 1024 * 1024;
 
+  public final Long INSTANCE_ID = StreackLib.getUniqueID();
   public final static class EVENTS {
     /**
      * HTTP服务器启动

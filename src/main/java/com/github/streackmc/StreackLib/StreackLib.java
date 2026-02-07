@@ -3,10 +3,12 @@ package com.github.streackmc.StreackLib;
 import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
 
 import org.apache.logging.log4j.util.InternalApi;
+import org.jetbrains.annotations.ApiStatus.Internal;
 
 import com.github.streackmc.StreackLib.bukkit.SBukkit;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
@@ -42,6 +44,9 @@ public final class StreackLib {
   public static SConfig buildConf;
   @InternalApi
   public static File dataPath;
+
+  private StreackLib() { // 禁止实例化
+  }
 
   // ===================== Class Caller =====================
 
@@ -247,6 +252,9 @@ public final class StreackLib {
     return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
   }
 
-  private StreackLib() { // 禁止实例化
+  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
+  @Internal
+  public static Long getUniqueID() {
+    return uniqueIDCounter.getAndIncrement();
   }
 }

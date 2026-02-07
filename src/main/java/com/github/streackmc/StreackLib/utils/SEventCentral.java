@@ -8,6 +8,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import org.jetbrains.annotations.Nullable;
+
 import com.github.streackmc.StreackLib.self.logger;
 
 /**
@@ -66,9 +68,9 @@ public final class SEventCentral {
      *
      * @param name 事件名称
      */
-    EventBuilder(String name) {
+    EventBuilder(String name, Long id) {
       this.name = name;
-      this.event = new SEvent(true);
+      this.event = new SEvent(true, id);
     }
 
     /**
@@ -256,11 +258,12 @@ public final class SEventCentral {
    * 显式调用 {@link EventBuilder#broadcast()} 完成广播。
    *
    * @param name 事件名称，不能为 null
+   * @param id   可选的事件 ID（用于标识发起者）
    * @return 事件构建器，用于链式设置数据和执行广播
    */
-  public static EventBuilder broadcastEvent(String name) {
+  public static EventBuilder broadcastEvent(String name, @Nullable Long id) {
     Objects.requireNonNull(name, "事件名不能为 null");
-    return new SEventCentral.EventBuilder(name);
+    return new SEventCentral.EventBuilder(name, id);
   }
 
   /**

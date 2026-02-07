@@ -1,8 +1,11 @@
 package com.github.streackmc.StreackLib;
 
 import java.io.File;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
@@ -252,8 +255,73 @@ public final class StreackLib {
     return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
   }
 
+  /**
+   * 以系统时区格式化时间
+   * 
+   * @param time   目标时间戳
+   *               <p>
+   *               为 null 时默认为当前时间戳
+   * @param format 格式
+   *               <p>
+   *               为 null 或为空时默认为 "yyyy-MM-dd HH:mm:ss.SSSS"
+   * @see #StreackLib.formatTime(Long, String, ZoneId)
+   * @return 处理好的时间
+   * @throws IllegalArgumentException time超出范围 或 format无效
+   * @since 0.4.4
+   */
+  public static String formatTime(@Nullable Long time, @Nullable String format) throws IllegalArgumentException {
+    long t = (time == null)
+        ? System.currentTimeMillis()
+        : time.longValue();
+    if (t < Instant.MIN.getEpochSecond() * 1000 || t > Instant.MAX.getEpochSecond() * 1000) {
+      throw new IllegalArgumentException("时间戳超出有效范围");
+    }
+    String f = (format == null || format.isEmpty())
+        ? "yyyy-MM-dd HH:mm:ss.SSSS"
+        : format;
+    return java.time.LocalDateTime
+        .ofInstant(java.time.Instant.ofEpochMilli(t), java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern(f));
+  }
+
+  /**
+   * 以指定时区格式化时间
+   * 
+   * @param time     目标时间戳
+   *                 <p>
+   *                 为 null 时默认为当前时间戳
+   * @param format   格式
+   *                 <p>
+   *                 为 null 或为空时默认为 "yyyy-MM-dd HH:mm:ss.SSSS"
+   * @param timezone 时区，见于 {@link java.time.ZoneId}
+   * @return 处理好的时间
+   * @throws IllegalArgumentException time超出范围 或 format无效 或 timezone无效
+   * @since 0.4.4
+   * @see #StreackLib.formatTime(Long, String)
+   */
+  public static String formatTime(@Nullable Long time, @Nullable String format, ZoneId timezone) throws IllegalArgumentException {
+    Objects.requireNonNull(timezone, "未设置时区");
+    long t = (time == null)
+        ? System.currentTimeMillis()
+        : time.longValue();
+    if (t < Instant.MIN.getEpochSecond() * 1000 || t > Instant.MAX.getEpochSecond() * 1000) {
+      throw new IllegalArgumentException("时间戳超出有效范围");
+    }
+    String f = (format == null || format.isEmpty())
+        ? "yyyy-MM-dd HH:mm:ss.SSSS"
+        : format;
+    return java.time.LocalDateTime
+        .ofInstant(java.time.Instant.ofEpochMilli(t), java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern(f));
+  }
+
   private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
   @Internal
+  /**
+   * 获取一个全局唯一的ID
+   * @return
+   * @since 0.4.4
+   */
   public static Long getUniqueID() {
     return uniqueIDCounter.getAndIncrement();
   }

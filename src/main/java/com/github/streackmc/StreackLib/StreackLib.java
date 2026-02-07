@@ -57,7 +57,7 @@ public final class StreackLib {
    */
   @Nullable
   public static HTTPServer getHttpServer() {
-    return libinit.httpServer;
+    return initBukkit.httpServer;
   }
 
   /**
@@ -67,7 +67,7 @@ public final class StreackLib {
    * @return 获取到的对象
    */
   public static HTTPServer newHttpServer(String hostname, int port) {
-    return new HTTPServer(hostname, port, libinit.pluginSelf);
+    return new HTTPServer(hostname, port, initBukkit.pluginSelf);
   }
 
   /**

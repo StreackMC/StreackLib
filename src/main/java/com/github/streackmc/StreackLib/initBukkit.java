@@ -14,7 +14,7 @@ import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
-public class libinit extends JavaPlugin {
+public class initBukkit extends JavaPlugin {
   private Long CONFIG_VERSION = 0L;
 
   // 共享变量

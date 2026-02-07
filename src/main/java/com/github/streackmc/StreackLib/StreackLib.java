@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 
 import org.apache.logging.log4j.util.InternalApi;
 
+import com.github.streackmc.StreackLib.bukkit.SBukkit;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
@@ -19,7 +20,15 @@ import com.github.streackmc.StreackLib.utils.SConfig;
  * @since 0.4.3
  */
 public final class StreackLib {
-  private StreackLib() {
+
+  public final static class EVENTS {
+    /**
+     * TPS被刷新
+     * 
+     * @see StreackLib#CURRENT_TPS
+     * @see SBukkit#getServerTPS()
+     */
+    public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
   }
 
   static final Deque<Long> tickTimes = new ArrayDeque<>();
@@ -34,7 +43,7 @@ public final class StreackLib {
   @InternalApi
   public static File dataPath;
 
-  // ===================== HTTP Server =====================
+  // ===================== Class Caller =====================
 
   /**
    * 获取内联HTTPServer对象
@@ -55,8 +64,6 @@ public final class StreackLib {
   public static HTTPServer newHttpServer(String hostname, int port) {
     return new HTTPServer(hostname, port, libinit.pluginSelf);
   }
-
-  // ===================== Conf Handle =====================
 
   /**
    * 获取一个指向一个文件的配置文件对象。使用此对象方法可以更快捷地操作配置文件。建议使用前先使用Bukkit自带的释放配置文件以放出默认配置文件。
@@ -240,4 +247,6 @@ public final class StreackLib {
     return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
   }
 
+  private StreackLib() { // 禁止实例化
+  }
 }

@@ -77,7 +77,7 @@ SEventCentral.broadcastEvent(UserEvents.LOGIN)
     .broadcast();
 ```
 
-StreackLib 中的事件名也遵守此规范，存储在 `SEventCentral.internalEvents.[model].[name]` 中。
+StreackLib 中的事件名也遵守此规范，存储在对应模块的`EVENTS`常量中。
 
 # 事件数据对象 `SEvent`
 监听器接收的 `SEvent` 对象包含以下元数据：

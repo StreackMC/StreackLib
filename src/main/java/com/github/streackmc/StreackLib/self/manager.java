@@ -110,9 +110,12 @@ public class manager {
 
     /* Build */
     return
-        /* 系统核心信息 */
-        "==> Running Time Meta" +
-        "\nlocalTimestamp  = " + System.currentTimeMillis() +
+    /* 系统核心信息 */
+    "==> Running Time Meta" +
+        "\nlocalTimestamp  = " + java.time.LocalDateTime
+            .ofInstant(java.time.Instant.ofEpochMilli(System.currentTimeMillis()), java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"))
+        +
         "\nuser.name       = " + System.getProperty("user.name") +
         "\nuser.dir        = " + System.getProperty("user.dir") +
         "\nuser.home       = " + System.getProperty("user.home") +
@@ -127,7 +130,7 @@ public class manager {
         "\nJVM Cmdline     = " + String.join(" ", rmxb.getInputArguments()) +
         "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / "
         + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
-        "\nJava PID         = " + rmxb.getPid() +
+        "\nJava PID        = " + rmxb.getPid() +
         /* 操作系统信息 */
         "\n==> OS Info" +
         "\nos.name         = " + System.getProperty("os.name") +

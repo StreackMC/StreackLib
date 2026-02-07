@@ -280,7 +280,7 @@ public class UpdateChecker {
             totalBytesRead += bytesRead;
 
             long currentTime = System.currentTimeMillis();
-            if (currentTime - lastLogTime > 1000) {
+            if (currentTime - lastLogTime > 5000) {
               logger.debug(String.format(
                   "下载进度: %.1f%%",
                   (totalBytesRead * 100.0) / fileSize));

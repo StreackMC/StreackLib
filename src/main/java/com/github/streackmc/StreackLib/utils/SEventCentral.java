@@ -267,6 +267,22 @@ public final class SEventCentral {
   }
 
   /**
+   * 创建事件广播构建器，准备广播指定名称的事件。
+   * 
+   * <p>
+   * 注意：此方法返回 {@link EventBuilder}，需要通过链式调用设置数据后，
+   * 显式调用 {@link EventBuilder#broadcast()} 完成广播。
+   *
+   * @param name 事件名称，不能为 null
+   * @param id   可选的事件 ID（用于标识发起者）
+   * @return 事件构建器，用于链式设置数据和执行广播
+   */
+  public static EventBuilder broadcastEvent(String name) {
+    Objects.requireNonNull(name, "事件名不能为 null");
+    return new SEventCentral.EventBuilder(name, null);
+  }
+
+  /**
    * 内部事件分发方法，由 EventBuilder 调用。
    * 采用异常隔离策略，确保单个监听器异常不会中断其他监听器的执行。
    * 自动清理已失效的弱引用监听器。

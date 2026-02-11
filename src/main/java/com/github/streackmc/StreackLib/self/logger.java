@@ -52,8 +52,12 @@ public final class logger {
    *             若最后一个参数为 Throwable，则对 severe/error 系列方法会将其作为异常输出；其它级别会将堆栈附加到消息。
    */
   public static void debug(@NotNull Object... args) {
-    if (!StreackLib.isDebugMode()) {
-      return;
+    try {
+      if (!StreackLib.isDebugMode()) {
+        return;
+      }
+    } catch (Exception ignored) {
+      return; // 读取配置时发生异常，安全起见不输出调试信息
     }
     Payload p = extract(args);
     if (p.t != null) {

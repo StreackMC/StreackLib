@@ -611,7 +611,7 @@ public class SConfig {
             for (WatchEvent<?> event : key.pollEvents()) {
               Path changed = dir.resolve((Path) event.context());
               if (changed.toAbsolutePath().equals(confPath)
-                  && conf.lastModified() > lastModified) {
+                  && conf.lastModified() != lastModified) {
                 reload();
                 SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
               }

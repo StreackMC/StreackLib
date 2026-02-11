@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Scanner;
 
 import org.apache.logging.log4j.util.InternalApi;
 import org.ini4j.Ini;
@@ -51,6 +52,9 @@ public class debugentry {
     }
     info("========== SConfig.java ==========");
     try {
+      SEventCentral.addEventListener(SConfig.EVENTS.CHANGED, event -> {
+        info(String.format("ID为 %s 的配置文件变更", event.CALLER_ID));
+      });
       test_SConfig("./target/debugCI-tmp/SConfig");
     } catch (Exception e) {
       err("[!] Caught Error @[ebugentry.test/SConfig] :" + e.getLocalizedMessage());
@@ -64,6 +68,11 @@ public class debugentry {
       e.printStackTrace();
     }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");
+    try (Scanner a = new java.util.Scanner(System.in)) {
+      info("Press Enter to exit...");
+      a.nextLine();
+    } catch (Exception ignored) {
+    }
   }
 
   private static void info(String txt) {

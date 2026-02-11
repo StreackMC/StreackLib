@@ -36,6 +36,7 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
+import com.github.streackmc.StreackLib.self.logger;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -596,11 +597,12 @@ public class SConfig {
     if (watching)
       return;
     try {
+      logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
       watchService = FileSystems.getDefault().newWatchService();
       Path confPath = conf.toPath().toAbsolutePath();
       Path dir = confPath.getParent();
       dir.register(watchService,
-          StandardWatchEventKinds.ENTRY_MODIFY,
+        StandardWatchEventKinds.ENTRY_MODIFY,
           StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
       watching = true;
 
@@ -613,7 +615,8 @@ public class SConfig {
             for (WatchEvent<?> event : key.pollEvents()) {
               Path changed = dir.resolve((Path) event.context());
               if (changed.toAbsolutePath().equals(confPath)
-                  && conf.lastModified() != lastModified) {
+                && conf.lastModified() != lastModified) {
+                logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
                 reload();
                 SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
               }
@@ -621,7 +624,7 @@ public class SConfig {
             key.reset();
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            e.printStackTrace();
+            break;
           }
         }
       }, "conf-reload-" + conf.getName());
@@ -636,6 +639,7 @@ public class SConfig {
 
   /** 停止自动重载 */
   public void stopAutoReload() {
+    logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
     watching = false;
     if (watchThread != null)
       watchThread.interrupt();
@@ -655,14 +659,14 @@ public class SConfig {
   }
 
   /* ==========================================
-   * 读写
-   * ========================================== */
-  
-  /** 立即重新加载文件到缓存 */
+  * 读写
+  * ========================================== */
+ 
+ /** 立即重新加载文件到缓存 */
   public void reload() {
     load();
   }
-
+  
   /**
    * 加载文件到缓存
    */
@@ -675,11 +679,12 @@ public class SConfig {
       }
       Map<String, Object> loaded;
       try (InputStream in = new FileInputStream(conf)) {
+        logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
         switch (type) {
           case JSON:
             loaded = loadJson(in);
             break;
-          case YAML:
+            case YAML:
             loaded = loadYaml(in);
             break;
           case TOML:

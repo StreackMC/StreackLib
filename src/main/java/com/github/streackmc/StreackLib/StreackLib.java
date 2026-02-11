@@ -115,9 +115,9 @@ public final class StreackLib {
         ? System.currentTimeMillis()
         : time.longValue();
     try {
-        Instant.ofEpochMilli(t);// 超范围会抛异常
+      Instant.ofEpochMilli(t);// 超范围会抛异常
     } catch (DateTimeException e) {
-        throw new IllegalArgumentException("时间戳超出有效范围：" + t, e);
+      throw new IllegalArgumentException("时间戳超出有效范围：" + t, e);
     }
     String f = (format == null || format.isEmpty())
         ? "yyyy-MM-dd HH:mm:ss.SSSS"
@@ -147,8 +147,10 @@ public final class StreackLib {
     long t = (time == null)
         ? System.currentTimeMillis()
         : time.longValue();
-    if (t < Instant.MIN.getEpochSecond() * 1000 || t > Instant.MAX.getEpochSecond() * 1000) {
-      throw new IllegalArgumentException("时间戳超出有效范围");
+    try {
+      Instant.ofEpochMilli(t);// 超范围会抛异常
+    } catch (DateTimeException e) {
+      throw new IllegalArgumentException("时间戳超出有效范围：" + t, e);
     }
     String f = (format == null || format.isEmpty())
         ? "yyyy-MM-dd HH:mm:ss.SSSS"

@@ -310,7 +310,7 @@ public class debugentry {
       info("hot-reload:str      = " + cfg.getString("str")); // 期望 "hot"
       info("hot-reload:newInt   = " + cfg.getInt("newInt")); // 期望 999（保留）
       info("hot-reload:sec.k1   = " + cfg.getString("sec.k1")); // 期望 "v1"（保留）
-      cfg.stopAutoReload();
+      // cfg.stopAutoReload();
     }
 
     info("==> all tests done.");

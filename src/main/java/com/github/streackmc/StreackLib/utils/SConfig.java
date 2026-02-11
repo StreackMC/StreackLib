@@ -144,7 +144,7 @@ public class SConfig {
 
   private static ConfigType parseType(String ctype) {
     if (ctype == null) throw new IllegalArgumentException("ctype 不能为空");
-    switch (ctype.toLowerCase(Locale.ROOT)) {
+    switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
       case "json":
         return ConfigType.JSON;
       case "yml":
@@ -155,7 +155,7 @@ public class SConfig {
         return ConfigType.TOML;
       case "ini":
         return ConfigType.INI;
-      default: throw new UnsupportedOperationException("不支持的文件类型：" + ctype);
+      default: throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
     }
   }
 

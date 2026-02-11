@@ -599,7 +599,9 @@ public class SConfig {
       watchService = FileSystems.getDefault().newWatchService();
       Path confPath = conf.toPath().toAbsolutePath();
       Path dir = confPath.getParent();
-      dir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
+      dir.register(watchService,
+          StandardWatchEventKinds.ENTRY_MODIFY,
+          StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
       watching = true;
 
       watchThread = new Thread(() -> {

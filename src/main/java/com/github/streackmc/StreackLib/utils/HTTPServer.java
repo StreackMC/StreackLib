@@ -2,10 +2,18 @@ package com.github.streackmc.StreackLib.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Reader;
+import java.lang.reflect.Type;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
@@ -13,11 +21,15 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import fi.iki.elonen.NanoHTTPD;
 
@@ -180,6 +192,54 @@ public class HTTPServer extends NanoHTTPD {
    */
   public String getServerFullName() {
     return " HTTPServer[" + listenAddress + "] ";
+  }
+
+  private static List<Map<String, Object>> banListCache;
+  private static long banListLastModified;
+
+  /**
+   * 返回一个IP被封禁的原因。
+   * 如果未被封禁返回 null 。
+   * 
+   * @param ip 目标IP，注意不会校验格式
+   * @throws IllegalArgumentException 传入IP不合法
+   * @return 封禁的原因
+   */
+  @Nullable
+  public static String detailBannedIp(@NotNull String ip) throws IllegalArgumentException {
+    Objects.requireNonNull(ip, "传入了一个 null");
+
+    Path banIpList = StreackLib.ENV.dataPath.toPath().resolve("../../ban-ips.json");
+    File file = banIpList.toFile();
+    if (!file.exists()) {
+      return null;
+    }
+
+    long lastMod = file.lastModified();/* 因为SConfig还不支持根数组，需要自行实现 */
+    if (banListCache == null || lastMod != banListLastModified) {
+      // 重新加载
+      try (Reader reader = Files.newBufferedReader(banIpList, StandardCharsets.UTF_8)) {
+        Type listType = new TypeToken<List<Map<String, Object>>>() {
+        }.getType();
+        List<Map<String, Object>> list = new Gson().fromJson(reader, listType);
+        banListCache = list != null ? list : Collections.emptyList();
+        banListLastModified = lastMod;
+      } catch (IOException e) {
+        // 读取失败，清空缓存并返回 null（或记录日志）
+        banListCache = Collections.emptyList();
+        banListLastModified = 0L;
+        return null;
+      }
+    }
+
+    for (Map<String, Object> record : banListCache) {
+      Object cachedIp = record.get("ip");
+      if (ip.equals(cachedIp)) {
+        Object reason = record.get("reason");
+        return reason != null ? reason.toString() : null;
+      }
+    }
+    return null;
   }
 
   @Override

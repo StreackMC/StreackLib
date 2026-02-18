@@ -514,7 +514,7 @@ public class SConfig {
   public void remove(String key) {
     lock.writeLock().lock();
     try {
-      int lastDot = key.lastIndexOf(NESTED_SEP);
+      int lastDot = getIndexOfNormalDot(key);
       if (lastDot == -1) {
         cache.remove(key);
       } else {
@@ -531,22 +531,61 @@ public class SConfig {
   }
 
   /* ==========================================
-   * 工具
+   * 嵌套路径处理
    * ========================================== */
 
-  /** @return 当前配置文件对象 */
-  public File getFile() {
-    return conf;
+  /**
+   * 获取第一个未被转义的 . 的位置，找不到返回 -1
+   */
+  private static final int getIndexOfNormalDot(String key) {
+    if (key == null)
+      return -1;
+    boolean escaped = false; // 表示当前字符是否被前一个反斜杠转义
+    for (int i = 0; i < key.length(); i++) {
+      char c = key.charAt(i);
+      if (c == '\\') {
+        // 遇到反斜杠：翻转转义状态（只有未转义的反斜杠才能转义下一个字符）
+        escaped = !escaped;
+      } else {
+        if (c == '.' && !escaped) {
+          return i; // 找到未被转义的点
+        }
+        // 普通字符或已被转义的点：重置转义状态
+        escaped = false;
+      }
+    }
+    return -1; // 未找到
   }
 
-  private static final String NESTED_SEP = ".";
+  /**
+   * 支持转义 . 的切割路径
+   */
+  private static List<String> splitWithNormalDot(String key) {
+    List<String> parts = new ArrayList<>();
+    int start = 0;
+    boolean escaped = false;
+    for (int i = 0; i < key.length(); i++) {
+      char c = key.charAt(i);
+      if (c == '\\') {
+        escaped = !escaped;
+      } else {
+        if (c == '.' && !escaped) {
+          parts.add(key.substring(start, i).replace("\\", "")); // 去除转义符
+          start = i + 1;
+        }
+        escaped = false;
+      }
+    }
+    parts.add(key.substring(start).replace("\\", ""));
+    return parts;
+  }
 
   /**
    * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
    */
   @SuppressWarnings("unchecked")
   private Object getNested(String key) {
-    int dot = key.indexOf(NESTED_SEP);
+    int dot = getIndexOfNormalDot(key);
     if (dot == -1)
       return cache.get(key);
 
@@ -565,7 +604,7 @@ public class SConfig {
    */
   @SuppressWarnings("unchecked")
   private Object drillDown(Map<String, Object> map, String path) {
-    int dot = path.indexOf(NESTED_SEP);
+    int dot = getIndexOfNormalDot(path);
     if (dot == -1)
       return map.get(path);
 
@@ -584,14 +623,14 @@ public class SConfig {
   */
   @SuppressWarnings("unchecked")
   private Map<String, Object> ensureNestedMap(String key) {
-    int lastDot = key.lastIndexOf(NESTED_SEP);
+    int lastDot = getIndexOfNormalDot(key);
     if (lastDot == -1)
       return cache;
 
-    String[] parts = key.split("\\.");
+    List<String> parts = splitWithNormalDot(key);
     Map<String, Object> current = cache;
-    for (int i = 0; i < parts.length - 1; i++) {
-      String part = parts[i];
+    for (int i = 0; i < parts.size() - 1; i++) {
+      String part = parts.get(i);
       Object next = current.get(part);
       if (next == null) {
         Map<String, Object> newMap = new LinkedHashMap<>();
@@ -618,7 +657,7 @@ public class SConfig {
       return;
     }
 
-    int lastDot = key.lastIndexOf(NESTED_SEP);
+    int lastDot = getIndexOfNormalDot(key);
     String lastKey = (lastDot == -1) ? key : key.substring(lastDot + 1);
     targetMap.put(lastKey, value);
   }
@@ -890,6 +929,11 @@ public class SConfig {
   * 工具方法
   * ========================================== */
 
+  /** @return 当前配置文件对象 */
+  public File getFile() {
+    return conf;
+  }
+
   /**
    * 将嵌套 Map 递归展开为扁平的键值对，存入 Properties
    * 
@@ -901,7 +945,7 @@ public class SConfig {
   private void flattenMap(String prefix, Map<String, Object> map, Properties props) {
     for (Map.Entry<String, Object> entry : map.entrySet()) {
       String key = entry.getKey();
-      String fullKey = prefix.isEmpty() ? key : prefix + NESTED_SEP + key;
+      String fullKey = prefix.isEmpty() ? key : prefix + "." + key;
       Object value = entry.getValue();
       if (value instanceof Map) {
         // 递归处理子 Map
@@ -917,15 +961,15 @@ public class SConfig {
    * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
    */
   private void putNestedRaw(Map<String, Object> root, String key, Object value) {
-    int lastDot = key.lastIndexOf(NESTED_SEP);
+    int lastDot = getIndexOfNormalDot(key);
     if (lastDot == -1) {
       root.put(key, value);
       return;
     }
-    String[] parts = key.split("\\.");
+    List<String> parts = splitWithNormalDot(key);
     Map<String, Object> current = root;
-    for (int i = 0; i < parts.length - 1; i++) {
-      String part = parts[i];
+    for (int i = 0; i < parts.size() - 1; i++) {
+      String part = parts.get(i);
       Object next = current.get(part);
       if (next == null) {
         Map<String, Object> newMap = new LinkedHashMap<>();
@@ -939,7 +983,7 @@ public class SConfig {
         return;
       }
     }
-    String lastKey = parts[parts.length - 1];
+    String lastKey = parts.get(parts.size() - 1);
     current.put(lastKey, value);
   }
 

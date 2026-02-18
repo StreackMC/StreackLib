@@ -39,11 +39,11 @@ public class initBukkit extends JavaPlugin {
     );
     saveDefaultConfig();
     // 填充共享变量
+    logger.plugin = this;
     pluginSelf = this;
     StreackLib.ENV.dataPath = this.getDataFolder();
     StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
     StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
-    logger.plugin = this;
     // 读取构建信息
     try {
       StreackLib.ENV.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
@@ -95,6 +95,7 @@ public class initBukkit extends JavaPlugin {
         SEventCentral.broadcastEvent(StreackLib.EVENTS.LIVE_TPS_REFRESHED)
             .set("TPS", StreackLib.currentTPS)
             .broadcast();
+        logger.debug("Current TPS:%s", StreackLib.currentTPS);
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
     // 完成

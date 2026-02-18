@@ -1,13 +1,20 @@
 package com.github.streackmc.StreackLib;
 
 import java.io.File;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
 
 import org.apache.logging.log4j.util.InternalApi;
+import org.jetbrains.annotations.ApiStatus.Internal;
 
+import com.github.streackmc.StreackLib.bukkit.SBukkit;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
@@ -19,7 +26,15 @@ import com.github.streackmc.StreackLib.utils.SConfig;
  * @since 0.4.3
  */
 public final class StreackLib {
-  private StreackLib() {
+
+  public final static class EVENTS {
+    /**
+     * TPS被刷新
+     * @param TPS double | 此刻的TPS
+     * @see StreackLib#CURRENT_TPS
+     * @see SBukkit#getServerTPS()
+     */
+    public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
   }
 
   static final Deque<Long> tickTimes = new ArrayDeque<>();
@@ -34,7 +49,10 @@ public final class StreackLib {
   @InternalApi
   public static File dataPath;
 
-  // ===================== HTTP Server =====================
+  private StreackLib() { // 禁止实例化
+  }
+
+  // ===================== Class Caller =====================
 
   /**
    * 获取内联HTTPServer对象
@@ -43,7 +61,7 @@ public final class StreackLib {
    */
   @Nullable
   public static HTTPServer getHttpServer() {
-    return libinit.httpServer;
+    return initBukkit.httpServer;
   }
 
   /**
@@ -53,10 +71,8 @@ public final class StreackLib {
    * @return 获取到的对象
    */
   public static HTTPServer newHttpServer(String hostname, int port) {
-    return new HTTPServer(hostname, port, libinit.pluginSelf);
+    return new HTTPServer(hostname, port, initBukkit.pluginSelf);
   }
-
-  // ===================== Conf Handle =====================
 
   /**
    * 获取一个指向一个文件的配置文件对象。使用此对象方法可以更快捷地操作配置文件。建议使用前先使用Bukkit自带的释放配置文件以放出默认配置文件。
@@ -80,164 +96,78 @@ public final class StreackLib {
     return conf.getBoolean("debug", false);
   }
 
-  public static final java.util.Map<Character, String> MC_FORMAT_COLORS = new java.util.HashMap<>();
-  static {
-    MC_FORMAT_COLORS.put('0', "#000000");
-    MC_FORMAT_COLORS.put('1', "#0000AA");
-    MC_FORMAT_COLORS.put('2', "#00AA00");
-    MC_FORMAT_COLORS.put('3', "#00AAAA");
-    MC_FORMAT_COLORS.put('4', "#AA0000");
-    MC_FORMAT_COLORS.put('5', "#AA00AA");
-    MC_FORMAT_COLORS.put('6', "#FFAA00");
-    MC_FORMAT_COLORS.put('7', "#AAAAAA");
-    MC_FORMAT_COLORS.put('8', "#555555");
-    MC_FORMAT_COLORS.put('9', "#5555FF");
-    MC_FORMAT_COLORS.put('a', "#55FF55");
-    MC_FORMAT_COLORS.put('b', "#55FFFF");
-    MC_FORMAT_COLORS.put('c', "#FF5555");
-    MC_FORMAT_COLORS.put('d', "#FF55FF");
-    MC_FORMAT_COLORS.put('e', "#FFFF55");
-    MC_FORMAT_COLORS.put('f', "#FFFFFF");
-    MC_FORMAT_COLORS.put('g', "#DDD605");
-    MC_FORMAT_COLORS.put('h', "#E3D4D1");
-    MC_FORMAT_COLORS.put('i', "#CECACA");
-    MC_FORMAT_COLORS.put('j', "#443A3B");
-    MC_FORMAT_COLORS.put('m', "#971607");
-    MC_FORMAT_COLORS.put('n', "#B4684D");
-    MC_FORMAT_COLORS.put('p', "#DEB12D");
-    MC_FORMAT_COLORS.put('q', "#47A036");
-    MC_FORMAT_COLORS.put('s', "#2CBAA8");
-    MC_FORMAT_COLORS.put('t', "#21497B");
-    MC_FORMAT_COLORS.put('u', "#9A5CC6");
-    MC_FORMAT_COLORS.put('v', "#EB7114");
-  }
   /**
-   * 将MC格式化代码代码(§)转换为HTML
-   * 支持：颜色代码、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)
-   * 根据MCWIKI，添加了对基岩版的格式支持
+   * 以系统时区格式化时间
    * 
-   * @param text 要处理的文本
-   * @return 处理后的文本
-   * @since 0.4.3
+   * @param time   目标时间戳
+   *               <p>
+   *               为 null 时默认为当前时间戳
+   * @param format 格式
+   *               <p>
+   *               为 null 或为空时默认为 "yyyy-MM-dd HH:mm:ss.SSSS"
+   * @see #StreackLib.formatTime(Long, String, ZoneId)
+   * @return 处理好的时间
+   * @throws IllegalArgumentException time超出范围 或 format无效
+   * @since 0.4.4
    */
-  public static String MColorsToHtml(String text) {
-    if (text == null || text.isEmpty())
-      return "<span></span>";
-
-    StringBuilder html = new StringBuilder("<span>");
-    StringBuilder currentText = new StringBuilder();
-
-    boolean bold = false, italic = false, underline = false, strikethrough = false, obfuscated = false;
-    String color = null;
-
-    for (int i = 0; i < text.length(); i++) {
-      char c = text.charAt(i);
-
-      if (c == '§' && i + 1 < text.length()) {
-        char code = Character.toLowerCase(text.charAt(i + 1));
-
-        if (currentText.length() > 0) {
-          html.append(wrapSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
-          currentText = new StringBuilder();
-        }
-
-        if (code == 'r') {
-          bold = italic = underline = strikethrough = obfuscated = false;
-          color = null;
-        } else if (MC_FORMAT_COLORS.containsKey(code)) {
-          color = MC_FORMAT_COLORS.get(code);
-        } else if (code == 'l')
-          bold = true;
-        else if (code == 'o')
-          italic = true;
-        else if (code == 'n')
-          underline = true;
-        else if (code == 'm')
-          strikethrough = true;
-        else if (code == 'k')
-          obfuscated = true;
-
-        i++;
-      } else if (c == '\n') {
-        if (currentText.length() > 0) {
-          html.append(wrapSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
-          currentText = new StringBuilder();
-        }
-        html.append("<br>");
-      } else {
-        currentText.append(c);
-      }
+  public static String formatTime(@Nullable Long time, @Nullable String format) throws IllegalArgumentException {
+    long t = (time == null)
+        ? System.currentTimeMillis()
+        : time.longValue();
+    try {
+      Instant.ofEpochMilli(t);// 超范围会抛异常
+    } catch (DateTimeException e) {
+      throw new IllegalArgumentException("时间戳超出有效范围：" + t, e);
     }
-
-    if (currentText.length() > 0) {
-      html.append(wrapSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
-    }
-
-    html.append("</span>");
-    return html.toString();
+    String f = (format == null || format.isEmpty())
+        ? "yyyy-MM-dd HH:mm:ss.SSSS"
+        : format;
+    return java.time.LocalDateTime
+        .ofInstant(java.time.Instant.ofEpochMilli(t), java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern(f));
   }
 
   /**
-   * 包装文本为带样式的span标签
+   * 以指定时区格式化时间
    * 
-   * @param text          要包装的文本
-   * @param color         颜色代码（如#RRGGBB），null表示默认颜色
-   * @param bold          是否加粗
-   * @param italic        是否斜体
-   * @param underline     是否下划线
-   * @param strikethrough 是否删除线
-   * @param obfuscated    是否乱码
-   * @return 包装好的span标签
-   * @since 0.4.3
+   * @param time     目标时间戳
+   *                 <p>
+   *                 为 null 时默认为当前时间戳
+   * @param format   格式
+   *                 <p>
+   *                 为 null 或为空时默认为 "yyyy-MM-dd HH:mm:ss.SSSS"
+   * @param timezone 时区，见于 {@link java.time.ZoneId}
+   * @return 处理好的时间
+   * @throws IllegalArgumentException time超出范围 或 format无效 或 timezone无效
+   * @since 0.4.4
+   * @see #StreackLib.formatTime(Long, String)
    */
-  public static String wrapSpan(String text, String color, boolean bold, boolean italic,
-      boolean underline, boolean strikethrough, boolean obfuscated) {
-    // HTML特殊字符转义（必须先转义&）
-    text = text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;");
-
-    StringBuilder attrs = new StringBuilder();
-    StringBuilder style = new StringBuilder();
-
-    if (obfuscated) {
-      attrs.append("class=\"MC-format-obfuscated\" ");
+  public static String formatTime(@Nullable Long time, @Nullable String format, ZoneId timezone) throws IllegalArgumentException {
+    Objects.requireNonNull(timezone, "未设置时区");
+    long t = (time == null)
+        ? System.currentTimeMillis()
+        : time.longValue();
+    try {
+      Instant.ofEpochMilli(t);// 超范围会抛异常
+    } catch (DateTimeException e) {
+      throw new IllegalArgumentException("时间戳超出有效范围：" + t, e);
     }
-    if (color != null) {
-      style.append("color: ").append(color).append(";");
-    }
-    if (bold) {
-      style.append("font-weight: bold;");
-    }
-    if (italic) {
-      style.append("font-style: italic;");
-    }
-
-    if (strikethrough && underline) {
-      style.append("text-decoration: line-through underline;");
-    } else if (strikethrough) {
-      style.append("text-decoration: line-through;");
-    } else if (underline) {
-      style.append("text-decoration: underline;");
-    }
-
-    if (style.length() > 0) {
-      attrs.append("style=\"").append(style).append("\"");
-    }
-
-    return String.format("<span %s>%s</span>", attrs.toString().trim(), text);
+    String f = (format == null || format.isEmpty())
+        ? "yyyy-MM-dd HH:mm:ss.SSSS"
+        : format;
+    return java.time.LocalDateTime
+        .ofInstant(java.time.Instant.ofEpochMilli(t), java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern(f));
   }
 
+  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
+  @Internal
   /**
-   * 清除所有Minecraft格式化代码
-   * 
-   * @param text 要处理的文本
-   * @return 处理后的文本
-   * @since 0.4.3
+   * 获取一个全局唯一的ID
+   * @return
+   * @since 0.4.4
    */
-  public static String stripMCColors(String text) {
-    return text == null ? "" : text.replaceAll("§[0-9a-fA-Fk-oK-OrR]", "");
+  public static Long getUniqueID() {
+    return uniqueIDCounter.getAndIncrement();
   }
-
 }

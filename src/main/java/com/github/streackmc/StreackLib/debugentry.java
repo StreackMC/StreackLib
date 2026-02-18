@@ -16,18 +16,19 @@ import org.ini4j.Ini;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.yaml.snakeyaml.Yaml;
 
+import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.SConfig;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.github.streackmc.StreackLib.utils.SFile;
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.moandjiezana.toml.TomlWriter;
 
 /**
  * 自动化快速测试一些不需要MC服务器环境也能运行的模块
  * 
  * @author KimiAI 编写框架
- * @author kdxiaoyi 审核
+ * @author kdxiaoyi 审计
  */
 @InternalApi
 @VisibleForTesting
@@ -36,12 +37,28 @@ public class debugentry {
   @InternalApi
   @VisibleForTesting
   public static void main(String[] args) {
-
-    // if (StreackLib.initConf(new File("./mcserver/plugins/StreackLib/config.yml"), "yml").getBoolean("http-server.allow-file-transport")) {info("passed");} else {warn("blocked");}
+    try {
+      StreackLib.conf = new SConfig("debug: true", "yaml", "c");
+      StreackLib.defaultConf = StreackLib.conf;
+      StreackLib.buildConf = new SConfig("version: 0.0.1", "yaml", "v");
+    } catch (Exception e) {
+      err("无法初始化测试！" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
 
     info(">>>>>>>>>> TEST STARTED <<<<<<<<<<");
     info("========== Basic Info ==========");
     info("\n" + manager.generateDebugInfo());
+    info("======= logger.java =======");
+    try {
+      logger.info("info from logger.java");
+      logger.warn("warn from logger.java");
+      logger.severe("severe from logger.java");
+      logger.debug("debug from logger.java");
+    } catch (Exception e) {
+      err("[!] Caught Error @[ebugentry.test/SEventCentral] :" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
     info("======= SEventCentral.java =======");
     try {
       test_SEvent();
@@ -51,6 +68,9 @@ public class debugentry {
     }
     info("========== SConfig.java ==========");
     try {
+      SEventCentral.addEventListener(SConfig.EVENTS.CHANGED, event -> {
+        info(String.format("ID为 %s 的配置文件变更", event.CALLER_ID));
+      });
       test_SConfig("./target/debugCI-tmp/SConfig");
     } catch (Exception e) {
       err("[!] Caught Error @[ebugentry.test/SConfig] :" + e.getLocalizedMessage());
@@ -64,6 +84,11 @@ public class debugentry {
       e.printStackTrace();
     }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");
+    info("Press Enter to exit...");
+    try {
+      System.in.read();
+    } catch (Exception ignored) {
+    }
   }
 
   private static void info(String txt) {
@@ -222,30 +247,70 @@ public class debugentry {
 
       // 热加载：把刚才写入的内容再写回文件，触发检测
       cfg.startAutoReload();
+      Thread.sleep(100); // 等待 WatchService 就绪
+
+      // 修改文件内容（保留原有字段，只修改 str）
       Map<String, Object> hot = new LinkedHashMap<>();
       hot.put("str", "hot");
+      hot.put("num", 123);
+      hot.put("dbl", 3.14);
+      hot.put("bool", true);
+      hot.put("list", Arrays.asList("a", "b", "c"));
+      Map<String, Object> sec = new LinkedHashMap<>();
+      sec.put("k1", "v1");
+      sec.put("k2", 42);
+      hot.put("sec", sec);
+      // 保留之前 put 的新字段
+      hot.put("newStr", "world");
+      hot.put("newInt", 999);
+      hot.put("newDbl", 2.718);
+      hot.put("newBool", false);
+      hot.put("newList", Arrays.asList("x", "y", "z"));
+      Map<String, Object> newSec = new LinkedHashMap<>();
+      newSec.put("a", "1");
+      newSec.put("b", 2);
+      hot.put("newSec", newSec);
+
       switch (ext) {
         case "json":
-          Files.write(f.toPath(), new Gson().toJson(hot).getBytes(StandardCharsets.UTF_8),
-              StandardOpenOption.TRUNCATE_EXISTING);
+          Files.write(f.toPath(),
+              new GsonBuilder().setPrettyPrinting().create().toJson(hot).getBytes(StandardCharsets.UTF_8),
+              StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
           break;
         case "yaml":
           Files.write(f.toPath(), new Yaml().dump(hot).getBytes(StandardCharsets.UTF_8),
-              StandardOpenOption.TRUNCATE_EXISTING);
+              StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
           break;
         case "toml":
+          // 先停止监听避免自己写入触发重载冲突
+          cfg.stopAutoReload();
           new TomlWriter().write(hot, new FileWriter(f));
+          cfg.startAutoReload();
           break;
         case "ini":
           Ini iniHot = new Ini();
-          iniHot.add("str").put("str", "hot");
+          // INI 需要扁平化处理，或者使用你现有的 putSection 逻辑
+          iniHot.add("keys").put("str", "hot");
+          iniHot.add("keys").put("num", "123");
+          iniHot.add("keys").put("dbl", "3.14");
+          iniHot.add("keys").put("bool", "true");
+          iniHot.add("keys").put("list", "[\"a\", \"b\", \"c\"]");
+          iniHot.add("sec").put("k1", "v1");
+          iniHot.add("sec").put("k2", "42");
+          iniHot.add("newSec").put("a", "1");
+          iniHot.add("newSec").put("b", "2");
           iniHot.store(Files.newOutputStream(f.toPath(), StandardOpenOption.TRUNCATE_EXISTING));
           break;
       }
-      Thread.sleep(1200);
-      info("hot_reload:str   =" + cfg.getString("str"));
-      cfg.stopAutoReload();
 
+      // 等待 WatchService 检测文件变化（通常 1-2 秒内）
+      Thread.sleep(2000);
+
+      // 验证热加载是否生效：str 应该变成 "hot"，同时保留其他字段
+      info("hot-reload:str      = " + cfg.getString("str")); // 期望 "hot"
+      info("hot-reload:newInt   = " + cfg.getInt("newInt")); // 期望 999（保留）
+      info("hot-reload:sec.k1   = " + cfg.getString("sec.k1")); // 期望 "v1"（保留）
+      // cfg.stopAutoReload();
     }
 
     info("==> all tests done.");
@@ -261,7 +326,7 @@ public class debugentry {
       info("监听到测试事件，模式：临时。"  + event.getTimestamp() + "\nCaller = " + event.getCaller());
     });
     info("正在触发事件……");
-    SEventCentral.broadcastEvent(STR).broadcast();
+    SEventCentral.broadcastEvent(STR, null).broadcast();
   }
 
   /**

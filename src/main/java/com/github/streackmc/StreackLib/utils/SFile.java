@@ -4,15 +4,30 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
+
+import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.self.manager;
 
 /**
  * 文件相关工具类，按Linux/MSDOS命令格式快速进行文件操作，支持File和String两种输入。
@@ -25,6 +40,92 @@ public final class SFile {
   }
 
   // ==================== 暴露API ====================
+
+  /**
+   * 下载一个文件
+   * <p>
+   * 注意：没有内置非法参数验证，需自行 try...catch 或自行校验。
+   * 
+   * @param url        目标链接
+   * @param targetPath 保存到的父路径
+   * @return 下载好的文件
+   * @throws IOException              目标服务器返回了错误等导致下载失败
+   * @throws IlleaglArgumentException 输入的链接格式有误
+   * @throws NullPointerException     传入了 null 参数
+   */
+  public static File wget(String url, Path targetPath) throws Exception {
+    return wgetInternal(url, targetPath, null, null, null, null);
+  }
+
+  /**
+   * 下载一个文件
+   * <p>
+   * 注意：没有内置非法参数验证，需自行 try...catch 或自行校验。
+   * 
+   * @param url        目标链接
+   * @param targetPath 保存到的父路径
+   * @param fileName   目标文件名
+   * @return 下载好的文件
+   * @throws IOException              目标服务器返回了错误等导致下载失败
+   * @throws IlleaglArgumentException 输入的链接格式有误
+   */
+  public static File wget(String url, Path targetPath, String fileName) throws Exception {
+    return wgetInternal(url, targetPath, fileName, null, null, null);
+  }
+
+  /**
+   * 下载一个文件
+   * <p>
+   * 注意：没有内置非法参数验证，需自行 try...catch 或自行校验。
+   * 
+   * @param url        目标链接
+   * @param targetPath 保存到的父路径
+   * @param fileName   目标文件名
+   * @param ua         自定义 User-Agent
+   * @return 下载好的文件
+   * @throws IOException              目标服务器返回了错误等导致下载失败
+   * @throws IlleaglArgumentException 输入的链接格式有误
+   */
+  public static File wget(String url, Path targetPath, String fileName, String ua) throws Exception {
+    return wgetInternal(url, targetPath, fileName, null, null, ua);
+  }
+
+  /**
+   * 下载一个文件
+   * <p>
+   * 注意：没有内置非法参数验证，需自行 try...catch 或自行校验。
+   * 
+   * @param url        目标链接
+   * @param targetPath 保存到的父路径
+   * @param fileName   目标文件名
+   * @param username   进行鉴权的用户名，附加到标头里
+   * @param pwd        进行鉴权的密码，附加到标头里
+   * @return 下载好的文件
+   * @throws IOException              目标服务器返回了错误等导致下载失败
+   * @throws IlleaglArgumentException 输入的链接格式有误
+   */
+  public static File wget(String url, Path targetPath, String fileName, String username, String pwd) throws Exception {
+    return wgetInternal(url, targetPath, fileName, username, pwd, null);
+  }
+
+  /**
+   * 下载一个文件
+   * <p>
+   * 注意：没有内置非法参数验证，需自行 try...catch 或自行校验。
+   * 
+   * @param url        目标链接
+   * @param targetPath 保存到的父路径
+   * @param fileName   目标文件名
+   * @param username   进行鉴权的用户名，附加到标头里
+   * @param pwd        进行鉴权的密码，附加到标头里
+   * @param ua         自定义 User-Agent
+   * @return 下载好的文件
+   * @throws IOException              目标服务器返回了错误等导致下载失败
+   * @throws IlleaglArgumentException 输入的链接格式有误
+   */
+  public static File wget(String url, Path targetPath, String fileName, String username, String pwd, String ua) throws Exception {
+    return wgetInternal(url, targetPath, fileName, username, pwd, ua);
+  }
 
   /**
    * 在一个父路径下创建文件夹
@@ -633,6 +734,8 @@ public final class SFile {
     return createLinkInternal(target.getPath(), link.getPath());
   }
 
+
+
     // ==================== 具体实现 ====================
 
   /**
@@ -952,6 +1055,130 @@ public final class SFile {
       throw new IOException("当前操作系统不支持符号链接", e);
     } catch (IOException e) {
       throw new IOException("创建符号链接失败", e);
+    }
+  }
+
+  private static File wgetInternal(String downloadUrl, Path targetDir, String saveAsName, String username, String password, String customUserAgent) throws Exception {
+    Objects.requireNonNull(targetDir, "目标目录不得为 null");
+    Objects.requireNonNull(downloadUrl, "目标链接不得为 null");
+    String userAgent = (customUserAgent != null && !customUserAgent.isEmpty())
+        ? customUserAgent
+        : String.format("StreackLib/%s (Java %s; %s %s)",
+            manager.getBuildVersion(),
+            System.getProperty("java.version"),
+            System.getProperty("os.name"),
+            System.getProperty("os.arch"));
+            // 获取文件名
+            String fileName = saveAsName != null && !saveAsName.isEmpty()
+            ? saveAsName
+        : downloadUrl.substring(downloadUrl.lastIndexOf("/") + 1);
+    if (fileName.isEmpty()) {
+      fileName = String.format("wget-output-%s", UUID.randomUUID().toString());
+    }
+    
+    Path targetFile = targetDir.resolve(fileName);
+    // 创建临时文件（原子写入）
+    Path tempFile = targetDir.resolve(fileName + ".tmp." + UUID.randomUUID().toString());
+    
+    logger.debug(String.format("开始以[%s]为UA下载 %s 至 %s", userAgent, downloadUrl, targetDir.toString()));
+
+    HttpURLConnection conn = null;
+    InputStream inputStream = null;
+    OutputStream outputStream = null;
+
+    try {
+      // 构建请求
+      URL urlObj = new URI(downloadUrl).toURL();
+      conn = (HttpURLConnection) urlObj.openConnection();
+      conn.setRequestMethod("GET");
+      conn.setConnectTimeout(10000);
+      conn.setReadTimeout(60000);
+      conn.setInstanceFollowRedirects(true);
+      conn.setRequestProperty("User-Agent", userAgent);
+      conn.setRequestProperty("Accept", "application/octet-stream");
+
+      // 设置基础鉴权（如果提供了用户名和密码）
+      if (username != null && !username.isEmpty() && password != null) {
+        String auth = username + ":" + password;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+        conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+      }
+
+      int responseCode = conn.getResponseCode();
+      if (responseCode != HttpURLConnection.HTTP_OK) {
+        throw new IOException(String.format(
+            "无法下载更新文件，远程服务器返回了: %d %s",
+            responseCode,
+            conn.getResponseMessage()));
+      }
+
+      // 下载到临时文件
+      int fileSize = conn.getContentLength();
+      logger.debug(String.format("文件大小: %.2f MB", fileSize / 1024.0 / 1024.0));
+
+      inputStream = conn.getInputStream();
+      outputStream = Files.newOutputStream(
+          tempFile,
+          StandardOpenOption.CREATE,
+          StandardOpenOption.WRITE,
+          StandardOpenOption.TRUNCATE_EXISTING);
+
+      byte[] buffer = new byte[8192];
+      long totalBytesRead = 0;
+      int bytesRead;
+      long lastLogTime = System.currentTimeMillis();
+
+      while ((bytesRead = inputStream.read(buffer)) != -1) {
+        outputStream.write(buffer, 0, bytesRead);
+        totalBytesRead += bytesRead;
+
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastLogTime > 5000 && fileSize > 0) {
+          logger.debug(String.format(
+              "下载进度: %.1f%%",
+              (totalBytesRead * 100.0) / fileSize));
+          lastLogTime = currentTime;
+        }
+      }
+
+      outputStream.flush();
+
+      // 原子移动：临时文件 -> 目标文件
+      // 使用 ATOMIC_MOVE 确保原子性，REPLACE_EXISTING 覆盖已存在文件
+      Files.move(tempFile, targetFile,
+          StandardCopyOption.ATOMIC_MOVE,
+          StandardCopyOption.REPLACE_EXISTING);
+
+      logger.debug(String.format("下载完成：%s", targetFile.toString()));
+
+      return targetFile.toFile();
+
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("无效的URL: " + downloadUrl, e);
+    } finally {
+      // 关闭流
+      if (inputStream != null) {
+        try {
+          inputStream.close();
+        } catch (IOException ignored) {
+        }
+      }
+      if (outputStream != null) {
+        try {
+          outputStream.close();
+        } catch (IOException ignored) {
+        }
+      }
+      if (conn != null) {
+        conn.disconnect();
+      }
+      // 清理临时文件（如果还存在）
+      if (tempFile != null) {
+        try {
+          Files.deleteIfExists(tempFile);
+        } catch (IOException ignored) {
+        }
+      }
     }
   }
 }

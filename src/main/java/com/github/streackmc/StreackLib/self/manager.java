@@ -110,24 +110,20 @@ public class manager {
 
     /* Build */
     return
-        /* 系统核心信息 */
-        "==> Running Time Meta" +
-        "\nlocalTimestamp  = " + System.currentTimeMillis() +
+    /* 系统核心信息 */
+    "==> Running Time Meta" +
+        "\nlocalTimestamp  = " + String.format("%s | %s", StreackLib.formatTime(null, null), System.currentTimeMillis()) +
+        "\nStarted Since   = " + String.format("%s | %s", StreackLib.formatTime(rmxb.getStartTime(), null), rmxb.getStartTime()) +
         "\nuser.name       = " + System.getProperty("user.name") +
         "\nuser.dir        = " + System.getProperty("user.dir") +
         "\nuser.home       = " + System.getProperty("user.home") +
         "\njava.version    = " + System.getProperty("java.version") +
         "\njava.home       = " + System.getProperty("java.home") +
-        "\nStarted Since   = "
-        + java.time.LocalDateTime
-            .ofInstant(java.time.Instant.ofEpochMilli(rmxb.getStartTime()), java.time.ZoneId.systemDefault())
-            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSS"))
-        + " | " + rmxb.getStartTime() +
         "\nJVM Name        = " + rmxb.getName() +
         "\nJVM Cmdline     = " + String.join(" ", rmxb.getInputArguments()) +
         "\nJVM Memory      = " + (mmxb.getHeapMemoryUsage().getUsed() / 1024 / 1024) + " MB used / "
         + (mmxb.getHeapMemoryUsage().getMax() / 1024 / 1024) + " MB in total" +
-        "\nJava PID         = " + rmxb.getPid() +
+        "\nJava PID        = " + rmxb.getPid() +
         /* 操作系统信息 */
         "\n==> OS Info" +
         "\nos.name         = " + System.getProperty("os.name") +

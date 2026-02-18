@@ -1,6 +1,7 @@
 package com.github.streackmc.StreackLib.self;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -10,7 +11,6 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.logging.log4j.util.InternalApi;
 
 import com.github.streackmc.StreackLib.StreackLib;
+import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -231,66 +232,8 @@ public class UpdateChecker {
             throw new IllegalArgumentException(String.format("无效的JSON描述信息： %s", dlUrlOrigin.toString()));
           }
           downloadUrl = dlUrlOrigin.getAsString();
-          logger.debug("正在尝试连接：" + downloadUrl);
-
-          // 获取文件名
-          String fileName = downloadUrl.substring(downloadUrl.lastIndexOf("/") + 1);
-          if (fileName.isEmpty()) {
-            fileName = String.format("StreackLib-%s.jar", version);
-          }
-          Path targetFile = updateFolder.resolve(fileName);
-          logger.debug(String.format("保存到：%s", targetFile.toString()));
-
-          // 构建请求
-          URL url = new URI(downloadUrl).toURL();
-          conn = (HttpURLConnection) url.openConnection();
-          conn.setRequestMethod("GET");
-          conn.setConnectTimeout(10000);
-          conn.setReadTimeout(60000);
-          conn.setInstanceFollowRedirects(true);
-          conn.setRequestProperty("User-Agent", USER_AGENT);
-          conn.setRequestProperty("Accept", "application/octet-stream");
-
-          int responseCode = conn.getResponseCode();
-          if (responseCode != HttpURLConnection.HTTP_OK) {
-            throw new IOException(String.format(
-                "无法下载更新文件，远程服务器返回了: %d %s",
-                responseCode,
-                conn.getResponseMessage()));
-          }
-
-          // 下载
-          int fileSize = conn.getContentLength();
-          logger.debug(String.format(
-              "文件大小: %.2f MB",
-              fileSize / 1024.0 / 1024.0));
-          inputStream = conn.getInputStream();
-          outputStream = Files.newOutputStream(
-              targetFile,
-              StandardOpenOption.CREATE,
-              StandardOpenOption.WRITE,
-              StandardOpenOption.TRUNCATE_EXISTING);
-          byte[] buffer = new byte[8192];
-          long totalBytesRead = 0;
-          int bytesRead;
-          long lastLogTime = System.currentTimeMillis();
-
-          while ((bytesRead = inputStream.read(buffer)) != -1) {
-            outputStream.write(buffer, 0, bytesRead);
-            totalBytesRead += bytesRead;
-
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastLogTime > 1000) {
-              logger.debug(String.format(
-                  "下载进度: %.1f%%",
-                  (totalBytesRead * 100.0) / fileSize));
-              lastLogTime = currentTime;
-            }
-          }
-
-          outputStream.flush();
-          isDone.set(true);
-          logger.info("下载完成，新版本 " + version + " 已准备就绪。文件已保存到:" + targetFile.toAbsolutePath());
+          File targetFile = SFile.wget(downloadUrl, updateFolder);
+          logger.info("下载完成，新版本 " + version + " 已准备就绪。文件已保存到:" + targetFile.toPath().toString());
         } catch (Exception e) {
           logger.severe("从" + downloadUrl +"下载更新失败: " + e.getLocalizedMessage());
           e.printStackTrace();

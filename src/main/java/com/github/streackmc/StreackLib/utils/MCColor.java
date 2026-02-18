@@ -1,0 +1,232 @@
+package com.github.streackmc.StreackLib.utils;
+
+import java.util.regex.Pattern;
+
+/**
+ * 提供格式化代码相关功能支持
+ * 
+ * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81}
+ * @author kdxiaoyi
+ * @since 0.4.5
+ */
+public class MCColor {
+  /**
+   * MC格式化代码颜色对照关系表
+   * <p>
+   * 其中也含有基岩版的颜色
+   * 
+   * @since 0.4.5
+   * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81#%E9%A2%9C%E8%89%B2%E4%BB%A3%E7%A0%81}
+   */
+  public static final java.util.Map<Character, String> COLORS = new java.util.HashMap<Character, String>();
+  static {
+    COLORS.put('0', "#000000");
+    COLORS.put('1', "#0000AA");
+    COLORS.put('2', "#00AA00");
+    COLORS.put('3', "#00AAAA");
+    COLORS.put('4', "#AA0000");
+    COLORS.put('5', "#AA00AA");
+    COLORS.put('6', "#FFAA00");
+    COLORS.put('7', "#AAAAAA");
+    COLORS.put('8', "#555555");
+    COLORS.put('9', "#5555FF");
+    COLORS.put('a', "#55FF55");
+    COLORS.put('b', "#55FFFF");
+    COLORS.put('c', "#FF5555");
+    COLORS.put('d', "#FF55FF");
+    COLORS.put('e', "#FFFF55");
+    COLORS.put('f', "#FFFFFF");
+    COLORS.put('g', "#DDD605");
+    COLORS.put('h', "#E3D4D1");
+    COLORS.put('i', "#CECACA");
+    COLORS.put('j', "#443A3B");
+    COLORS.put('m', "#971607");
+    COLORS.put('n', "#B4684D");
+    COLORS.put('p', "#DEB12D");
+    COLORS.put('q', "#47A036");
+    COLORS.put('s', "#2CBAA8");
+    COLORS.put('t', "#21497B");
+    COLORS.put('u', "#9A5CC6");
+    COLORS.put('v', "#EB7114");
+  }
+
+  /**
+   * 将MC格式化代码代码(§)转换为HTML
+   * <p>
+   * 支持：颜色代码（包含基岩版）、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)
+   * 
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.4.5
+   */
+  public static String toHtml(String text) {
+    if (text == null || text.isEmpty())
+      return "<span></span>";
+
+    StringBuilder html = new StringBuilder("<span>");
+    StringBuilder currentText = new StringBuilder();
+
+    boolean bold = false, italic = false, underline = false, strikethrough = false, obfuscated = false;
+    String color = null;
+
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+
+      if (c == '§' && i + 1 < text.length()) {
+        char code = Character.toLowerCase(text.charAt(i + 1));
+
+        if (currentText.length() > 0) {
+          html.append(
+              wrapWithHtmlSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
+          currentText = new StringBuilder();
+        }
+
+        if (code == 'r') {
+          bold = italic = underline = strikethrough = obfuscated = false;
+          color = null;
+        } else if (COLORS.containsKey(code)) {
+          color = COLORS.get(code);
+        } else if (code == 'l')
+          bold = true;
+        else if (code == 'o')
+          italic = true;
+        else if (code == 'n')
+          underline = true;
+        else if (code == 'm')
+          strikethrough = true;
+        else if (code == 'k')
+          obfuscated = true;
+
+        i++;
+      } else if (c == '\n') {
+        if (currentText.length() > 0) {
+          html.append(
+              wrapWithHtmlSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
+          currentText = new StringBuilder();
+        }
+        html.append("<br>");
+      } else {
+        currentText.append(c);
+      }
+    }
+
+    if (currentText.length() > 0) {
+      html.append(wrapWithHtmlSpan(currentText.toString(), color, bold, italic, underline, strikethrough, obfuscated));
+    }
+
+    html.append("</span>");
+    return html.toString();
+  }
+
+  /**
+   * 包装文本为带样式的span标签
+   * 
+   * @param text          要包装的文本
+   * @param color         颜色代码（如#RRGGBB），null表示默认颜色
+   * @param bold          是否加粗
+   * @param italic        是否斜体
+   * @param underline     是否下划线
+   * @param strikethrough 是否删除线
+   * @param obfuscated    是否乱码
+   * @return 包装好的span标签
+   * @since 0.4.5
+   */
+  public static String wrapWithHtmlSpan(String text, String color, boolean bold, boolean italic,
+      boolean underline, boolean strikethrough, boolean obfuscated) {
+    // HTML特殊字符转义（必须先转义&）
+    text = text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;");
+
+    StringBuilder attrs = new StringBuilder();
+    StringBuilder style = new StringBuilder();
+
+    if (obfuscated) {
+      attrs.append("class=\"MC-format-obfuscated\" ");
+    }
+    if (color != null) {
+      style.append("color: ").append(color).append(";");
+    }
+    if (bold) {
+      style.append("font-weight: bold;");
+    }
+    if (italic) {
+      style.append("font-style: italic;");
+    }
+
+    if (strikethrough && underline) {
+      style.append("text-decoration: line-through underline;");
+    } else if (strikethrough) {
+      style.append("text-decoration: line-through;");
+    } else if (underline) {
+      style.append("text-decoration: underline;");
+    }
+
+    if (style.length() > 0) {
+      attrs.append("style=\"").append(style).append("\"");
+    }
+
+    return String.format("<span %s>%s</span>", attrs.toString().trim(), text);
+  }
+
+  /**
+   * 清除所有Minecraft格式化代码，不含 &
+   * <p>
+   * 含 & 请使用 {@link #remove(String)}
+   * 
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.4.5
+   */
+  public static String strip(String text) {
+    return text == null ? "" : text.replaceAll("§[0-9a-vA-V]", "");
+  }
+
+  /**
+   * 清除所有Minecraft格式化代码，含有 &
+   * <p>
+   * 不含 & 请使用 {@link #strip(String)}
+   * 
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.4.5
+   */
+  public static String remove(String text) {
+    return text == null ? "" : text.replaceAll("(§[0-9a-vA-V])|(&[0-9a-vA-V])", "");
+  }
+
+  /**
+   * 替换全部的 & 为 §
+   * 
+   * @param text 源文本
+   * @return
+   */
+  public static String parse(String text) {
+    return text == null ? "" : text.replaceAll("&(?=[0-9a-vA-V])", "§");
+  }
+
+  /**
+   * 替换全部的 prefix 为 §
+   * 
+   * @param text   源文本
+   * @param prefix 要替换的前缀，不能为 null，可以为空字符串（此时不进行替换）
+   * @return 
+   * @throws NullPointerException
+   */
+  public static String parse(String text, String prefix) throws NullPointerException {
+    if (prefix == null) {
+      throw new NullPointerException("参数 prefix 为 null");
+    }
+    if (prefix.isEmpty()) {
+      return text == null ? "" : text;
+    }
+    if (text == null) {
+      return "";
+    }
+    // 转义 prefix 中的正则特殊字符（如 $ * 等）
+    String escapedPrefix = Pattern.quote(prefix);
+    return text.replaceAll(escapedPrefix + "(?=[0-9a-vA-V])", "§");
+  }
+
+}

@@ -23,27 +23,46 @@ import com.github.streackmc.StreackLib.self.manager;
  * @since 0.4.4
  */
 final public class SEvent {
-  private final long timestamp;
+  private final Long timestamp;
   private final boolean trust;
   private final String caller;
   private volatile Map<String, Object> data; // volatile 确保安全发布
 
   /**
+   * 返回事件被创建时传入的调用者唯一标识，可为Null
+   */
+  @Nullable
+  public final Long CALLER_ID;
+  /**
+   * 判断是否为同一个ID。
+   * @param otherID
+   * @return 如果 CALLER_ID 或传入值为 null ，返回false
+   */
+  public boolean compareID(Long otherID) {
+    if (CALLER_ID == null || otherID == null)
+      return false;
+    return this.CALLER_ID.equals(otherID);
+  }
+
+  /**
    * 公共构造器，供外部代码构造事件。
    * 构造的事件 trust 属性为 false，表示非受信任来源。
+   * @param id 可选的事件 ID（用于标识发起者）
    */
-  public SEvent() {
-    this(false);
+  public SEvent(@Nullable Long id) {
+    this(false, id);
   }
 
   /**
    * 包级私有构造器，仅允许 SEventCentral 创建受信任事件。
    *
    * @param trust 是否为受信任事件（true 表示由 SEventCentral 发起）
+   * @param id    事件 ID （用于标识发起者）
    */
-  SEvent(boolean trust) {
+  SEvent(boolean trust, @Nullable Long id) {
     this.timestamp = System.currentTimeMillis();
     this.trust = trust;
+    this.CALLER_ID = id;
 
     List<String> callers = manager.getCaller(manager.getCallerMethod.FOR_SEVENT);
     this.caller = (callers != null && !callers.isEmpty()) ? callers.get(0) : "unknown";

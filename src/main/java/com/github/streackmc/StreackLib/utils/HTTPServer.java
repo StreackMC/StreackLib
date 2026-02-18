@@ -37,6 +37,34 @@ public class HTTPServer extends NanoHTTPD {
   public int MAX_URI = 2048;
   public long MAX_FILE_SIZE = 20L/* MB */ * 1024 * 1024;
 
+  public final Long INSTANCE_ID = StreackLib.getUniqueID();
+  public final static class EVENTS {
+    /**
+     * HTTP服务器启动
+     * 
+     * @param address String | 该服务器的监听地址
+     */
+    public static final String STARTED = "streacklib.httpserver:started";
+    /**
+     * HTTP服务器停止
+     * 
+     * @param address String | 该服务器的监听地址
+     */
+    public static final String STOPPED = "streacklib.httpserver:stopped";
+    /**
+     * 接受到请求
+     * <p>
+     * 使用该方法无法对请求做出回应。
+     * 
+     * @param address String | 该服务器的监听地址
+     * @param uri     String | 请求路径
+     * @param origin  String | 请求来源，未经校验，可能因代理等误判
+     * @param method  String | 请求方法
+     * @see HTTPServer#registerHandler(String, Handler)
+     */
+    public static final String ON_REQUEST = "streacklib.httpserver:on_request";
+  }
+
   /**
    * 初始化一个HTTPServer对象
    * 
@@ -81,6 +109,9 @@ public class HTTPServer extends NanoHTTPD {
       });
       start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
       logger.info("已启动" + getServerFullName());
+      SEventCentral.broadcastEvent(EVENTS.STARTED, INSTANCE_ID)
+          .set("address", this.listenAddress)
+          .broadcast();
     } catch (IOException e) {
       logger.severe("无法启动" + getServerFullName() + "：" + e.getLocalizedMessage());
       e.printStackTrace();
@@ -94,6 +125,9 @@ public class HTTPServer extends NanoHTTPD {
     if (isAlive()) {
       stop();
       logger.info("已停止" + getServerFullName() + ".\nfrom " + manager.getCaller(null).get(0));
+      SEventCentral.broadcastEvent(EVENTS.STOPPED, INSTANCE_ID)
+          .set("address", this.listenAddress)
+          .broadcast();
     }
   }
 
@@ -160,6 +194,12 @@ public class HTTPServer extends NanoHTTPD {
             + " 来源 = [未校验]" + session.getRemoteIpAddress() + "\n"
             + " 路径 = " + uri + "\n"
             + " 方法 = " + session.getMethod());
+    SEventCentral.broadcastEvent(EVENTS.ON_REQUEST, INSTANCE_ID)
+        .set("address", this.listenAddress)
+        .set("uri", uri)
+        .set("origin", session.getRemoteIpAddress())
+        .set("method", session.getMethod())
+        .broadcast();
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
       logger.warn(getServerFullName() + "请求#" + id + " 的URI过长，已拒绝。");

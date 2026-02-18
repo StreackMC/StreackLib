@@ -52,8 +52,12 @@ public final class logger {
    *             若最后一个参数为 Throwable，则对 severe/error 系列方法会将其作为异常输出；其它级别会将堆栈附加到消息。
    */
   public static void debug(@NotNull Object... args) {
-    if (!StreackLib.isDebugMode()) {
-      return;
+    try {
+      if (!StreackLib.isDebugMode()) {
+        return;
+      }
+    } catch (Exception ignored) {
+      return; // 读取配置时发生异常，安全起见不输出调试信息
     }
     Payload p = extract(args);
     if (p.t != null) {
@@ -167,15 +171,25 @@ public final class logger {
   /** 按优先级探测并实例化 Backend */
   private static Backend detectBackend() {
     // 1. Bukkit
-    if (plugin != null)
-      return new BukkitBackend();
-    // 2. SLF4J
+    if (plugin != null) {
+      try {
+        if (org.bukkit.Bukkit.getServer() != null) {
+          return new BukkitBackend();
+        }
+      } catch (Exception ignored) {
+      }
+    }
+
+    // 2. SLF4J - 检查是否有可用 Provider（排除 NOP）
     try {
       Class.forName("org.slf4j.LoggerFactory");
-      return new Slf4jBackend();
-    } catch (ClassNotFoundException ignore) {
-      /* 不存在 */
+      org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Backend.class);
+      if (!logger.getClass().getName().equals("org.slf4j.helpers.NOPLogger")) {
+        return new Slf4jBackend();
+      }
+    } catch (Exception ignored) {
     }
+
     // 3. JUL 保底
     return new JulBackend();
   }

@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -46,7 +47,7 @@ import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
 
 /**
- * 高性能多格式（json/yaml/toml/xml/ini）配置中心。
+ * 高性能多格式（json/yaml/toml/xml/ini/prop）配置中心。
  * 支持运行时热加载与严格类型读写。
  *
  * @author kdxiaoyi
@@ -71,8 +72,9 @@ public class SConfig {
 
   // formats
   private enum ConfigType {
-    JSON, YAML, TOML, INI
+    JSON, YAML, TOML, INI, PROPERTIES
   }
+
   // file lock
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private volatile Map<String, Object> cache = new ConcurrentHashMap<>();
@@ -87,8 +89,9 @@ public class SConfig {
 
   /**
    * 构造配置对象
-   * @param file 配置文件
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param file  配置文件
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @throws UnsupportedOperationException 不支持的格式
    */
   public SConfig(File file, String ctype) {
@@ -99,8 +102,9 @@ public class SConfig {
 
   /**
    * 构造配置对象
-   * @param file 配置文件
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param file  配置文件
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -112,11 +116,12 @@ public class SConfig {
 
   /**
    * 构造临时配置对象
-   * @param conf 配置文件内容原始来源
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param conf   配置文件内容原始来源
+   * @param ctype  格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
-   * @throws IOException 读写错误
+   * @throws IOException                   读写错误
    * @see #SConfig(File, String)
    * @since 0.4.4
    */
@@ -132,8 +137,9 @@ public class SConfig {
 
   /**
    * 构造配置对象
-   * @param path 配置文件路径
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param path  配置文件路径
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -144,7 +150,8 @@ public class SConfig {
   }
 
   private static ConfigType parseType(String ctype) {
-    if (ctype == null) throw new IllegalArgumentException("ctype 不能为空");
+    if (ctype == null)
+      throw new IllegalArgumentException("ctype 不能为空");
     switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
       case "json":
         return ConfigType.JSON;
@@ -156,7 +163,12 @@ public class SConfig {
         return ConfigType.TOML;
       case "ini":
         return ConfigType.INI;
-      default: throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
+      case "properties":
+        return ConfigType.PROPERTIES;
+      case "prop":
+        return ConfigType.PROPERTIES;
+      default:
+        throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
     }
   }
 
@@ -659,14 +671,14 @@ public class SConfig {
   }
 
   /* ==========================================
-  * 读写
+  * 读
   * ========================================== */
  
  /** 立即重新加载文件到缓存 */
   public void reload() {
     load();
   }
-  
+
   /**
    * 加载文件到缓存
    */
@@ -684,7 +696,7 @@ public class SConfig {
           case JSON:
             loaded = loadJson(in);
             break;
-            case YAML:
+          case YAML:
             loaded = loadYaml(in);
             break;
           case TOML:
@@ -692,6 +704,9 @@ public class SConfig {
             break;
           case INI:
             loaded = loadIni(in);
+            break;
+          case PROPERTIES:
+            loaded = loadProperties(in);
             break;
           default:
             throw new UnsupportedOperationException("不支持的文件类型：" + type);
@@ -704,6 +719,24 @@ public class SConfig {
     } finally {
       lock.writeLock().unlock();
     }
+  }
+
+  /**
+   * 加载 properties 格式文件，将扁平的键值对转换为嵌套 Map
+   */
+  private Map<String, Object> loadProperties(InputStream in) throws IOException {
+    Properties props = new Properties();
+    // 使用 UTF-8 读取，以支持非 ISO-8859-1 字符
+    try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+      props.load(reader);
+    }
+    Map<String, Object> root = new LinkedHashMap<>();
+    for (String key : props.stringPropertyNames()) {
+      String value = props.getProperty(key);
+      // 利用现有嵌套路径工具构建嵌套结构
+      putNestedRaw(root, key, value);
+    }
+    return root;
   }
 
   private Map<String, Object> loadJson(InputStream in) {
@@ -745,6 +778,10 @@ public class SConfig {
     return root;
   }
 
+  /* ==========================================
+  * 写
+  * ========================================== */
+
   /**
    * 将缓存写入磁盘
    */
@@ -765,6 +802,9 @@ public class SConfig {
           case INI:
             flushIni(w);
             break;
+          case PROPERTIES:
+            flushProperties(w);
+            break;
           default:
             throw new UnsupportedOperationException("不支持的文件类型：" + type);
         }
@@ -775,6 +815,12 @@ public class SConfig {
     } finally {
       lock.writeLock().unlock();
     }
+  }
+
+  private void flushProperties(Writer w) throws IOException {
+    Properties props = new Properties();
+    flattenMap("", cache, props);
+    props.store(w, null);
   }
 
   private void flushJson(Writer w) {
@@ -806,6 +852,63 @@ public class SConfig {
       }
     }
     ini.store(w);
+  }
+
+  /* ==========================================
+  * 工具方法
+  * ========================================== */
+
+  /**
+   * 将嵌套 Map 递归展开为扁平的键值对，存入 Properties
+   * 
+   * @param prefix 当前路径前缀（用点分隔）
+   * @param map    当前层级的 Map
+   * @param props  目标 Properties
+   */
+  @SuppressWarnings("unchecked")
+  private void flattenMap(String prefix, Map<String, Object> map, Properties props) {
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      String key = entry.getKey();
+      String fullKey = prefix.isEmpty() ? key : prefix + NESTED_SEP + key;
+      Object value = entry.getValue();
+      if (value instanceof Map) {
+        // 递归处理子 Map
+        flattenMap(fullKey, (Map<String, Object>) value, props);
+      } else {
+        // 非 Map 类型转换为字符串存入
+        props.setProperty(fullKey, value == null ? "" : String.valueOf(value));
+      }
+    }
+  }
+
+  /**
+   * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
+   */
+  private void putNestedRaw(Map<String, Object> root, String key, Object value) {
+    int lastDot = key.lastIndexOf(NESTED_SEP);
+    if (lastDot == -1) {
+      root.put(key, value);
+      return;
+    }
+    String[] parts = key.split("\\.");
+    Map<String, Object> current = root;
+    for (int i = 0; i < parts.length - 1; i++) {
+      String part = parts[i];
+      Object next = current.get(part);
+      if (next == null) {
+        Map<String, Object> newMap = new LinkedHashMap<>();
+        current.put(part, newMap);
+        current = newMap;
+      } else if (next instanceof Map) {
+        current = (Map<String, Object>) next;
+      } else {
+        // 类型冲突，无法创建嵌套结构，直接放入根（保持兼容，但通常不会发生）
+        root.put(key, value);
+        return;
+      }
+    }
+    String lastKey = parts[parts.length - 1];
+    current.put(lastKey, value);
   }
 
   /** 原子替换文件：先写临时文件，再 move */

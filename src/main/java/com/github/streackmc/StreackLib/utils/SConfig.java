@@ -75,8 +75,14 @@ public class SConfig {
     /**
      * 配置文件发生改变
      * @apiNote 仅由自动重载触发
+    */
+   public final static String CHANGED = "streacklib.sconf:changed";
+   /**
+     * 配置文件格式错误
+     * @param exception {Exception} 原始错误数据
+     * @param msg {String} 错误信息
      */
-    public final static String CHANGED = "streacklib.sconf:changed";
+    public final static String WRONG_FORMAT = "streacklib.sconf:wrong_format";
   }
 
   /* ==========================================
@@ -650,6 +656,8 @@ public class SConfig {
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             break;
+          } catch (Exception ignored/* 防止假死 */) {
+            continue;
           }
         }
       }, "conf-reload-" + conf.getName());
@@ -728,6 +736,10 @@ public class SConfig {
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
       lastModified = conf.lastModified();
     } catch (IOException e) {
+      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
+          .set("exception", e)
+          .set("msg", e.getLocalizedMessage())
+          .broadcast();
       throw new UncheckedIOException("无法加载配置文件", e);
     } finally {
       lock.writeLock().unlock();

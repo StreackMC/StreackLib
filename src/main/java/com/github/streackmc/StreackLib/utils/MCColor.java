@@ -57,6 +57,7 @@ public class MCColor {
    * <p>
    * 0.4.6起也支持新版的 RGB 颜色格式：§#RRGGBB 和 §x§R§R§G§G§B§B
    * 
+   * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
    * @param text 要处理的文本
    * @return 处理后的文本
    * @since 0.4.5

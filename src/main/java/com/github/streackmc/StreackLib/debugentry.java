@@ -38,9 +38,9 @@ public class debugentry {
   @VisibleForTesting
   public static void main(String[] args) {
     try {
-      StreackLib.conf = new SConfig("debug: true", "yaml", "c");
-      StreackLib.defaultConf = StreackLib.conf;
-      StreackLib.buildConf = new SConfig("version: 0.0.1", "yaml", "v");
+      StreackLib.ENV.conf = new SConfig("debug: true", "yaml", "c");
+      StreackLib.ENV.defaultConf = StreackLib.ENV.conf;
+      StreackLib.ENV.buildConf = new SConfig("version: 0.0.1", "yaml", "v");
     } catch (Exception e) {
       err("无法初始化测试！" + e.getLocalizedMessage());
       e.printStackTrace();
@@ -336,6 +336,6 @@ public class debugentry {
    */
   @Deprecated
   public static boolean isDebugMode() {
-    return StreackLib.conf.getBoolean("debug", false);
+    return StreackLib.ENV.conf.getBoolean("debug", false);
   }
 }

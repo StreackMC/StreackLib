@@ -97,7 +97,7 @@ public class UpdateChecker {
     cancelCheck();
 
     CompletableFuture<Void> task = CompletableFuture.runAsync(() -> {
-      if (!StreackLib.conf.getBoolean("update-checker.enabled", true)) {
+      if (!StreackLib.ENV.conf.getBoolean("update-checker.enabled", true)) {
         logger.debug("更新检查已禁用，更新进程结束。");
         return;
       }
@@ -124,7 +124,7 @@ public class UpdateChecker {
           logger.info(String.format("发现新版本: %s (当前: %s)", latestVersion, currentVersion));
           logger.info("更新日志:\n" + changelog);
 
-          if (StreackLib.conf.getBoolean("update-checker.auto-download", false)) {
+          if (StreackLib.ENV.conf.getBoolean("update-checker.auto-download", false)) {
             downloadUpdate(downloadUrl, latestVersion);
           }
         } else {
@@ -212,7 +212,7 @@ public class UpdateChecker {
       logger.debug("更新链接：" + dlUrls.toString());
 
       // 准备目标文件夹
-      Path dataPath = StreackLib.dataPath.toPath(); // mcserver/plugins/StreackLib/
+      Path dataPath = StreackLib.ENV.dataPath.toPath(); // mcserver/plugins/StreackLib/
       Path pluginsFolder = dataPath.getParent(); // mcserver/plugins/
       Path updateFolder = pluginsFolder.resolve("update"); // mcserver/plugins/update/
 

@@ -76,8 +76,8 @@ public class HTTPServer extends NanoHTTPD {
     super(hostname, port);
     this.listenAddress = hostname + ":" + port;
     this.plugin = plugin;
-    this.MAX_URI = StreackLib.conf.getInt("http-server.max-uri-length", 2048);
-    this.MAX_FILE_SIZE = StreackLib.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
+    this.MAX_URI = StreackLib.ENV.conf.getInt("http-server.max-uri-length", 2048);
+    this.MAX_FILE_SIZE = StreackLib.ENV.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
   }
 
   /**
@@ -218,15 +218,15 @@ public class HTTPServer extends NanoHTTPD {
       }
     }
     // 没有请求处理器时
-    if (!StreackLib.conf.getBoolean("http-server.allow-file-transport", false)) {
+    if (!StreackLib.ENV.conf.getBoolean("http-server.allow-file-transport", false)) {
       // 文件传输未启用
       logger.debug(getServerFullName() + "请求#" + id + " 没有命中已注册的处理器，且文件传输已禁用。");
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
     }
     // 文件传递
     try {
-      SFile.mkdir(StreackLib.dataPath, "HTTPServer");
-      File root = new File(StreackLib.dataPath, "HTTPServer");
+      SFile.mkdir(StreackLib.ENV.dataPath, "HTTPServer");
+      File root = new File(StreackLib.ENV.dataPath, "HTTPServer");
       File reach = new File(root, uri).getCanonicalFile();
       logger.debug(getServerFullName() + "请求#" + id + " 正在获取文件 " + reach.getAbsolutePath());
       // 防止路径穿越

@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
 
-import org.apache.logging.log4j.util.InternalApi;
 import org.jetbrains.annotations.ApiStatus.Internal;
 
 import com.github.streackmc.StreackLib.bukkit.SBukkit;
@@ -38,16 +37,29 @@ public final class StreackLib {
   }
 
   static final Deque<Long> tickTimes = new ArrayDeque<>();
+  /** 当前TPS */
   public static double currentTPS = -1.0;
 
-  @InternalApi
-  public static SConfig conf;
-  @InternalApi
-  public static SConfig defaultConf;
-  @InternalApi
-  public static SConfig buildConf;
-  @InternalApi
-  public static File dataPath;
+  public static class ENV {
+    /** StreackLib的配置文件对象 */
+    public static SConfig conf;
+    /** StreackLib的默认配置文件对象 */
+    public static SConfig defaultConf;
+    /** StreackLib的构建信息对象 */
+    public static SConfig buildConf;
+    /** StreackLib的数据目录 */
+    public static File dataPath;
+    /** 服务器IP封禁列表 */
+    public static SConfig banIpList;
+    /** 服务器玩家封禁列表 */
+    public static SConfig banPlayerList;
+    /** 服务器白名单 */
+    public static SConfig whiteList;
+    /** 服务器配置文件 */
+    public static SConfig serverProperties;
+    /** 服务器OP列表 */
+    public static SConfig serverOP;
+  }
 
   private StreackLib() { // 禁止实例化
   }
@@ -93,7 +105,7 @@ public final class StreackLib {
    * @since 0.4.3
    */
   public static boolean isDebugMode() {
-    return conf.getBoolean("debug", false);
+    return ENV.conf.getBoolean("debug", false);
   }
 
   /**

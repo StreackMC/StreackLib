@@ -56,7 +56,20 @@ import com.moandjiezana.toml.TomlWriter;
  */
 public class SConfig {
 
+  /* ==========================================
+   * 常量
+   * ========================================== */
+
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
+
+  /** 支持的文件类型的标准化字符串 */
+  public final static class TYPES {
+    public final static String JSON = "json";
+    public final static String YAML = "yaml";
+    public final static String TOML = "toml";
+    public final static String INI = "ini";
+    public final static String PROPERTIES = "prop";
+  }
 
   public final static class EVENTS {
     /**

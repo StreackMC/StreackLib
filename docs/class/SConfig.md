@@ -2,10 +2,23 @@
 ## 前言
 这是一个自动配置文件处理器，可以：
 
-* JSON和YAML
+* 支持JSON和YAML等多种类型
 * 自动重载
 * 自动管理配置项
 * 缺省值配置
+
+**注意**：目前还不支持以下这种根数组的JSON,强行初始化会等效为一个空的JSON文件。
+
+```json
+[
+  {
+    "data": "hello"
+  },
+  {
+    "data": "world",
+  }
+]
+```
 
 ## 初始化
 要想使用：
@@ -16,6 +29,7 @@ import com.github.streackmc.StreackLib.utils.SConf;
 import com.github.streackmc.StreackLib.StreackLib;
 
 SConf conf = StreackLib.initConf(File 文件对象, String "文件类型");
+// 借助静态类 SConfig.TYPES 获取可用类型
 ```
 
 这样就获取了一个`SConf`对象。

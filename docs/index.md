@@ -49,7 +49,7 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * [StreackLib](./class/StreackLib.md)
 * [SEventCentral](./class/SEventCentral.md)
 * [HTTPServer](./class/HTTPServer.md)
-* [SConf](./class/SConf.md)
+* [SConfig](./class/SConfig.md)
 * [SFile](./class/SFile.md)
 
 #### Bukkit/Spigot/Paper

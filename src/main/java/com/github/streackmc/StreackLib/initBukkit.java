@@ -42,11 +42,7 @@ public class initBukkit extends JavaPlugin {
     pluginSelf = this;
     StreackLib.ENV.dataPath = this.getDataFolder();
     StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
-    StreackLib.ENV.banIpList = new SConfig(this.getDataPath().resolve("../../banned-ips.json"), "json");
-    StreackLib.ENV.banPlayerList = new SConfig(this.getDataPath().resolve("../../banned-players.json"), "json");
     StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
-    StreackLib.ENV.serverOP = new SConfig(this.getDataPath().resolve("../../ops.json"), "json");
-    StreackLib.ENV.whiteList = new SConfig(this.getDataPath().resolve("../../whitelist.json"), "json");
     logger.plugin = this;
     // 读取构建信息
     try {

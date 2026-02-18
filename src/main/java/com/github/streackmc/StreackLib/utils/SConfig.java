@@ -64,6 +64,13 @@ public class SConfig {
 
   /** 支持的文件类型的标准化字符串 */
   public final static class TYPES {
+    /**
+     * @apiNote 如果你尝试加载根数组文件，会被视作空文件。谨慎操作。
+     * 
+     *          <pre>
+     *          [{data: "abc"}, {data: "abc"}]
+     *          </pre>
+     */
     public final static String JSON = "json";
     public final static String YAML = "yaml";
     public final static String TOML = "toml";

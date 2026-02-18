@@ -49,16 +49,8 @@ public final class StreackLib {
     public static SConfig buildConf;
     /** StreackLib的数据目录 */
     public static File dataPath;
-    /** 服务器IP封禁列表 */
-    public static SConfig banIpList;
-    /** 服务器玩家封禁列表 */
-    public static SConfig banPlayerList;
-    /** 服务器白名单 */
-    public static SConfig whiteList;
     /** 服务器配置文件 */
     public static SConfig serverProperties;
-    /** 服务器OP列表 */
-    public static SConfig serverOP;
   }
 
   private StreackLib() { // 禁止实例化

@@ -39,21 +39,22 @@ public class initBukkit extends JavaPlugin {
     );
     saveDefaultConfig();
     // 填充共享变量
-    pluginSelf = this;
-    StreackLib.dataPath = this.getDataFolder();
-    StreackLib.conf = new SConfig(new File(StreackLib.dataPath, "config.yml"), "YAML");
     logger.plugin = this;
+    pluginSelf = this;
+    StreackLib.ENV.dataPath = this.getDataFolder();
+    StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
+    StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
     // 读取构建信息
     try {
-      StreackLib.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
-      StreackLib.defaultConf = new SConfig(manager.getResourceAsFile("/config.yml"), "yml");
-      CONFIG_VERSION = StreackLib.defaultConf.getLong("version", -1L);
+      StreackLib.ENV.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
+      StreackLib.ENV.defaultConf = new SConfig(manager.getResourceAsFile("/config.yml"), "yml");
+      CONFIG_VERSION = StreackLib.ENV.defaultConf.getLong("version", -1L);
     } catch (Exception e) {
       logger.severe("未能获取构建信息：" + e.getLocalizedMessage());
       e.printStackTrace();
       this.getPluginLoader().disablePlugin(this);
     } finally {
-      logger.debug(String.format("构建信息：\nversion = %s \nbuild.type = %s \nconf.CONFIG_VERISON = %s", StreackLib.buildConf.getString("version"), System.getProperty("build.type"), CONFIG_VERSION));
+      logger.debug(String.format("构建信息：\nversion = %s \nbuild.type = %s \nconf.CONFIG_VERISON = %s", StreackLib.ENV.buildConf.getString("version"), System.getProperty("build.type"), CONFIG_VERSION));
     }
     if (manager.isPreviewBuild()) {
       getLogger().warning("当前StreackLib为预览版构建，可能存在意料之外的错误。如有发现请及时提出Issue以便我们改进！→ https://github.com/StreackMC/StreackLib/issues/new ");
@@ -94,6 +95,7 @@ public class initBukkit extends JavaPlugin {
         SEventCentral.broadcastEvent(StreackLib.EVENTS.LIVE_TPS_REFRESHED)
             .set("TPS", StreackLib.currentTPS)
             .broadcast();
+        logger.debug("Current TPS:%s", StreackLib.currentTPS);
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
     // 完成
@@ -106,7 +108,7 @@ public class initBukkit extends JavaPlugin {
 
   /* 载入配置 */
   private void LoadConf() {
-    StreackLib.conf.startAutoReload();
+    StreackLib.ENV.conf.startAutoReload();
     // debug mode
     if (StreackLib.isDebugMode()) {
       logger.warn("调试模式已启用，你会因此收到更多消息");
@@ -116,15 +118,15 @@ public class initBukkit extends JavaPlugin {
 
   /* 检查配置文件更新 */
   private void CheckConfigUpdate() {
-    logger.info("正在检查配置文件：" + new File(StreackLib.dataPath, "config.yml").getPath());
-    if (StreackLib.conf.getInt("version", 0) > CONFIG_VERSION) {
-      logger.warn("你的配置文件版本过高？请勿自行修改或强行应用高版本配置文件，否则可能引发意料之外的错误。当前版本：" + StreackLib.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
+    logger.info("正在检查配置文件：" + new File(StreackLib.ENV.dataPath, "config.yml").getPath());
+    if (StreackLib.ENV.conf.getInt("version", 0) > CONFIG_VERSION) {
+      logger.warn("你的配置文件版本过高？请勿自行修改或强行应用高版本配置文件，否则可能引发意料之外的错误。当前版本：" + StreackLib.ENV.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
     }
-    if (StreackLib.conf.getInt("version", 0) < CONFIG_VERSION) {
-      logger.severe("注意：你的配置文件版本过低，请参阅config.new.yml修改你的配置文件；现在未配置的项将使用默认值。当前版本：" + StreackLib.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
+    if (StreackLib.ENV.conf.getInt("version", 0) < CONFIG_VERSION) {
+      logger.severe("注意：你的配置文件版本过低，请参阅config.new.yml修改你的配置文件；现在未配置的项将使用默认值。当前版本：" + StreackLib.ENV.conf.getInt("version", 0) + "，适配版本：" + CONFIG_VERSION);
       try(
         InputStream is = this.getResource("config.yml");
-        OutputStream os = Files.newOutputStream(new File(StreackLib.dataPath, "config.new.yml").toPath());
+        OutputStream os = Files.newOutputStream(new File(StreackLib.ENV.dataPath, "config.new.yml").toPath());
       ) {
           byte[] buffer = new byte[1024];
           int length;
@@ -141,10 +143,10 @@ public class initBukkit extends JavaPlugin {
 
   /* HTTPServer */
   private void EnableHTTPServer() {
-    String host = StreackLib.conf.getString("http-server.host", "0.0.0.0");
-    int port = StreackLib.conf.getInt("http-server.port", 8080);
+    String host = StreackLib.ENV.conf.getString("http-server.host", "0.0.0.0");
+    int port = StreackLib.ENV.conf.getInt("http-server.port", 8080);
     logger.info("处理模块：HTTPServer");
-    if (StreackLib.conf.getBoolean("http-server.enabled", false)) {
+    if (StreackLib.ENV.conf.getBoolean("http-server.enabled", false)) {
       httpServer = new HTTPServer(host, port, this);
       httpServer.startServer();
       logger.info("HTTP 服务器已启动于 " + host + ":" + port);

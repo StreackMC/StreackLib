@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -46,7 +47,7 @@ import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
 
 /**
- * 高性能多格式（json/yaml/toml/xml/ini）配置中心。
+ * 高性能多格式（json/yaml/toml/xml/ini/prop）配置中心。
  * 支持运行时热加载与严格类型读写。
  *
  * @author kdxiaoyi
@@ -55,14 +56,40 @@ import com.moandjiezana.toml.TomlWriter;
  */
 public class SConfig {
 
+  /* ==========================================
+   * 常量
+   * ========================================== */
+
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
+
+  /** 支持的文件类型的标准化字符串 */
+  public final static class TYPES {
+    /**
+     * @apiNote 如果你尝试加载根数组文件，会被视作空文件。谨慎操作。
+     * 
+     *          <pre>
+     *          [{data: "abc"}, {data: "abc"}]
+     *          </pre>
+     */
+    public final static String JSON = "json";
+    public final static String YAML = "yaml";
+    public final static String TOML = "toml";
+    public final static String INI = "ini";
+    public final static String PROPERTIES = "prop";
+  }
 
   public final static class EVENTS {
     /**
      * 配置文件发生改变
      * @apiNote 仅由自动重载触发
+    */
+   public final static String CHANGED = "streacklib.sconf:changed";
+   /**
+     * 配置文件格式错误
+     * @param exception {Exception} 原始错误数据
+     * @param msg {String} 错误信息
      */
-    public final static String CHANGED = "streacklib.sconf:changed";
+    public final static String WRONG_FORMAT = "streacklib.sconf:wrong_format";
   }
 
   /* ==========================================
@@ -71,8 +98,9 @@ public class SConfig {
 
   // formats
   private enum ConfigType {
-    JSON, YAML, TOML, INI
+    JSON, YAML, TOML, INI, PROPERTIES
   }
+
   // file lock
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private volatile Map<String, Object> cache = new ConcurrentHashMap<>();
@@ -87,8 +115,9 @@ public class SConfig {
 
   /**
    * 构造配置对象
-   * @param file 配置文件
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param file  配置文件
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @throws UnsupportedOperationException 不支持的格式
    */
   public SConfig(File file, String ctype) {
@@ -99,8 +128,9 @@ public class SConfig {
 
   /**
    * 构造配置对象
-   * @param file 配置文件
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param file  配置文件
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -112,11 +142,12 @@ public class SConfig {
 
   /**
    * 构造临时配置对象
-   * @param conf 配置文件内容原始来源
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param conf   配置文件内容原始来源
+   * @param ctype  格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
-   * @throws IOException 读写错误
+   * @throws IOException                   读写错误
    * @see #SConfig(File, String)
    * @since 0.4.4
    */
@@ -132,8 +163,9 @@ public class SConfig {
 
   /**
    * 构造配置对象
-   * @param path 配置文件路径
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini（大小写不敏感）
+   * 
+   * @param path  配置文件路径
+   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -144,7 +176,8 @@ public class SConfig {
   }
 
   private static ConfigType parseType(String ctype) {
-    if (ctype == null) throw new IllegalArgumentException("ctype 不能为空");
+    if (ctype == null)
+      throw new IllegalArgumentException("ctype 不能为空");
     switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
       case "json":
         return ConfigType.JSON;
@@ -156,7 +189,12 @@ public class SConfig {
         return ConfigType.TOML;
       case "ini":
         return ConfigType.INI;
-      default: throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
+      case "properties":
+        return ConfigType.PROPERTIES;
+      case "prop":
+        return ConfigType.PROPERTIES;
+      default:
+        throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
     }
   }
 
@@ -476,7 +514,7 @@ public class SConfig {
   public void remove(String key) {
     lock.writeLock().lock();
     try {
-      int lastDot = key.lastIndexOf(NESTED_SEP);
+      int lastDot = getIndexOfNormalDot(key);
       if (lastDot == -1) {
         cache.remove(key);
       } else {
@@ -493,22 +531,61 @@ public class SConfig {
   }
 
   /* ==========================================
-   * 工具
+   * 嵌套路径处理
    * ========================================== */
 
-  /** @return 当前配置文件对象 */
-  public File getFile() {
-    return conf;
+  /**
+   * 获取第一个未被转义的 . 的位置，找不到返回 -1
+   */
+  private static final int getIndexOfNormalDot(String key) {
+    if (key == null)
+      return -1;
+    boolean escaped = false; // 表示当前字符是否被前一个反斜杠转义
+    for (int i = 0; i < key.length(); i++) {
+      char c = key.charAt(i);
+      if (c == '\\') {
+        // 遇到反斜杠：翻转转义状态（只有未转义的反斜杠才能转义下一个字符）
+        escaped = !escaped;
+      } else {
+        if (c == '.' && !escaped) {
+          return i; // 找到未被转义的点
+        }
+        // 普通字符或已被转义的点：重置转义状态
+        escaped = false;
+      }
+    }
+    return -1; // 未找到
   }
 
-  private static final String NESTED_SEP = ".";
+  /**
+   * 支持转义 . 的切割路径
+   */
+  private static List<String> splitWithNormalDot(String key) {
+    List<String> parts = new ArrayList<>();
+    int start = 0;
+    boolean escaped = false;
+    for (int i = 0; i < key.length(); i++) {
+      char c = key.charAt(i);
+      if (c == '\\') {
+        escaped = !escaped;
+      } else {
+        if (c == '.' && !escaped) {
+          parts.add(key.substring(start, i).replace("\\", "")); // 去除转义符
+          start = i + 1;
+        }
+        escaped = false;
+      }
+    }
+    parts.add(key.substring(start).replace("\\", ""));
+    return parts;
+  }
 
   /**
    * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
    */
   @SuppressWarnings("unchecked")
   private Object getNested(String key) {
-    int dot = key.indexOf(NESTED_SEP);
+    int dot = getIndexOfNormalDot(key);
     if (dot == -1)
       return cache.get(key);
 
@@ -527,7 +604,7 @@ public class SConfig {
    */
   @SuppressWarnings("unchecked")
   private Object drillDown(Map<String, Object> map, String path) {
-    int dot = path.indexOf(NESTED_SEP);
+    int dot = getIndexOfNormalDot(path);
     if (dot == -1)
       return map.get(path);
 
@@ -546,14 +623,14 @@ public class SConfig {
   */
   @SuppressWarnings("unchecked")
   private Map<String, Object> ensureNestedMap(String key) {
-    int lastDot = key.lastIndexOf(NESTED_SEP);
+    int lastDot = getIndexOfNormalDot(key);
     if (lastDot == -1)
       return cache;
 
-    String[] parts = key.split("\\.");
+    List<String> parts = splitWithNormalDot(key);
     Map<String, Object> current = cache;
-    for (int i = 0; i < parts.length - 1; i++) {
-      String part = parts[i];
+    for (int i = 0; i < parts.size() - 1; i++) {
+      String part = parts.get(i);
       Object next = current.get(part);
       if (next == null) {
         Map<String, Object> newMap = new LinkedHashMap<>();
@@ -580,7 +657,7 @@ public class SConfig {
       return;
     }
 
-    int lastDot = key.lastIndexOf(NESTED_SEP);
+    int lastDot = getIndexOfNormalDot(key);
     String lastKey = (lastDot == -1) ? key : key.substring(lastDot + 1);
     targetMap.put(lastKey, value);
   }
@@ -625,6 +702,8 @@ public class SConfig {
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             break;
+          } catch (Exception ignored/* 防止假死 */) {
+            continue;
           }
         }
       }, "conf-reload-" + conf.getName());
@@ -659,14 +738,14 @@ public class SConfig {
   }
 
   /* ==========================================
-  * 读写
+  * 读
   * ========================================== */
  
  /** 立即重新加载文件到缓存 */
   public void reload() {
     load();
   }
-  
+
   /**
    * 加载文件到缓存
    */
@@ -684,7 +763,7 @@ public class SConfig {
           case JSON:
             loaded = loadJson(in);
             break;
-            case YAML:
+          case YAML:
             loaded = loadYaml(in);
             break;
           case TOML:
@@ -693,6 +772,9 @@ public class SConfig {
           case INI:
             loaded = loadIni(in);
             break;
+          case PROPERTIES:
+            loaded = loadProperties(in);
+            break;
           default:
             throw new UnsupportedOperationException("不支持的文件类型：" + type);
         }
@@ -700,10 +782,32 @@ public class SConfig {
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
       lastModified = conf.lastModified();
     } catch (IOException e) {
+      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
+          .set("exception", e)
+          .set("msg", e.getLocalizedMessage())
+          .broadcast();
       throw new UncheckedIOException("无法加载配置文件", e);
     } finally {
       lock.writeLock().unlock();
     }
+  }
+
+  /**
+   * 加载 properties 格式文件，将扁平的键值对转换为嵌套 Map
+   */
+  private Map<String, Object> loadProperties(InputStream in) throws IOException {
+    Properties props = new Properties();
+    // 使用 UTF-8 读取，以支持非 ISO-8859-1 字符
+    try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+      props.load(reader);
+    }
+    Map<String, Object> root = new LinkedHashMap<>();
+    for (String key : props.stringPropertyNames()) {
+      String value = props.getProperty(key);
+      // 利用现有嵌套路径工具构建嵌套结构
+      putNestedRaw(root, key, value);
+    }
+    return root;
   }
 
   private Map<String, Object> loadJson(InputStream in) {
@@ -745,6 +849,10 @@ public class SConfig {
     return root;
   }
 
+  /* ==========================================
+  * 写
+  * ========================================== */
+
   /**
    * 将缓存写入磁盘
    */
@@ -765,6 +873,9 @@ public class SConfig {
           case INI:
             flushIni(w);
             break;
+          case PROPERTIES:
+            flushProperties(w);
+            break;
           default:
             throw new UnsupportedOperationException("不支持的文件类型：" + type);
         }
@@ -775,6 +886,12 @@ public class SConfig {
     } finally {
       lock.writeLock().unlock();
     }
+  }
+
+  private void flushProperties(Writer w) throws IOException {
+    Properties props = new Properties();
+    flattenMap("", cache, props);
+    props.store(w, null);
   }
 
   private void flushJson(Writer w) {
@@ -806,6 +923,68 @@ public class SConfig {
       }
     }
     ini.store(w);
+  }
+
+  /* ==========================================
+  * 工具方法
+  * ========================================== */
+
+  /** @return 当前配置文件对象 */
+  public File getFile() {
+    return conf;
+  }
+
+  /**
+   * 将嵌套 Map 递归展开为扁平的键值对，存入 Properties
+   * 
+   * @param prefix 当前路径前缀（用点分隔）
+   * @param map    当前层级的 Map
+   * @param props  目标 Properties
+   */
+  @SuppressWarnings("unchecked")
+  private void flattenMap(String prefix, Map<String, Object> map, Properties props) {
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      String key = entry.getKey();
+      String fullKey = prefix.isEmpty() ? key : prefix + "." + key;
+      Object value = entry.getValue();
+      if (value instanceof Map) {
+        // 递归处理子 Map
+        flattenMap(fullKey, (Map<String, Object>) value, props);
+      } else {
+        // 非 Map 类型转换为字符串存入
+        props.setProperty(fullKey, value == null ? "" : String.valueOf(value));
+      }
+    }
+  }
+
+  /**
+   * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
+   */
+  private void putNestedRaw(Map<String, Object> root, String key, Object value) {
+    int lastDot = getIndexOfNormalDot(key);
+    if (lastDot == -1) {
+      root.put(key, value);
+      return;
+    }
+    List<String> parts = splitWithNormalDot(key);
+    Map<String, Object> current = root;
+    for (int i = 0; i < parts.size() - 1; i++) {
+      String part = parts.get(i);
+      Object next = current.get(part);
+      if (next == null) {
+        Map<String, Object> newMap = new LinkedHashMap<>();
+        current.put(part, newMap);
+        current = newMap;
+      } else if (next instanceof Map) {
+        current = (Map<String, Object>) next;
+      } else {
+        // 类型冲突，无法创建嵌套结构，直接放入根（保持兼容，但通常不会发生）
+        root.put(key, value);
+        return;
+      }
+    }
+    String lastKey = parts.get(parts.size() - 1);
+    current.put(lastKey, value);
   }
 
   /** 原子替换文件：先写临时文件，再 move */

@@ -18,6 +18,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
+import com.github.streackmc.StreackLib.utils.MCColor;
 import com.github.streackmc.StreackLib.utils.SConfig;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.github.streackmc.StreackLib.utils.SFile;
@@ -38,9 +39,9 @@ public class debugentry {
   @VisibleForTesting
   public static void main(String[] args) {
     try {
-      StreackLib.conf = new SConfig("debug: true", "yaml", "c");
-      StreackLib.defaultConf = StreackLib.conf;
-      StreackLib.buildConf = new SConfig("version: 0.0.1", "yaml", "v");
+      StreackLib.ENV.conf = new SConfig("debug: true", "yaml", "c");
+      StreackLib.ENV.defaultConf = StreackLib.ENV.conf;
+      StreackLib.ENV.buildConf = new SConfig("version: 0.0.1", "yaml", "v");
     } catch (Exception e) {
       err("无法初始化测试！" + e.getLocalizedMessage());
       e.printStackTrace();
@@ -56,7 +57,7 @@ public class debugentry {
       logger.severe("severe from logger.java");
       logger.debug("debug from logger.java");
     } catch (Exception e) {
-      err("[!] Caught Error @[ebugentry.test/SEventCentral] :" + e.getLocalizedMessage());
+      err("[!] Caught Error @[ebugentry.test/logger] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
     info("======= SEventCentral.java =======");
@@ -81,6 +82,13 @@ public class debugentry {
       test_SFile(new File("./target/debugCI-tmp/SFileTest"));
     } catch (Exception e) {
       err("[!] Caught Error @[debugentry.test/SFile] :" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
+    info("========== MCColor.java ==========");
+    try {
+      test_MCColor();
+    } catch (Exception e) {
+      err("[!] Caught Error @[debugentry.test/MCColor] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");
@@ -323,10 +331,18 @@ public class debugentry {
       info("监听到测试事件，模式：永久。" + event.getTimestamp() + "\nCaller = " + event.getCaller());
     });
     SEventCentral.addWeakEventListener(STR, event -> {
-      info("监听到测试事件，模式：临时。"  + event.getTimestamp() + "\nCaller = " + event.getCaller());
+      info("监听到测试事件，模式：临时。" + event.getTimestamp() + "\nCaller = " + event.getCaller());
     });
     info("正在触发事件……");
     SEventCentral.broadcastEvent(STR, null).broadcast();
+  }
+  
+  private static void test_MCColor() throws Exception {
+    info("[&aHello&bWorld] 消除     → " + MCColor.remove("[&aHello&bWorld]"));
+    info("[&aHello&bWorld] 转义     → " + MCColor.parse("[&aHello&bWorld]"));
+    info("[§aHello§bWorld] 转HTML   → " + MCColor.toHtml("[§aHello§bWorld]"));
+    info("[&#ffcd1aH&#ffbb29e&#ffaa37l&#ff9846l&#ff8654o&#ff7563W&#ff6371o&#ff5180r&#ff408el&#ff2e9dd] 转义     → " + MCColor.toHtml("[&#ffcd1aH&#ffbb29e&#ffaa37l&#ff9846l&#ff8654o&#ff7563W&#ff6371o&#ff5180r&#ff408el&#ff2e9dd]"));
+    info("[§#ffcd1aH§#ffbb29e§#ffaa37l§#ff9846l§#ff8654o§#ff7563W§#ff6371o§#ff5180r§#ff408el§#ff2e9dd] 转为HTML → " + MCColor.toHtml("[§#ffcd1aH§#ffbb29e§#ffaa37l§#ff9846l§#ff8654o§#ff7563W§#ff6371o§#ff5180r§#ff408el§#ff2e9dd]"));
   }
 
   /**
@@ -336,6 +352,6 @@ public class debugentry {
    */
   @Deprecated
   public static boolean isDebugMode() {
-    return StreackLib.conf.getBoolean("debug", false);
+    return StreackLib.ENV.conf.getBoolean("debug", false);
   }
 }

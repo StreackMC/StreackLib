@@ -75,7 +75,7 @@ public class manager {
    * @return 版本信息
    */
   public static String getBuildVersion() {
-    return StreackLib.buildConf.getString("version", null);
+    return StreackLib.ENV.buildConf.getString("version", null);
   }
 
   /**

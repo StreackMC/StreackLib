@@ -65,3 +65,15 @@ server.stopServer();
 ```
 
 > 请注意即使你新建了一个实例，其部分行为仍受StreackLib的配置文件控制。
+
+### IP封禁
+HTTPServer继承了原版的`ban-ips.json`中的配置，因此如果一个IP在原版中被封禁，那么HTTPServer也会自动拒绝该请求。
+你可使用以下代码来判断一个IP是否被封禁：
+
+```java
+boolean status = (HTTPServer.detailBannedIp("1.2.3.4") ==/* 这个方法返回一个字符串，如果是null就是正常 */ null);
+// 这是一个静态方法，无需实例化。
+```
+
+被拒绝的请求会返回“HTTP 403”错误并且不打印连接日志。
+错误详情继承`ban-ips.json`中的设置。

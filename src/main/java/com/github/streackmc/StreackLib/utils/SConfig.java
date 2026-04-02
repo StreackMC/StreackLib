@@ -581,25 +581,35 @@ public class SConfig {
   /**
    * 支持转义 . 的切割路径
    */
-  private static List<String> splitWithNormalDot(String key) {
+private static List<String> splitWithNormalDot(String key) {
     List<String> parts = new ArrayList<>();
-    int start = 0;
-    boolean escaped = false;
+    StringBuilder sb = new StringBuilder();
     for (int i = 0; i < key.length(); i++) {
-      char c = key.charAt(i);
-      if (c == '\\') {
-        escaped = !escaped;
-      } else {
-        if (c == '.' && !escaped) {
-          parts.add(key.substring(start, i).replace("\\", "")); // 去除转义符
-          start = i + 1;
+        char c = key.charAt(i);
+        if (c == '\\') {
+            // 检查下一个字符是否是点号（转义点号）
+            if (i + 1 < key.length() && key.charAt(i + 1) == '.') {
+                // 跳过反斜杠，将点号作为普通字符加入当前段（不触发分割）
+                sb.append('.');
+                i++; // 跳过点号
+                continue;
+            } else {
+                // 其他情况：保留反斜杠本身
+                sb.append('\\');
+                continue;
+            }
         }
-        escaped = false;
-      }
+        if (c == '.') {
+            // 未转义的点号，分割
+            parts.add(sb.toString());
+            sb.setLength(0);
+        } else {
+            sb.append(c);
+        }
     }
-    parts.add(key.substring(start).replace("\\", ""));
+    parts.add(sb.toString());
     return parts;
-  }
+}
 
   /**
    * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null

@@ -62,17 +62,36 @@ public class SConfig {
 
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
 
-  /** 支持的文件类型的标准化字符串 */
+  /** 支持的文件类型的标准化字符串。所有字符串都不区分大小写。 */
   public final static class TYPES {
     /**
-     * @apiNote 如果你尝试加载根数组文件，会被视作空文件。谨慎操作。
+     * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 @link {TYPES.JSONC}
+     * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 中；在 0.4.6 及更早版本中则会被忽略。
      * 
      *          <pre>
      *          [{data: "abc"}, {data: "abc"}]
      *          </pre>
      */
     public final static String JSON = "json";
+    /**
+     * 解析宽松的JSON，例如注释和尾随逗号。
+     * @since 0.4.7
+     * @apiNote 写入时会覆盖并丢失全部注释
+     * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 。
+     * 
+     *          <pre>
+     *          [{data: "abc"}, {data: "abc"}]
+     *          </pre>
+     */
+    public final static String JSONC = "jsonc";
+    /**
+     * 亦作 @link {TYPES.YML}
+     */
     public final static String YAML = "yaml";
+    /**
+     * 亦作 @link {TYPES.YAML}
+     */
+    public final static String YML = "yml";
     public final static String TOML = "toml";
     public final static String INI = "ini";
     public final static String PROPERTIES = "prop";
@@ -96,9 +115,9 @@ public class SConfig {
    * 初始化与变量
    * ========================================== */
 
-  // formats
+  /** 内部使用的类型关键字，这样是考虑到 TYPES 里面可能有别名的情况 */
   private enum ConfigType {
-    JSON, YAML, TOML, INI, PROPERTIES
+    JSON, YAML, TOML, INI, PROPERTIES, JSONC
   }
 
   // file lock
@@ -117,7 +136,7 @@ public class SConfig {
    * 构造配置对象
    * 
    * @param file  配置文件
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
+   * @param ctype 格式，支持列表见于 @link {TYPES}
    * @throws UnsupportedOperationException 不支持的格式
    */
   public SConfig(File file, String ctype) {
@@ -130,7 +149,7 @@ public class SConfig {
    * 构造配置对象
    * 
    * @param file  配置文件
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
+   * @param ctype 格式，支持列表见于 @link {TYPES}
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -144,7 +163,7 @@ public class SConfig {
    * 构造临时配置对象
    * 
    * @param conf   配置文件内容原始来源
-   * @param ctype  格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
+   * @param ctype  格式，支持列表见于 @link {TYPES}
    * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException                   读写错误
@@ -165,7 +184,7 @@ public class SConfig {
    * 构造配置对象
    * 
    * @param path  配置文件路径
-   * @param ctype 格式，支持 json/yml/yaml/toml/ini/properties/prop（大小写不敏感）
+   * @param ctype 格式，支持列表见于 @link {TYPES}
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -181,6 +200,8 @@ public class SConfig {
     switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
       case "json":
         return ConfigType.JSON;
+      case "jsonc":
+        return ConfigType.JSONC;
       case "yml":
         return ConfigType.YAML;
       case "yaml":
@@ -763,6 +784,9 @@ public class SConfig {
           case JSON:
             loaded = loadJson(in);
             break;
+          case JSONC:
+            loaded = loadJsonc(in);
+            break;
           case YAML:
             loaded = loadYaml(in);
             break;
@@ -816,6 +840,32 @@ public class SConfig {
       Type mapType = new TypeToken<Map<String, Object>>(){}.getType();
       return new Gson().fromJson(el, mapType);
     }
+    // 处理根数组：将其包装为单键 Map
+    if (el.isJsonArray()) {
+      Map<String, Object> wrapper = new LinkedHashMap<>();
+      wrapper.put("_root_array", el.getAsJsonArray());
+      return wrapper;
+    }
+    return new HashMap<>();
+  }
+
+  private Map<String, Object> loadJsonc(InputStream in) {
+    // 启用 lenient 模式，支持注释、尾随逗号等
+    Gson gson = new GsonBuilder().setLenient().create();
+    try (InputStreamReader reader = new InputStreamReader(in)) {
+      JsonElement el = gson.fromJson(reader, JsonElement.class);
+      if (el.isJsonObject()) {
+        Type mapType = new TypeToken<Map<String, Object>>(){}.getType();
+        return gson.fromJson(el, mapType);
+      }
+      // 处理根数组：将其包装为单键 Map
+      if (el.isJsonArray()) {
+        Map<String, Object> wrapper = new LinkedHashMap<>();
+        wrapper.put("_root_array", el.getAsJsonArray());
+        return wrapper;
+      }
+    } catch (Exception ignore) {
+    }
     return new HashMap<>();
   }
 
@@ -864,6 +914,9 @@ public class SConfig {
           case JSON:
             flushJson(w);
             break;
+          case JSONC:
+            flushJsonc(w);
+            break;
           case YAML:
             flushYaml(w);
             break;
@@ -896,7 +949,26 @@ public class SConfig {
 
   private void flushJson(Writer w) {
     Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    gson.toJson(cache, w);
+    Object maybeArray = cache.get("_root_array");
+    if (cache.size() == 1 && maybeArray != null) {
+      // 符合条件，写作纯数组
+      gson.toJson(maybeArray, w);
+    } else {
+      // 直接写入
+      gson.toJson(cache, w);
+    }
+  }
+
+  private void flushJsonc(Writer w) {// 注释在读取时就被 GSON 抛弃，写回注释不现实
+    Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    Object maybeArray = cache.get("_root_array");
+    if (cache.size() == 1 && maybeArray != null) {
+      // 符合条件，写作纯数组
+      gson.toJson(maybeArray, w);
+    } else {
+      // 直接写入
+      gson.toJson(cache, w);
+    }
   }
 
   private void flushYaml(Writer w) {

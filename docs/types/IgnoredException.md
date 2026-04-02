@@ -1,4 +1,4 @@
-# `SFile`
+# `IgnoredException`
 这是一个已封装的`Throwable`，没有任何象征意义，没有任何特殊功能。
 最大的用处是“在`try...catch`里面插入「`break`」”
 

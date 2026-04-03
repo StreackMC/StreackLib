@@ -124,20 +124,7 @@ public final class StreackLib {
    * @since 0.4.4
    */
   public static String formatTime(@Nullable Long time, @Nullable String format) throws IllegalArgumentException {
-    long t = (time == null)
-        ? System.currentTimeMillis()
-        : time.longValue();
-    try {
-      Instant.ofEpochMilli(t);// 超范围会抛异常
-    } catch (DateTimeException e) {
-      throw new IllegalArgumentException("时间戳超出有效范围：" + t, e);
-    }
-    String f = (format == null || format.isEmpty())
-        ? "yyyy-MM-dd HH:mm:ss.SSSS"
-        : format;
-    return java.time.LocalDateTime
-        .ofInstant(java.time.Instant.ofEpochMilli(t), java.time.ZoneId.systemDefault())
-        .format(java.time.format.DateTimeFormatter.ofPattern(f));
+    return formatTime(time, format, java.time.ZoneId.systemDefault());
   }
 
   /**
@@ -169,7 +156,7 @@ public final class StreackLib {
         ? "yyyy-MM-dd HH:mm:ss.SSSS"
         : format;
     return java.time.LocalDateTime
-        .ofInstant(java.time.Instant.ofEpochMilli(t), java.time.ZoneId.systemDefault())
+        .ofInstant(java.time.Instant.ofEpochMilli(t), timezone)
         .format(java.time.format.DateTimeFormatter.ofPattern(f));
   }
 

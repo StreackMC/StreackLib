@@ -161,8 +161,8 @@ public class initBukkit extends JavaPlugin {
     }
   }
   private void DisableHTTPServer() {
-    if (httpServer != null) {
-      httpServer.stopServer();
+    if (StreackLib.httpServer != null) {
+      StreackLib.httpServer.stopServer();
     }
   }
 }

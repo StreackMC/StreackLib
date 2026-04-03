@@ -32,9 +32,9 @@ public final class StreackLib {
      * @param TPS double | 此刻的TPS
      * @see StreackLib#CURRENT_TPS
      * @see SBukkit#getServerTPS()
-     * @deprecated 0.4.7 起删除该事件
+     * @Deprecated 0.4.7 起删除该事件
      */
-    @deprecated
+    @Deprecated
     public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
   }
 

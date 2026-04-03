@@ -98,3 +98,12 @@ String v = conf.getString(String "key", "fallback");
 * long
 * boolen
 * List
+
+## 链式调用
+`putXXX()`和`remove()`系列方法均支持链式调用：
+
+```java
+conf.putString(String "key", "value")
+    .putString(String "section.key", "value");
+    .remove(String "deprecated");
+```

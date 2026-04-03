@@ -50,9 +50,6 @@ import com.google.gson.reflect.TypeToken;
 import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
 
-import de.pauleff.jnbt.api.ITag;
-import de.pauleff.jnbt.api.NBTFactory;
-
 /**
  * 高性能多格式（json/yaml/toml/xml/ini/prop）配置中心。
  * 支持运行时热加载与严格类型读写。
@@ -1191,19 +1188,6 @@ public class SConfig {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       throw new UnsupportedOperationException("尚未实现");
-      // 获取文件内容并转为SNBT
-      StringWriter sw = new StringWriter();
-      try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-        reader.transferTo(sw);
-      }
-      ITag<?> snbt = NBTFactory.parseFromSNBT(sw.toString());
-      Map<String, Object> result = new ConcurrentHashMap<>();
-
-      snbt.applyOperation((item) -> {
-        
-      });
-
-      return result;
     };
 
     @Override

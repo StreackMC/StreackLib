@@ -32,7 +32,7 @@ public final class StreackLib {
      * @param TPS double | 此刻的TPS
      * @see StreackLib#CURRENT_TPS
      * @see SBukkit#getServerTPS()
-     * @Deprecated 0.4.7 起删除该事件
+     * @deprecated 0.4.7 起删除该事件
      */
     @Deprecated
     public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
@@ -43,6 +43,7 @@ public final class StreackLib {
   /** 当前TPS */
   public static double currentTPS = -1.0;
 
+  /** StreackLib的环境信息 */
   public static class ENV {
     /** StreackLib的配置文件对象 */
     public static SConfig conf;

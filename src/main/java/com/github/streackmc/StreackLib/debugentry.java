@@ -347,7 +347,7 @@ public class debugentry {
 
   /**
    * @see #StreackLib.isDebugMode()
-   * @Deprecated 请使用StreackLib中的同名方法
+   * @deprecated 请使用StreackLib中的同名方法
    * @return 当前是否是调试模式
    */
   @Deprecated

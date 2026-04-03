@@ -230,7 +230,7 @@ public class SConfig {
    * @param key 目标配置项，没有自动新增
    * @param fallback 默认值，如果没有传入则为空字符串
    * @return 获取到的值
-   * @Deprecated
+   * @deprecated
    */
   @Deprecated
   @SuppressWarnings("unchecked")
@@ -254,7 +254,7 @@ public class SConfig {
    * @param <T> 可为String/List/Int/Number
    * @param key 目标配置项，没有自动新增
    * @param value 目标值
-   * @Deprecated
+   * @deprecated
    */
   @Deprecated
   public <T> void put(String key, T value) {

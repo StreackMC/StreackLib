@@ -92,8 +92,9 @@ String v = conf.getString(String "key", "fallback");
 
 我们支持以下类型：
 
-* String
-* Int
-* Float
-* Boolen
+* string
+* int
+* float
+* long
+* boolen
 * List

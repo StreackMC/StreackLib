@@ -361,6 +361,40 @@ public class SConfig {
     }
   }
 
+  // Float
+  /** 获取 Float，缺失返回 0L；支持嵌套 key，如 "server.port" */
+  public float getFloat(String key) {
+    return getFloat(key, 0F);
+  }
+  /** 获取 Float，缺失返回默认值；支持嵌套 key，如 "server.port" */
+  public float getFloat(String key, float def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(key); // 改为调用嵌套版本
+      if (v instanceof Number)
+        return ((Number) v).floatValue();
+      if (v instanceof String) {
+        try {
+          return Float.parseFloat((String) v);
+        } catch (NumberFormatException ignore) {
+        }
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /** 写入 Float；支持嵌套 key，如 "server.port" */
+  public void putFloat(String key, float value) {
+    lock.writeLock().lock();
+    try {
+      putNested(key, value); // 改为调用嵌套版本
+      flush();
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
   // Double
   /** 获取 double，缺失返回 0.0；支持嵌套 key，如 "server.port" */
   public double getDouble(String key) {

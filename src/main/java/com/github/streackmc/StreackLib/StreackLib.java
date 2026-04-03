@@ -56,10 +56,14 @@ public final class StreackLib {
     public static SConfig serverProperties;
   }
 
-  // 私有
+  // =====================    私有量    =====================
+
   private StreackLib() { // 禁止实例化
   }
+  /** TPS计算实现所用队列，其 size() 就是每秒TPS */
   static final Deque<Long> tickTimes = new ArrayDeque<>();
+  /** 唯一ID生成器 */
+  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
 
   // ===================== Class Caller =====================
 
@@ -169,7 +173,6 @@ public final class StreackLib {
         .format(java.time.format.DateTimeFormatter.ofPattern(f));
   }
 
-  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
   @Internal
   /**
    * 获取一个全局唯一的ID

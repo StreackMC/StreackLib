@@ -89,12 +89,16 @@ public class initBukkit extends JavaPlugin {
         StreackLib.tickTimes.addLast(now);
 
         // 移除 1 秒前的记录
-        while (!StreackLib.tickTimes.isEmpty() && now - StreackLib.tickTimes.peekFirst() > 1000) {
+        while (
+          !StreackLib.tickTimes.isEmpty()
+          // 处理1秒前的过期记录，含右边界不含左边界
+          && now - StreackLib.tickTimes.peekFirst() >= 1000
+        ) {
           StreackLib.tickTimes.pollFirst();
         }
 
         // 队列大小即为最近 1 秒的 tick 数（理想为 20）
-        StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size() * 100.0 / 100.0); // TODO:优化TPS计算逻辑
+        StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size());
         logger.debug("Current TPS:%s", StreackLib.currentTPS);
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次

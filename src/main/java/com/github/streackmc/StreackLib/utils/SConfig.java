@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -38,6 +39,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -65,7 +67,7 @@ public class SConfig {
   /** 支持的文件类型的标准化字符串。所有字符串都不区分大小写。 */
   public final static class TYPES {
     /**
-     * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 @link {TYPES.JSONC}
+     * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 {@link TYPES.JSONC}
      * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 中；在 0.4.6 及更早版本中则会被忽略。
      * 
      *          <pre>
@@ -85,11 +87,11 @@ public class SConfig {
      */
     public final static String JSONC = "jsonc";
     /**
-     * 亦作 @link {TYPES.YML}
+     * 亦作 {@link TYPES.YML}
      */
     public final static String YAML = "yaml";
     /**
-     * 亦作 @link {TYPES.YAML}
+     * 亦作 {@link TYPES.YAML}
      */
     public final static String YML = "yml";
     public final static String TOML = "toml";
@@ -136,7 +138,7 @@ public class SConfig {
    * 构造配置对象
    * 
    * @param file  配置文件
-   * @param ctype 格式，支持列表见于 @link {TYPES}
+   * @param ctype 格式，支持列表见于 {@link TYPES}
    * @throws UnsupportedOperationException 不支持的格式
    */
   public SConfig(File file, String ctype) {
@@ -149,7 +151,7 @@ public class SConfig {
    * 构造配置对象
    * 
    * @param file  配置文件
-   * @param ctype 格式，支持列表见于 @link {TYPES}
+   * @param ctype 格式，支持列表见于 {@link TYPES}
    * @throws UnsupportedOperationException 不支持的格式
    * @since 0.4.4
    */
@@ -160,10 +162,24 @@ public class SConfig {
   }
 
   /**
+   * 构造配置对象
+   * 
+   * @param path  配置文件路径
+   * @param ctype 格式，支持列表见于 {@link TYPES}
+   * @throws UnsupportedOperationException 不支持的格式
+   * @since 0.4.4
+   */
+  public SConfig(String path, String ctype) {
+    this.conf = new File(path);
+    this.type = parseType(ctype);
+    load();
+  }
+
+  /**
    * 构造临时配置对象
    * 
    * @param conf   配置文件内容原始来源
-   * @param ctype  格式，支持列表见于 @link {TYPES}
+   * @param ctype  格式，支持列表见于 {@link TYPES}
    * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException                   读写错误
@@ -181,17 +197,23 @@ public class SConfig {
   }
 
   /**
-   * 构造配置对象
+   * 构造临时配置对象
    * 
-   * @param path  配置文件路径
-   * @param ctype 格式，支持列表见于 @link {TYPES}
+   * @param rawData   配置文件内容原始来源，为Null时视作空数据
+   * @param ctype  格式，支持列表见于 {@link TYPES}
+   * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
-   * @since 0.4.4
+   * @throws IOException                   读写错误
+   * @see #SConfig(File, String)
+   * @since 0.4.7
    */
-  public SConfig(String path, String ctype) {
-    this.conf = new File(path);
+  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws Exception {
+    Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
     this.type = parseType(ctype);
-    load();
+    this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
+    // 将 Map 直接作为数据来源并写入
+    this.cache = rD;
+    flush();
   }
 
   private static ConfigType parseType(String ctype) {
@@ -562,6 +584,36 @@ public class SConfig {
     }
   }
 
+  // Section (SConfig)
+  /**
+   * 获取子配置段。
+   * <p>
+   * 该方法本质是对 {@link #getSection(String, Map)} 的再包装，自动封装结果
+   * <p>
+   * 新建的SConfig实例会使用临时文件
+   * 
+   * @param key    支持嵌套 key，如 "server"
+   * @param ctype  格式，支持列表见于 {@link TYPES}
+   * @param suffix 临时文件后缀，如 ".yml"，可为Null
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws IOException                   读写错误
+   * @see #SConfig(File, String)
+   * @since 0.4.7
+   */
+  public SConfig getSection(String key, String ctype, @Nullable String suffix) throws Exception {
+    return new SConfig(getSection(key), ctype, suffix);
+  }
+  /**
+   * 写入子配置段；支持嵌套 key，如 "server"
+   * <p>
+   * 该方法本质是对 {@link #putSection(String, Map)} 的再包装，自动提取 SConfig 的 rawData
+   */
+  public void putSection(String key, SConfig SectionConfig) {
+    putSection(key, SectionConfig.getRawData());
+  }
+
+  // 其它
+
   /**
    * 删除配置项；支持嵌套 key，如 "server.port"
    * 若路径不存在或中途类型不匹配，静默返回
@@ -583,6 +635,14 @@ public class SConfig {
     } finally {
       lock.writeLock().unlock();
     }
+  }
+
+  /**
+   * @apiNote 即使已启用自动重载，仍然建议先使用 {@link #reload()} 刷新数据，以免防止某些边缘情况。
+   * @return 当前已加载的数据
+   */
+  public Map<String, Object> getRawData() {
+    return cache;
   }
 
   /* ==========================================

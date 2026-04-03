@@ -39,7 +39,6 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
-import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -93,10 +92,12 @@ public class SConfig {
     /**
      * 亦作 {@link TYPES.YAML}
      */
-    public final static String YML = "yml";
+    public final static String YML = "yaml";
     public final static String TOML = "toml";
     public final static String INI = "ini";
     public final static String PROPERTIES = "prop";
+    /** Minecraft 的字符串形式 NBT (SNBT) */
+    public final static String SNBT = "snbt";
   }
 
   public final static class EVENTS {
@@ -117,22 +118,19 @@ public class SConfig {
    * 初始化与变量
    * ========================================== */
 
-  /** 内部使用的类型关键字，这样是考虑到 TYPES 里面可能有别名的情况 */
-  private enum ConfigType {
-    JSON, YAML, TOML, INI, PROPERTIES, JSONC
-  }
-
   // file lock
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   private volatile Map<String, Object> cache = new ConcurrentHashMap<>();
   private volatile long lastModified = 0;
+
   // auto reload
   private WatchService watchService;
   private Thread watchThread;
   private volatile boolean watching = false;
+
   // conf meta
   private final File conf;
-  private final ConfigType type;
+  private final Backend confHandler;
 
   /**
    * 构造配置对象
@@ -143,7 +141,7 @@ public class SConfig {
    */
   public SConfig(File file, String ctype) {
     this.conf = file;
-    this.type = parseType(ctype);
+    this.confHandler = this.parseType(ctype);
     load();
   }
 
@@ -157,7 +155,7 @@ public class SConfig {
    */
   public SConfig(Path file, String ctype) {
     this.conf = file.toFile();
-    this.type = parseType(ctype);
+    this.confHandler = this.parseType(ctype);
     load();
   }
 
@@ -171,7 +169,7 @@ public class SConfig {
    */
   public SConfig(String path, String ctype) {
     this.conf = new File(path);
-    this.type = parseType(ctype);
+    this.confHandler = this.parseType(ctype);
     load();
   }
 
@@ -187,7 +185,7 @@ public class SConfig {
    * @since 0.4.4
    */
   public SConfig(String conf, String ctype, @Nullable String suffix) throws Exception {
-    this.type = parseType(ctype);
+    this.confHandler = this.parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
     try (Writer w = Files.newBufferedWriter(this.conf.toPath(), StandardCharsets.UTF_8)) {
       w.write(conf);
@@ -209,33 +207,35 @@ public class SConfig {
    */
   public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws Exception {
     Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
-    this.type = parseType(ctype);
+    this.confHandler = this.parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
     // 将 Map 直接作为数据来源并写入
     this.cache = rD;
     flush();
   }
 
-  private static ConfigType parseType(String ctype) {
+  private Backend parseType(String ctype) {
     if (ctype == null)
       throw new IllegalArgumentException("ctype 不能为空");
     switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
       case "json":
-        return ConfigType.JSON;
+        return new BackendJSON();
       case "jsonc":
-        return ConfigType.JSONC;
+        return new BackendJSONc();
       case "yml":
-        return ConfigType.YAML;
+        return new BackendYaml();
       case "yaml":
-        return ConfigType.YAML;
+        return new BackendYaml();
       case "toml":
-        return ConfigType.TOML;
+        return new BackendToml();
       case "ini":
-        return ConfigType.INI;
+        return new BackendINI();
       case "properties":
-        return ConfigType.PROPERTIES;
+        return new BackendProperties();
       case "prop":
-        return ConfigType.PROPERTIES;
+        return new BackendProperties();
+      case "snbt":
+        return new BackendSNBT();
       default:
         throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
     }
@@ -862,14 +862,49 @@ private static List<String> splitWithNormalDot(String key) {
     return watching;
   }
 
-  /* ==========================================
-  * 读
-  * ========================================== */
- 
- /** 立即重新加载文件到缓存 */
+  /*
+   * ==========================================
+   * 后端读写 路由和interface
+   * ==========================================
+   */
+
+  /** 立即重新加载文件到缓存 */
   public void reload() {
     load();
   }
+
+ /**
+  * 将缓存写入磁盘
+  */
+ private void flush() {
+   lock.writeLock().lock();
+   Path tempPath = null;
+   try {
+     logger.debug("SConfig#%s 正在写入配置文件", INSTANCE_ID);
+     Path targetPath = conf.toPath();
+     tempPath = Files.createTempFile(targetPath.getParent(), targetPath.getFileName().toString(),".tmp");
+     try (Writer writer = Files.newBufferedWriter(tempPath, StandardCharsets.UTF_8)) {
+       confHandler.flush(writer);
+     }
+     // 原子移动
+     Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING,
+         StandardCopyOption.ATOMIC_MOVE);
+     lastModified = conf.lastModified();
+   } catch (Exception e) {
+     // 清理临时文件
+     if (tempPath != null) {
+       try {
+         Files.deleteIfExists(tempPath);
+       } catch (IOException cleanupEx) {
+         // 记录日志但不影响主异常
+         logger.debug("清理临时文件失败: {}", cleanupEx.getMessage());
+       }
+     }
+     throw new RuntimeException("无法写入配置文件", e);
+   } finally {
+     lock.writeLock().unlock();
+   }
+ }
 
   /**
    * 加载文件到缓存
@@ -884,83 +919,61 @@ private static List<String> splitWithNormalDot(String key) {
       Map<String, Object> loaded;
       try (InputStream in = new FileInputStream(conf)) {
         logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
-        switch (type) {
-          case JSON:
-            loaded = loadJson(in);
-            break;
-          case JSONC:
-            loaded = loadJsonc(in);
-            break;
-          case YAML:
-            loaded = loadYaml(in);
-            break;
-          case TOML:
-            loaded = loadToml(in);
-            break;
-          case INI:
-            loaded = loadIni(in);
-            break;
-          case PROPERTIES:
-            loaded = loadProperties(in);
-            break;
-          default:
-            throw new UnsupportedOperationException("不支持的文件类型：" + type);
-        }
+        loaded = confHandler.load(in);
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
       lastModified = conf.lastModified();
-    } catch (IOException e) {
+    } catch (Exception e) {
       SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
-      throw new UncheckedIOException("无法加载配置文件", e);
+      throw new RuntimeException("无法加载配置文件", e);
     } finally {
       lock.writeLock().unlock();
     }
   }
 
-  /**
-   * 加载 properties 格式文件，将扁平的键值对转换为嵌套 Map
+  private interface Backend {
+    Map<String, Object> load(InputStream in) throws Exception;
+    void flush(Writer w) throws Exception;
+    String getType();
+  }
+
+  /*
+   * ==========================================
+   * 后端读写 具体实现
+   * ==========================================
    */
-  private Map<String, Object> loadProperties(InputStream in) throws IOException {
-    Properties props = new Properties();
-    // 使用 UTF-8 读取，以支持非 ISO-8859-1 字符
-    try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-      props.load(reader);
-    }
-    Map<String, Object> root = new LinkedHashMap<>();
-    for (String key : props.stringPropertyNames()) {
-      String value = props.getProperty(key);
-      // 利用现有嵌套路径工具构建嵌套结构
-      putNestedRaw(root, key, value);
-    }
-    return root;
+
+  private class BackendYaml implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      Yaml yaml = new Yaml();
+      Map<String, Object> m = yaml.load(in);
+      return m == null ? new HashMap<>() : m;
+    };
+
+    @Override
+    public void flush(Writer w) throws Exception {
+      DumperOptions opts = new DumperOptions();
+      opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+      opts.setPrettyFlow(true);
+      new Yaml(opts).dump(cache, w);
+    };
+
+    @Override
+    public String getType() { return TYPES.YAML; };
   }
 
-  private Map<String, Object> loadJson(InputStream in) {
-    JsonElement el = JsonParser.parseReader(new InputStreamReader(in));
-    if (el.isJsonObject()) {
-      Type mapType = new TypeToken<Map<String, Object>>(){}.getType();
-      return new Gson().fromJson(el, mapType);
-    }
-    // 处理根数组：将其包装为单键 Map
-    if (el.isJsonArray()) {
-      Map<String, Object> wrapper = new LinkedHashMap<>();
-      wrapper.put("_root_array", el.getAsJsonArray());
-      return wrapper;
-    }
-    return new HashMap<>();
-  }
-
-  private Map<String, Object> loadJsonc(InputStream in) {
-    // 启用 lenient 模式，支持注释、尾随逗号等
-    Gson gson = new GsonBuilder().setLenient().create();
-    try (InputStreamReader reader = new InputStreamReader(in)) {
-      JsonElement el = gson.fromJson(reader, JsonElement.class);
+  private class BackendJSON implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      JsonElement el = JsonParser.parseReader(new InputStreamReader(in));
       if (el.isJsonObject()) {
-        Type mapType = new TypeToken<Map<String, Object>>(){}.getType();
-        return gson.fromJson(el, mapType);
+        Type mapType = new TypeToken<Map<String, Object>>() {
+        }.getType();
+        return new Gson().fromJson(el, mapType);
       }
       // 处理根数组：将其包装为单键 Map
       if (el.isJsonArray()) {
@@ -968,137 +981,162 @@ private static List<String> splitWithNormalDot(String key) {
         wrapper.put("_root_array", el.getAsJsonArray());
         return wrapper;
       }
-    } catch (Exception ignore) {
-    }
-    return new HashMap<>();
-  }
+      return new HashMap<>();
+    };
 
-  private Map<String, Object> loadYaml(InputStream in) {
-    Yaml yaml = new Yaml();
-    Map<String, Object> m = yaml.load(in);
-    return m == null ? new HashMap<>() : m;
-  }
-
-  private Map<String, Object> loadToml(InputStream in) throws IOException {
-    Toml toml = new Toml();
-    try (InputStreamReader r = new InputStreamReader(in)) {
-      toml.read(r);
-    }
-    return toml.toMap();
-  }
-
-  private Map<String, Object> loadIni(InputStream in) throws IOException {
-    Ini ini = new Ini();
-    ini.load(in);
-    Map<String, Object> root = new LinkedHashMap<>();
-    for (Map.Entry<String, Profile.Section> entry : ini.entrySet()) {
-      String secName = entry.getKey();
-      Profile.Section sec = entry.getValue();
-      Map<String, Object> section = new LinkedHashMap<>();
-      for (Map.Entry<String, String> e : sec.entrySet()) {
-        section.put(e.getKey(), e.getValue());
+    @Override
+    public void flush(Writer w) throws Exception {
+      Gson gson = new GsonBuilder().setPrettyPrinting().create();
+      Object maybeArray = cache.get("_root_array");
+      if (cache.size() == 1 && maybeArray != null) {
+        // 符合条件，写作纯数组
+        gson.toJson(maybeArray, w);
+      } else {
+        // 直接写入
+        gson.toJson(cache, w);
       }
-      root.put(secName, section);
-    }
-    return root;
+    };
+
+    @Override
+    public String getType() { return TYPES.JSON; };
   }
 
-  /* ==========================================
-  * 写
-  * ========================================== */
-
-  /**
-   * 将缓存写入磁盘
-   */
-  private void flush() {
-    lock.writeLock().lock();
-    try {
-      atomicWrite(conf.toPath(), w -> {
-        switch (type) {
-          case JSON:
-            flushJson(w);
-            break;
-          case JSONC:
-            flushJsonc(w);
-            break;
-          case YAML:
-            flushYaml(w);
-            break;
-          case TOML:
-            flushToml(w);
-            break;
-          case INI:
-            flushIni(w);
-            break;
-          case PROPERTIES:
-            flushProperties(w);
-            break;
-          default:
-            throw new UnsupportedOperationException("不支持的文件类型：" + type);
+  private class BackendJSONc implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      // 启用 lenient 模式，支持注释、尾随逗号等
+      Gson gson = new GsonBuilder().setLenient().create();
+      try (InputStreamReader reader = new InputStreamReader(in)) {
+        JsonElement el = gson.fromJson(reader, JsonElement.class);
+        if (el.isJsonObject()) {
+          Type mapType = new TypeToken<Map<String, Object>>() {
+          }.getType();
+          return gson.fromJson(el, mapType);
         }
-      });
-      lastModified = conf.lastModified();
-    } catch (IOException e) {
-      throw new UncheckedIOException("无法写入配置文件", e);
-    } finally {
-      lock.writeLock().unlock();
-    }
+        // 处理根数组：将其包装为单键 Map
+        if (el.isJsonArray()) {
+          Map<String, Object> wrapper = new LinkedHashMap<>();
+          wrapper.put("_root_array", el.getAsJsonArray());
+          return wrapper;
+        }
+      } catch (Exception ignore) {
+      }
+      return new HashMap<>();
+    };
+
+    @Override
+    public void flush(Writer w) throws Exception {// 注释在读取时就被 GSON 抛弃，写回注释不现实
+      Gson gson = new GsonBuilder().setPrettyPrinting().create();
+      Object maybeArray = cache.get("_root_array");
+      if (cache.size() == 1 && maybeArray != null) {
+        // 符合条件，写作纯数组
+        gson.toJson(maybeArray, w);
+      } else {
+        // 直接写入
+        gson.toJson(cache, w);
+      }
+    };
+
+    @Override
+    public String getType() { return TYPES.JSONC; };
   }
 
-  private void flushProperties(Writer w) throws IOException {
-    Properties props = new Properties();
-    flattenMap("", cache, props);
-    props.store(w, null);
+  private class BackendToml implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      Toml toml = new Toml();
+      try (InputStreamReader r = new InputStreamReader(in)) {
+        toml.read(r);
+      }
+      return toml.toMap();
+    };
+
+    @Override
+    public void flush(Writer w) throws Exception {
+      new TomlWriter().write(cache, w);
+    };
+
+    @Override
+    public String getType() { return TYPES.TOML; };
   }
 
-  private void flushJson(Writer w) {
-    Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    Object maybeArray = cache.get("_root_array");
-    if (cache.size() == 1 && maybeArray != null) {
-      // 符合条件，写作纯数组
-      gson.toJson(maybeArray, w);
-    } else {
-      // 直接写入
-      gson.toJson(cache, w);
-    }
-  }
+  private class BackendINI implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      Ini ini = new Ini();
+      ini.load(in);
+      Map<String, Object> root = new LinkedHashMap<>();
+      for (Map.Entry<String, Profile.Section> entry : ini.entrySet()) {
+        String secName = entry.getKey();
+        Profile.Section sec = entry.getValue();
+        Map<String, Object> section = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : sec.entrySet()) {
+          section.put(e.getKey(), e.getValue());
+        }
+        root.put(secName, section);
+      }
+      return root;
+    };
 
-  private void flushJsonc(Writer w) {// 注释在读取时就被 GSON 抛弃，写回注释不现实
-    Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    Object maybeArray = cache.get("_root_array");
-    if (cache.size() == 1 && maybeArray != null) {
-      // 符合条件，写作纯数组
-      gson.toJson(maybeArray, w);
-    } else {
-      // 直接写入
-      gson.toJson(cache, w);
-    }
-  }
-
-  private void flushYaml(Writer w) {
-    DumperOptions opts = new DumperOptions();
-    opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-    opts.setPrettyFlow(true);
-    new Yaml(opts).dump(cache, w);
-  }
-
-  private void flushToml(Writer w) throws IOException {
-    new TomlWriter().write(cache, w);
-  }
-
-  @SuppressWarnings("unchecked")
-  private void flushIni(Writer w) throws IOException {
-    Ini ini = new Ini();
-    for (Map.Entry<String, Object> e : cache.entrySet()) {
-      if (e.getValue() instanceof Map) {
-        Profile.Section sec = ini.add(e.getKey());
-        Map<String, Object> section = (Map<String, Object>) e.getValue();
-        for (Map.Entry<String, Object> se : section.entrySet()) {
-          sec.put(se.getKey(), String.valueOf(se.getValue()));
+    @Override
+    @SuppressWarnings("unchecked")
+    public void flush(Writer w) throws Exception {
+      Ini ini = new Ini();
+      for (Map.Entry<String, Object> e : cache.entrySet()) {
+        if (e.getValue() instanceof Map) {
+          Profile.Section sec = ini.add(e.getKey());
+          Map<String, Object> section = (Map<String, Object>) e.getValue();
+          for (Map.Entry<String, Object> se : section.entrySet()) {
+            sec.put(se.getKey(), String.valueOf(se.getValue()));
+          }
         }
       }
-    }
-    ini.store(w);
+      ini.store(w);
+    };
+
+    @Override
+    public String getType() { return TYPES.INI; };
+  }
+
+  private class BackendProperties implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      Properties props = new Properties();
+      // 使用 UTF-8 读取，以支持非 ISO-8859-1 字符
+      try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+        props.load(reader);
+      }
+      Map<String, Object> root = new LinkedHashMap<>();
+      for (String key : props.stringPropertyNames()) {
+        String value = props.getProperty(key);
+        // 利用现有嵌套路径工具构建嵌套结构
+        putNestedRaw(root, key, value);
+      }
+      return root;
+    };
+
+    @Override
+    public void flush(Writer w) throws Exception {
+      Properties props = new Properties();
+      flattenMap("", cache, props);
+      props.store(w, null);
+    };
+
+    @Override
+    public String getType() { return TYPES.PROPERTIES; };
+  }
+
+  private class BackendSNBT implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+    };
+
+    @Override
+    public void flush(Writer w) throws Exception {
+    };
+
+    @Override
+    public String getType() { return TYPES.SNBT; };
   }
 
   /* ==========================================

@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.reflect.Type;
@@ -39,6 +41,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -46,6 +49,9 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
+
+import de.pauleff.jnbt.api.ITag;
+import de.pauleff.jnbt.api.NBTFactory;
 
 /**
  * 高性能多格式（json/yaml/toml/xml/ini/prop）配置中心。
@@ -96,7 +102,9 @@ public class SConfig {
     public final static String TOML = "toml";
     public final static String INI = "ini";
     public final static String PROPERTIES = "prop";
-    /** Minecraft 的字符串形式 NBT (SNBT) */
+    /** Minecraft NBT (二进制文件) */
+    public final static String NBT = "nbt";
+    /** Minecraft NBT (人类可读文本) */
     public final static String SNBT = "snbt";
   }
 
@@ -236,6 +244,8 @@ public class SConfig {
         return new BackendProperties();
       case "snbt":
         return new BackendSNBT();
+      case "nbt":
+        return new BackendNBT();
       default:
         throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
     }
@@ -675,35 +685,35 @@ public class SConfig {
   /**
    * 支持转义 . 的切割路径
    */
-private static List<String> splitWithNormalDot(String key) {
+  private static List<String> splitWithNormalDot(String key) {
     List<String> parts = new ArrayList<>();
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < key.length(); i++) {
-        char c = key.charAt(i);
-        if (c == '\\') {
-            // 检查下一个字符是否是点号（转义点号）
-            if (i + 1 < key.length() && key.charAt(i + 1) == '.') {
-                // 跳过反斜杠，将点号作为普通字符加入当前段（不触发分割）
-                sb.append('.');
-                i++; // 跳过点号
-                continue;
-            } else {
-                // 其他情况：保留反斜杠本身
-                sb.append('\\');
-                continue;
-            }
-        }
-        if (c == '.') {
-            // 未转义的点号，分割
-            parts.add(sb.toString());
-            sb.setLength(0);
+      char c = key.charAt(i);
+      if (c == '\\') {
+        // 检查下一个字符是否是点号（转义点号）
+        if (i + 1 < key.length() && key.charAt(i + 1) == '.') {
+          // 跳过反斜杠，将点号作为普通字符加入当前段（不触发分割）
+          sb.append('.');
+          i++; // 跳过点号
+          continue;
         } else {
-            sb.append(c);
+          // 其他情况：保留反斜杠本身
+          sb.append('\\');
+          continue;
         }
+      }
+      if (c == '.') {
+        // 未转义的点号，分割
+        parts.add(sb.toString());
+        sb.setLength(0);
+      } else {
+        sb.append(c);
+      }
     }
     parts.add(sb.toString());
     return parts;
-}
+  }
 
   /**
    * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
@@ -873,38 +883,21 @@ private static List<String> splitWithNormalDot(String key) {
     load();
   }
 
- /**
-  * 将缓存写入磁盘
-  */
- private void flush() {
-   lock.writeLock().lock();
-   Path tempPath = null;
-   try {
-     logger.debug("SConfig#%s 正在写入配置文件", INSTANCE_ID);
-     Path targetPath = conf.toPath();
-     tempPath = Files.createTempFile(targetPath.getParent(), targetPath.getFileName().toString(),".tmp");
-     try (Writer writer = Files.newBufferedWriter(tempPath, StandardCharsets.UTF_8)) {
-       confHandler.flush(writer);
-     }
-     // 原子移动
-     Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING,
-         StandardCopyOption.ATOMIC_MOVE);
-     lastModified = conf.lastModified();
-   } catch (Exception e) {
-     // 清理临时文件
-     if (tempPath != null) {
-       try {
-         Files.deleteIfExists(tempPath);
-       } catch (IOException cleanupEx) {
-         // 记录日志但不影响主异常
-         logger.debug("清理临时文件失败: {}", cleanupEx.getMessage());
-       }
-     }
-     throw new RuntimeException("无法写入配置文件", e);
-   } finally {
-     lock.writeLock().unlock();
-   }
- }
+  /**
+   * 将缓存写入磁盘
+   */
+  private void flush() {
+    lock.writeLock().lock();
+    try {
+      atomicWrite(conf.toPath(), (w) -> {
+        confHandler.flush(w);
+      });
+    } catch (Exception e) {
+      throw new RuntimeException("无法写入配置文件", e);
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
 
   /**
    * 加载文件到缓存
@@ -1122,17 +1115,100 @@ private static List<String> splitWithNormalDot(String key) {
       props.store(w, null);
     };
 
+    /**
+     * 将嵌套 Map 递归展开为扁平的键值对，存入 Properties
+     * 
+     * @param prefix 当前路径前缀（用点分隔）
+     * @param map    当前层级的 Map
+     * @param props  目标 Properties
+     */
+    @SuppressWarnings("unchecked")
+    private static void flattenMap(String prefix, Map<String, Object> map, Properties props) {
+      for (Map.Entry<String, Object> entry : map.entrySet()) {
+        String key = entry.getKey();
+        String fullKey = prefix.isEmpty() ? key : prefix + "." + key;
+        Object value = entry.getValue();
+        if (value instanceof Map) {
+          // 递归处理子 Map
+          flattenMap(fullKey, (Map<String, Object>) value, props);
+        } else {
+          // 非 Map 类型转换为字符串存入
+          props.setProperty(fullKey, value == null ? "" : String.valueOf(value));
+        }
+      }
+    }
+
+    /**
+     * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
+     */
+    private static void putNestedRaw(Map<String, Object> root, String key, Object value) {
+      int lastDot = getIndexOfNormalDot(key);
+      if (lastDot == -1) {
+        root.put(key, value);
+        return;
+      }
+      List<String> parts = splitWithNormalDot(key);
+      Map<String, Object> current = root;
+      for (int i = 0; i < parts.size() - 1; i++) {
+        String part = parts.get(i);
+        Object next = current.get(part);
+        if (next == null) {
+          Map<String, Object> newMap = new LinkedHashMap<>();
+          current.put(part, newMap);
+          current = newMap;
+        } else if (next instanceof Map) {
+          current = (Map<String, Object>) next;
+        } else {
+          // 类型冲突，无法创建嵌套结构，直接放入根（保持兼容，但通常不会发生）
+          root.put(key, value);
+          return;
+        }
+      }
+      String lastKey = parts.get(parts.size() - 1);
+      current.put(lastKey, value);
+    }
+
     @Override
     public String getType() { return TYPES.PROPERTIES; };
+  }
+
+  private class BackendNBT implements Backend {
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      throw new UnsupportedOperationException("尚未实现");// TODO: NBT尚未实现
+    };
+    
+    @Override
+    public void flush(Writer w) throws Exception {
+      throw new UnsupportedOperationException("尚未实现");
+    };
+
+    @Override
+    public String getType() { return TYPES.NBT; };
   }
 
   private class BackendSNBT implements Backend {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
+      throw new UnsupportedOperationException("尚未实现");
+      // 获取文件内容并转为SNBT
+      StringWriter sw = new StringWriter();
+      try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+        reader.transferTo(sw);
+      }
+      ITag<?> snbt = NBTFactory.parseFromSNBT(sw.toString());
+      Map<String, Object> result = new ConcurrentHashMap<>();
+
+      snbt.applyOperation((item) -> {
+        
+      });
+
+      return result;
     };
 
     @Override
     public void flush(Writer w) throws Exception {
+      throw new UnsupportedOperationException("尚未实现");
     };
 
     @Override
@@ -1148,61 +1224,8 @@ private static List<String> splitWithNormalDot(String key) {
     return conf;
   }
 
-  /**
-   * 将嵌套 Map 递归展开为扁平的键值对，存入 Properties
-   * 
-   * @param prefix 当前路径前缀（用点分隔）
-   * @param map    当前层级的 Map
-   * @param props  目标 Properties
-   */
-  @SuppressWarnings("unchecked")
-  private void flattenMap(String prefix, Map<String, Object> map, Properties props) {
-    for (Map.Entry<String, Object> entry : map.entrySet()) {
-      String key = entry.getKey();
-      String fullKey = prefix.isEmpty() ? key : prefix + "." + key;
-      Object value = entry.getValue();
-      if (value instanceof Map) {
-        // 递归处理子 Map
-        flattenMap(fullKey, (Map<String, Object>) value, props);
-      } else {
-        // 非 Map 类型转换为字符串存入
-        props.setProperty(fullKey, value == null ? "" : String.valueOf(value));
-      }
-    }
-  }
-
-  /**
-   * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
-   */
-  private void putNestedRaw(Map<String, Object> root, String key, Object value) {
-    int lastDot = getIndexOfNormalDot(key);
-    if (lastDot == -1) {
-      root.put(key, value);
-      return;
-    }
-    List<String> parts = splitWithNormalDot(key);
-    Map<String, Object> current = root;
-    for (int i = 0; i < parts.size() - 1; i++) {
-      String part = parts.get(i);
-      Object next = current.get(part);
-      if (next == null) {
-        Map<String, Object> newMap = new LinkedHashMap<>();
-        current.put(part, newMap);
-        current = newMap;
-      } else if (next instanceof Map) {
-        current = (Map<String, Object>) next;
-      } else {
-        // 类型冲突，无法创建嵌套结构，直接放入根（保持兼容，但通常不会发生）
-        root.put(key, value);
-        return;
-      }
-    }
-    String lastKey = parts.get(parts.size() - 1);
-    current.put(lastKey, value);
-  }
-
   /** 原子替换文件：先写临时文件，再 move */
-  private void atomicWrite(Path target, IOConsumer<Writer> writerBlock) throws IOException {
+  private void atomicWrite(Path target, IOConsumer<Writer> writerBlock) throws Exception {
     Path dir = target.toAbsolutePath().getParent();
     Path tmp = dir.resolve(target.getFileName().toString() + ".tmp");
     try (Writer w = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
@@ -1219,6 +1242,6 @@ private static List<String> splitWithNormalDot(String key) {
   /** 简化函数式接口 */
   @FunctionalInterface
   private interface IOConsumer<T> {
-    void accept(T t) throws IOException;
+    void accept(T t) throws Exception;
   }
 }

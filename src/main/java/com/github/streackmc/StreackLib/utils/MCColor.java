@@ -13,12 +13,21 @@ public class MCColor {
   /**
    * MC格式化代码颜色对照关系表
    * <p>
-   * 其中也含有基岩版的颜色
+   * 其中也含有部分基岩版的颜色
    * @apinote 注意：基岩版中 §n 指代 #B4684D ，但是在Java版中其为下划线，本列表遵照 Java 版，不含有其的值
+   * @see #COLORS_BE
    * @since 0.4.5
    * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81#%E9%A2%9C%E8%89%B2%E4%BB%A3%E7%A0%81}
    */
   public static final java.util.Map<Character, String> COLORS = new java.util.HashMap<Character, String>();
+  /**
+   * MC格式化代码颜色对照关系表
+   * @apinote 本表按基岩版颜色为优先
+   * @since 0.4.7
+   * @see #COLORS
+   * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81#%E9%A2%9C%E8%89%B2%E4%BB%A3%E7%A0%81}
+   */
+  public static final java.util.Map<Character, String> COLORS_BE;
   static {
     COLORS.put('0', "#000000");
     COLORS.put('1', "#0000AA");
@@ -41,28 +50,51 @@ public class MCColor {
     COLORS.put('i', "#CECACA");
     COLORS.put('j', "#443A3B");
     COLORS.put('m', "#971607");
-    // COLORS.put('n', "#B4684D");
     COLORS.put('p', "#DEB12D");
     COLORS.put('q', "#47A036");
     COLORS.put('s', "#2CBAA8");
     COLORS.put('t', "#21497B");
     COLORS.put('u', "#9A5CC6");
     COLORS.put('v', "#EB7114");
+    COLORS_BE = COLORS;
+    COLORS_BE.put('n', "#B4684D");
   }
 
   /**
    * 将MC格式化代码代码(§)转换为HTML
    * <p>
-   * 支持：颜色代码（包含基岩版）、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)
+   * 支持：颜色代码（包含部分基岩版的）、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)
    * <p>
    * 0.4.6起也支持新版的 RGB 颜色格式：§#RRGGBB 和 §x§R§R§G§G§B§B
    * 
    * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
+   * @see {@link #toHtmlBE(String)}：此方法将 §n 按基岩版行为，作为颜色处理
    * @param text 要处理的文本
    * @return 处理后的文本
    * @since 0.4.5
    */
   public static String toHtml(String text) {
+    return toHtmlInternal(text, false);
+  }
+
+  /**
+   * 将MC格式化代码代码(§)转换为HTML
+   * <p>
+   * 支持：颜色代码（包含基岩版）、粗体(§l)、斜体(§o)、删除线(§m)、随机(§k)、重置(§r)
+   * <p>
+   * 0.4.6起也支持新版的 RGB 颜色格式：§#RRGGBB 和 §x§R§R§G§G§B§B
+   * 
+   * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
+   * @see #toHtml(String)
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.4.7
+   */
+  public static String toHtmlBE(String text) {
+    return toHtmlInternal(text, true);
+  }
+
+  private static String toHtmlInternal(String text, Boolean isBE) {
     if (text == null || text.isEmpty())
       return "<span></span>";
 
@@ -159,7 +191,12 @@ public class MCColor {
           else if (code == 'o')
             italic = true;
           else if (code == 'n')
-            underline = true;
+            if (isBE != null && isBE.equals(true)) {
+              // 如果BE优先则使用BE格式
+              color = COLORS_BE.get('n');
+            } else {
+              underline = true;
+            }
           else if (code == 'm')
             strikethrough = true;
           else if (code == 'k')

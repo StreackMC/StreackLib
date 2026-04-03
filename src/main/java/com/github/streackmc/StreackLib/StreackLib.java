@@ -32,11 +32,14 @@ public final class StreackLib {
      * @param TPS double | 此刻的TPS
      * @see StreackLib#CURRENT_TPS
      * @see SBukkit#getServerTPS()
+     * @deprecated 0.4.7 起删除该事件
      */
+    @deprecated
     public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
   }
 
-  static final Deque<Long> tickTimes = new ArrayDeque<>();
+  /** StreackLib内部持有的HTTP服务器 */
+  public static HTTPServer httpServer;
   /** 当前TPS */
   public static double currentTPS = -1.0;
 
@@ -53,8 +56,10 @@ public final class StreackLib {
     public static SConfig serverProperties;
   }
 
+  // 私有
   private StreackLib() { // 禁止实例化
   }
+  static final Deque<Long> tickTimes = new ArrayDeque<>();
 
   // ===================== Class Caller =====================
 
@@ -65,7 +70,7 @@ public final class StreackLib {
    */
   @Nullable
   public static HTTPServer getHttpServer() {
-    return initBukkit.httpServer;
+    return httpServer;
   }
 
   /**

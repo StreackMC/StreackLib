@@ -32,11 +32,14 @@ public final class StreackLib {
      * @param TPS double | 此刻的TPS
      * @see StreackLib#CURRENT_TPS
      * @see SBukkit#getServerTPS()
+     * @Deprecated 0.4.7 起删除该事件
      */
+    @Deprecated
     public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
   }
 
-  static final Deque<Long> tickTimes = new ArrayDeque<>();
+  /** StreackLib内部持有的HTTP服务器 */
+  public static HTTPServer httpServer;
   /** 当前TPS */
   public static double currentTPS = -1.0;
 
@@ -53,8 +56,14 @@ public final class StreackLib {
     public static SConfig serverProperties;
   }
 
+  // =====================    私有量    =====================
+
   private StreackLib() { // 禁止实例化
   }
+  /** TPS计算实现所用队列，其 size() 就是每秒TPS */
+  static final Deque<Long> tickTimes = new ArrayDeque<>();
+  /** 唯一ID生成器 */
+  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
 
   // ===================== Class Caller =====================
 
@@ -65,7 +74,7 @@ public final class StreackLib {
    */
   @Nullable
   public static HTTPServer getHttpServer() {
-    return initBukkit.httpServer;
+    return httpServer;
   }
 
   /**
@@ -164,7 +173,6 @@ public final class StreackLib {
         .format(java.time.format.DateTimeFormatter.ofPattern(f));
   }
 
-  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
   @Internal
   /**
    * 获取一个全局唯一的ID

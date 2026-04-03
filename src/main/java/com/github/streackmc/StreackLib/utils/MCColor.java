@@ -14,7 +14,7 @@ public class MCColor {
    * MC格式化代码颜色对照关系表
    * <p>
    * 其中也含有基岩版的颜色
-   * 
+   * @apinote 注意：基岩版中 §n 指代 #B4684D ，但是在Java版中其为下划线，本列表遵照 Java 版，不含有其的值
    * @since 0.4.5
    * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81#%E9%A2%9C%E8%89%B2%E4%BB%A3%E7%A0%81}
    */
@@ -41,7 +41,7 @@ public class MCColor {
     COLORS.put('i', "#CECACA");
     COLORS.put('j', "#443A3B");
     COLORS.put('m', "#971607");
-    COLORS.put('n', "#B4684D");
+    // COLORS.put('n', "#B4684D");
     COLORS.put('p', "#DEB12D");
     COLORS.put('q', "#47A036");
     COLORS.put('s', "#2CBAA8");
@@ -200,7 +200,7 @@ public class MCColor {
    * @param italic        是否斜体
    * @param underline     是否下划线
    * @param strikethrough 是否删除线
-   * @param obfuscated    是否乱码
+   * @param obfuscated    是否乱码<p>需要HTML侧自行编写 .MC-format-obfuscated 的CSS规则
    * @return 包装好的span标签
    * @since 0.4.5
    */

@@ -22,9 +22,6 @@ public class initBukkit extends JavaPlugin {
   public static JavaPlugin pluginSelf;
   public static BukkitRunnable UpdateCheckTask;
 
-  // 模块代表变量
-  public static HTTPServer httpServer;
-
   @Override
   public void onEnable() {
     // 展示启动信息
@@ -38,12 +35,14 @@ public class initBukkit extends JavaPlugin {
       "                                                                   "
     );
     saveDefaultConfig();
+
     // 填充共享变量
     logger.plugin = this;
     pluginSelf = this;
     StreackLib.ENV.dataPath = this.getDataFolder();
     StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
     StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
+
     // 读取构建信息
     try {
       StreackLib.ENV.buildConf = new SConfig(manager.getResourceAsFile("/plugin.yml"), "yml");
@@ -59,12 +58,15 @@ public class initBukkit extends JavaPlugin {
     if (manager.isPreviewBuild()) {
       getLogger().warning("当前StreackLib为预览版构建，可能存在意料之外的错误。如有发现请及时提出Issue以便我们改进！→ https://github.com/StreackMC/StreackLib/issues/new ");
     }
+
     // 配置文件初始化
     CheckConfigUpdate();
     LoadConf();
+
     // 启用组件
     logger.info("初始化成功！正在启用组件。");
     EnableHTTPServer();
+
     // 计划自动更新
     if (!StreackLib.isDebugMode()) {
       logger.info("强制跳过更新检查，因为此功能尚未完成。");
@@ -78,6 +80,7 @@ public class initBukkit extends JavaPlugin {
       };
       UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);
     }
+
     // TPS追踪
     new BukkitRunnable() {
       @Override
@@ -86,18 +89,20 @@ public class initBukkit extends JavaPlugin {
         StreackLib.tickTimes.addLast(now);
 
         // 移除 1 秒前的记录
-        while (!StreackLib.tickTimes.isEmpty() && now - StreackLib.tickTimes.peekFirst() > 1000) {
+        while (
+          !StreackLib.tickTimes.isEmpty()
+          // 处理1秒前的过期记录，含右边界不含左边界
+          && now - StreackLib.tickTimes.peekFirst() >= 1000
+        ) {
           StreackLib.tickTimes.pollFirst();
         }
 
         // 队列大小即为最近 1 秒的 tick 数（理想为 20）
-        StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size() * 100.0 / 100.0); // TODO:优化TPS计算逻辑
-        SEventCentral.broadcastEvent(StreackLib.EVENTS.LIVE_TPS_REFRESHED)
-            .set("TPS", StreackLib.currentTPS)
-            .broadcast();
+        StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size());
         logger.debug("Current TPS:%s", StreackLib.currentTPS);
       }
     }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
+
     // 完成
     logger.info("已启用StreackLib v" + getDescription().getVersion() + "");
   }
@@ -147,17 +152,17 @@ public class initBukkit extends JavaPlugin {
     int port = StreackLib.ENV.conf.getInt("http-server.port", 8080);
     logger.info("处理模块：HTTPServer");
     if (StreackLib.ENV.conf.getBoolean("http-server.enabled", false)) {
-      httpServer = new HTTPServer(host, port, this);
-      httpServer.startServer();
+      StreackLib.httpServer = new HTTPServer(host, port, this);
+      StreackLib.httpServer.startServer();
       logger.info("HTTP 服务器已启动于 " + host + ":" + port);
     } else {
-      httpServer = null;
+      StreackLib.httpServer = null;
       logger.info("HTTP 服务器未启用");
     }
   }
   private void DisableHTTPServer() {
-    if (httpServer != null) {
-      httpServer.stopServer();
+    if (StreackLib.httpServer != null) {
+      StreackLib.httpServer.stopServer();
     }
   }
 }

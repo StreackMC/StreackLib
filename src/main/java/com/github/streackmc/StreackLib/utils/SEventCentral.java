@@ -13,8 +13,9 @@ import org.jetbrains.annotations.Nullable;
 import com.github.streackmc.StreackLib.self.logger;
 
 /**
- * 事件处理中心，负责事件的监听注册、移除与广播分发。
+ * 全局事件处理中心，负责事件的监听注册、移除与广播分发。
  * 仿照 JavaScript 的事件驱动模型，提供高性能的线程安全实现。
+ * 你可自行分发事件或参考文档来监听StreackLib的事件。
  * 
  * <p>
  * 该类为静态工具类，不可实例化。所有方法均为线程安全。

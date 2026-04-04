@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import com.github.streackmc.StreackLib.self.UpdateChecker;
+import com.github.streackmc.StreackLib.self.updateChecker;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
@@ -75,7 +75,7 @@ public class initBukkit extends JavaPlugin {
       UpdateCheckTask = new BukkitRunnable() {
         @Override
         public void run() {
-          UpdateChecker.checkUpdate();
+          updateChecker.checkUpdate();
         }
       };
       UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);

@@ -32,7 +32,7 @@ import com.google.gson.JsonParser;
  * @since 0.4.1
  */
 @InternalApi
-public class UpdateChecker {
+public class updateChecker {
 
   private static final List<String> VERSION_URLS = Arrays.asList(//TODO:目前还没有稳定的API方法
       "https://raw.githubusercontent.com/StreackMC/StreackLib/refs/heads/version/version_info.json",

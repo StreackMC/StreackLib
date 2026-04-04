@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PushbackInputStream;
 import java.io.UncheckedIOException;
 import java.io.Writer;
@@ -46,7 +47,6 @@ import org.yaml.snakeyaml.Yaml;
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.nbtHandler;
-import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -58,7 +58,6 @@ import com.moandjiezana.toml.TomlWriter;
 import net.querz.nbt.io.NBTDeserializer;
 import net.querz.nbt.io.NBTSerializer;
 import net.querz.nbt.io.NamedTag;
-import net.querz.nbt.io.SNBTDeserializer;
 import net.querz.nbt.io.SNBTParser;
 import net.querz.nbt.io.SNBTWriter;
 import net.querz.nbt.tag.CompoundTag;
@@ -66,7 +65,7 @@ import net.querz.nbt.tag.Tag;
 
 /**
  * <h3>SConfig</h3>
- * 高性能多格式配置管理器，支持自动重载与严格类型读写。
+ * 高性能多格式配置管理器，支持自动重载与严格类型读写。默认使用 UTF-8 格式，未来计划支持更多。
  * <p>
  * 支持多种文件格式，详见 {@link SConfig.TYPES} ：
  * JSON / JSON with Comment / YAML / Properties / TOML / INI / NBT / SNBT
@@ -100,9 +99,10 @@ public class SConfig {
     public final static String JSON = "json";
     /**
      * 解析宽松的JSON，例如注释和尾随逗号。
+     * 
      * @since 0.4.7
-     * @apiNote 写入时会覆盖并丢失全部注释
-     * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 。
+     * @apiNote 写入时会以标准JSON覆盖并因此丢失全部注释
+     * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 中；在 0.4.6 及更早版本中则会被忽略。
      * 
      *          <pre>
      *          [{data: "abc"}, {data: "abc"}]
@@ -175,6 +175,7 @@ public class SConfig {
   // conf meta
   private final File conf;
   private final Backend confHandler;
+  private String confType;
 
   /**
    * 构造配置对象
@@ -312,7 +313,8 @@ public class SConfig {
   private Backend parseType(String ctype) {
     if (ctype == null)
       throw new IllegalArgumentException("ctype 不能为空");
-    switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
+    this.confType = ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+    switch (this.confType) {
       case "json":
         return new BackendJSON();
       case "jsonc":
@@ -1024,8 +1026,8 @@ public class SConfig {
   private void flush() {
     lock.writeLock().lock();
     try {
-      atomicWrite(conf.toPath(), (w) -> {
-        confHandler.flush(w);
+      atomicWrite(conf.toPath(), (out) -> {
+        confHandler.flush(out);
       });
     } catch (Exception e) {
       throw new RuntimeException("无法写入配置文件", e);
@@ -1064,7 +1066,7 @@ public class SConfig {
 
   private interface Backend {
     public Map<String, Object> load(InputStream in) throws Exception;
-    public void flush(Writer w) throws Exception;
+    public void flush(OutputStream out) throws Exception;
     public String getType();
   }
 
@@ -1088,11 +1090,11 @@ public class SConfig {
     };
 
     @Override
-    public void flush(Writer w) throws Exception {
+    public void flush(OutputStream out) throws Exception {
       DumperOptions opts = new DumperOptions();
       opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
       opts.setPrettyFlow(true);
-      new Yaml(opts).dump(cache, w);
+      new Yaml(opts).dump(cache, getWriter(out));
     };
 
     @Override
@@ -1118,15 +1120,15 @@ public class SConfig {
     };
 
     @Override
-    public void flush(Writer w) throws Exception {
+    public void flush(OutputStream out) throws Exception {
       Gson gson = new GsonBuilder().setPrettyPrinting().create();
       Object maybeArray = cache.get("_root_array");
       if (cache.size() == 1 && maybeArray != null) {
         // 符合条件，写作纯数组
-        gson.toJson(maybeArray, w);
+        gson.toJson(maybeArray, getWriter(out));
       } else {
         // 直接写入
-        gson.toJson(cache, w);
+        gson.toJson(cache, getWriter(out));
       }
     };
 
@@ -1134,7 +1136,7 @@ public class SConfig {
     public String getType() { return TYPES.JSON; };
   }
 
-  private class BackendJSONc implements Backend {
+  private class BackendJSONc extends BackendJSON {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       // 启用 lenient 模式，支持注释、尾随逗号等
@@ -1158,19 +1160,6 @@ public class SConfig {
     };
 
     @Override
-    public void flush(Writer w) throws Exception {// 注释在读取时就被 GSON 抛弃，写回注释不现实
-      Gson gson = new GsonBuilder().setPrettyPrinting().create();
-      Object maybeArray = cache.get("_root_array");
-      if (cache.size() == 1 && maybeArray != null) {
-        // 符合条件，写作纯数组
-        gson.toJson(maybeArray, w);
-      } else {
-        // 直接写入
-        gson.toJson(cache, w);
-      }
-    };
-
-    @Override
     public String getType() { return TYPES.JSONC; };
   }
 
@@ -1185,8 +1174,8 @@ public class SConfig {
     };
 
     @Override
-    public void flush(Writer w) throws Exception {
-      new TomlWriter().write(cache, w);
+    public void flush(OutputStream out) throws Exception {
+      new TomlWriter().write(cache, getWriter(out));
     };
 
     @Override
@@ -1213,7 +1202,7 @@ public class SConfig {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void flush(Writer w) throws Exception {
+    public void flush(OutputStream out) throws Exception {
       Ini ini = new Ini();
       for (Map.Entry<String, Object> e : cache.entrySet()) {
         if (e.getValue() instanceof Map) {
@@ -1224,7 +1213,7 @@ public class SConfig {
           }
         }
       }
-      ini.store(w);
+      ini.store(getWriter(out));
     };
 
     @Override
@@ -1249,10 +1238,10 @@ public class SConfig {
     };
 
     @Override
-    public void flush(Writer w) throws Exception {
+    public void flush(OutputStream out) throws Exception {
       Properties props = new Properties();
       flattenMap("", cache, props);
-      props.store(w, null);
+      props.store(getWriter(out), null);
     };
 
     /**
@@ -1350,16 +1339,11 @@ public class SConfig {
     }
 
     @Override
-    public void flush(Writer w) throws Exception {
-      // NBT 是二进制格式，忽略 Writer，直接操作配置文件
-      Path dir = conf.toPath();
-      Path tmp = Files.createTempFile(dir.toAbsolutePath().getParent(), "SConfig-", "[NBT]");
-
-      // 将缓存数据转换为 NBT CompoundTag
+    public void flush(OutputStream out) throws Exception {
+      // 构建 NBT 数据
       CompoundTag rootCompound;
       Object maybeArray = cache.get("_root_array");
       if (cache.size() == 1 && maybeArray != null) {
-        // 处理根数组包装情况
         rootCompound = new CompoundTag();
         rootCompound.put("_root_array", nbtHandler.Java2Tag(maybeArray));
       } else {
@@ -1367,28 +1351,16 @@ public class SConfig {
       }
       NamedTag namedTag = new NamedTag(rootName.isEmpty() ? "" : rootName, rootCompound);
 
-      // 写入临时文件（支持压缩）
-      try (OutputStream os = Files.newOutputStream(tmp)) {
-        OutputStream out = os;
-        if (compressed) {
-          out = new GZIPOutputStream(os);
-        }
-        NBTSerializer serializer = new NBTSerializer(useLE);
-        serializer.toStream(namedTag, out);
-        if (compressed) {
-          out.close(); // 确保 GZIP 完成
-        }
+      // 根据 load 时检测的压缩标志决定是否包装 GZIP
+      OutputStream actualOut = out;
+      if (compressed) {
+        actualOut = new GZIPOutputStream(out);
       }
-
-      // 原子替换原文件
-      try {
-        Files.move(tmp, dir, StandardCopyOption.ATOMIC_MOVE);
-      } catch (AtomicMoveNotSupportedException e) {
-        Files.move(tmp, dir, StandardCopyOption.REPLACE_EXISTING);
+      NBTSerializer serializer = new NBTSerializer(useLE);
+      serializer.toStream(namedTag, actualOut);
+      if (compressed) {
+        actualOut.close(); // GZIPOutputStream 需要 close 来写入尾部
       }
-
-      // 关闭 Writer 并继续其它外部流程
-      w.close();
     }
 
     @Override
@@ -1424,7 +1396,7 @@ public class SConfig {
     }
 
    @Override
-   public void flush(Writer w) throws Exception {
+   public void flush(OutputStream out) throws Exception {
      // 先回转数据为 NBT
      CompoundTag compound;
      Object maybeUnsafeRoot = cache.get("_root_value");
@@ -1436,7 +1408,7 @@ public class SConfig {
        compound = nbtHandler.Map2Compound(cache);
      }
      // 再把 NBT 写为 SNBT
-     SNBTWriter.write(compound, w, Integer.MAX_VALUE);
+     SNBTWriter.write(compound, getWriter(out), Integer.MAX_VALUE);
    }
 
     @Override
@@ -1475,11 +1447,10 @@ public class SConfig {
   }
 
   /** 原子替换文件：先写临时文件，再 move */
-  private void atomicWrite(Path target, IOConsumer<Writer> writerBlock) throws Exception {
-    Path dir = target.toAbsolutePath().getParent();
-    Path tmp = dir.resolve(target.getFileName().toString() + ".tmp");
-    try (Writer w = Files.newBufferedWriter(tmp, StandardCharsets.UTF_8)) {
-      writerBlock.accept(w);
+  private void atomicWrite(Path target, IOConsumer<OutputStream> outF) throws Exception {
+    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + confType + ".");
+    try (OutputStream out = Files.newOutputStream(tmp)) {
+        outF.accept(out);
     }
     try {
       Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
@@ -1493,5 +1464,10 @@ public class SConfig {
   @FunctionalInterface
   private interface IOConsumer<T> {
     void accept(T t) throws Exception;
+  }
+
+  /** 从 OutputStream 解析一个 Writer */
+  private Writer getWriter(OutputStream out) {
+    return new OutputStreamWriter(out, StandardCharsets.UTF_8);
   }
 }

@@ -41,7 +41,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
-import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
+import com.github.streackmc.StreackLib.self.nbtHandler;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -49,6 +49,11 @@ import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
+
+import net.querz.nbt.io.NBTDeserializer;
+import net.querz.nbt.io.NamedTag;
+import net.querz.nbt.tag.CompoundTag;
+import net.querz.nbt.tag.Tag;
 
 /**
  * 高性能多格式（json/yaml/toml/xml/ini/prop）配置中心。
@@ -99,8 +104,18 @@ public class SConfig {
     public final static String TOML = "toml";
     public final static String INI = "ini";
     public final static String PROPERTIES = "prop";
-    /** Minecraft NBT (二进制文件) */
+    /**
+     * Minecraft NBT (二进制文件)
+     * <p>
+     * 使用大端序读取，即 Java 版行为；若要使用小端请使用 {@link #NBTle}
+     */
     public final static String NBT = "nbt";
+    /**
+     * Minecraft NBT (二进制文件)
+     * <p>
+     * 使用小端序读取，即基岩版行为；若要使用大端请使用 {@link #NBT}
+     */
+    public final static String NBTle = "nbtle";
     /** Minecraft NBT (人类可读文本) */
     public final static String SNBT = "snbt";
   }
@@ -294,6 +309,8 @@ public class SConfig {
         return new BackendSNBT();
       case "nbt":
         return new BackendNBT();
+      case "nbtle":
+        return new BackendNBT().setLE(true);
       default:
         throw new UnsupportedOperationException(String.format("不支持的文件类型 [%s]", ctype));
     }
@@ -357,7 +374,7 @@ public class SConfig {
   public String getString(String key, String def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       return v == null ? def : String.valueOf(v);
     } finally {
       lock.readLock().unlock();
@@ -367,7 +384,7 @@ public class SConfig {
   public SConfig putString(String key, String value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value); // 改为调用嵌套版本
+      putNested(key, value);
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -384,7 +401,7 @@ public class SConfig {
   public int getInt(String key, int def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof Number)
         return ((Number) v).intValue();
       if (v instanceof String) {
@@ -402,7 +419,42 @@ public class SConfig {
   public SConfig putInt(String key, int value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value); // 改为调用嵌套版本
+      putNested(key, value);
+      flush();
+    } finally {
+      lock.writeLock().unlock();
+    }
+    return this;
+  }
+
+  // short
+  /** 获取 long，缺失返回 <pre>(short) 0</pre><p>支持嵌套 key，如 "server.port" */
+  public long getShort(String key) {
+    return getShort(key, (short) 0);
+  }
+  /** 获取 long，缺失返回默认值；支持嵌套 key，如 "server.port" */
+  public long getShort(String key, short def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(key);
+      if (v instanceof Number)
+        return ((Number) v).shortValue();
+      if (v instanceof String) {
+        try {
+          return Short.parseShort((String) v);
+        } catch (NumberFormatException ignore) {
+        }
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /** 写入 long；支持嵌套 key，如 "server.port" */
+  public SConfig putLong(String key, short value) {
+    lock.writeLock().lock();
+    try {
+      putNested(key, value);
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -419,7 +471,7 @@ public class SConfig {
   public long getLong(String key, long def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof Number)
         return ((Number) v).longValue();
       if (v instanceof String) {
@@ -437,7 +489,7 @@ public class SConfig {
   public SConfig putLong(String key, long value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value); // 改为调用嵌套版本
+      putNested(key, value);
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -454,7 +506,7 @@ public class SConfig {
   public float getFloat(String key, float def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof Number)
         return ((Number) v).floatValue();
       if (v instanceof String) {
@@ -472,7 +524,7 @@ public class SConfig {
   public SConfig putFloat(String key, float value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value); // 改为调用嵌套版本
+      putNested(key, value);
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -489,7 +541,7 @@ public class SConfig {
   public double getDouble(String key, double def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof Number)
         return ((Number) v).doubleValue();
       if (v instanceof String) {
@@ -507,7 +559,7 @@ public class SConfig {
   public SConfig putDouble(String key, double value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value); // 改为调用嵌套版本
+      putNested(key, value);
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -524,7 +576,7 @@ public class SConfig {
   public boolean getBoolean(String key, boolean def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof Boolean)
         return (Boolean) v;
       if (v instanceof String)
@@ -538,7 +590,7 @@ public class SConfig {
   public SConfig putBoolean(String key, boolean value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value); // 改为调用嵌套版本
+      putNested(key, value);
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -556,7 +608,7 @@ public class SConfig {
   public List<String> getListOfString(String key, List<String> def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof List) {
         List<?> raw = (List<?>) v;
         if (raw.isEmpty() || raw.get(0) instanceof String) {
@@ -576,7 +628,7 @@ public class SConfig {
   public SConfig putListOfString(String key, List<String> value) {
     lock.writeLock().lock();
     try {
-      putNested(key, new ArrayList<>(value)); // 改为调用嵌套版本
+      putNested(key, new ArrayList<>(value));
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -594,7 +646,7 @@ public class SConfig {
   public List<Object> getList(String key, List<Object> def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof List) {
         List<?> raw = (List<?>) v;
         if (raw.isEmpty() || raw.get(0) instanceof Object) {
@@ -614,7 +666,7 @@ public class SConfig {
   public SConfig putList(String key, List<Object> value) {
     lock.writeLock().lock();
     try {
-      putNested(key, new ArrayList<>(value)); // 改为调用嵌套版本
+      putNested(key, new ArrayList<>(value));
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -632,7 +684,7 @@ public class SConfig {
   public Map<String, Object> getSection(String key, Map<String, Object> def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key); // 改为调用嵌套版本
+      Object v = getNested(key);
       if (v instanceof Map)
         return new LinkedHashMap<>((Map<String, Object>) v);
       return def;
@@ -644,7 +696,7 @@ public class SConfig {
   public SConfig putSection(String key, Map<String, Object> section) {
     lock.writeLock().lock();
     try {
-      putNested(key, new LinkedHashMap<>(section)); // 改为调用嵌套版本
+      putNested(key, new LinkedHashMap<>(section));
       flush();
     } finally {
       lock.writeLock().unlock();
@@ -987,9 +1039,14 @@ public class SConfig {
   }
 
   private interface Backend {
-    Map<String, Object> load(InputStream in) throws Exception;
-    void flush(Writer w) throws Exception;
-    String getType();
+    public Map<String, Object> load(InputStream in) throws Exception;
+    public void flush(Writer w) throws Exception;
+    public String getType();
+  }
+
+  private interface RootNamedBackend extends Backend {
+    public String getRootName();
+    public void setRootName(String name);
   }
 
   /*
@@ -1231,22 +1288,47 @@ public class SConfig {
     public String getType() { return TYPES.PROPERTIES; };
   }
 
-  private class BackendNBT implements Backend {
+  private class BackendNBT implements RootNamedBackend {
+    // 小端模式支持
+    private boolean useLE = false;
+    public BackendNBT setLE(boolean status) {
+      this.useLE = status;
+      return this;
+    }
+
+    // 根名称支持
+    private String rootName;
+    @Override
+    public String getRootName() { return Objects.requireNonNullElse(rootName, ""); }
+    @Override
+    public void setRootName(String name) { this.rootName = Objects.requireNonNullElse(name, ""); }
+
+    // 配置读写
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      throw new UnsupportedOperationException("尚未实现");// TODO: NBT尚未实现
-    };
-    
+      NamedTag nt = new NBTDeserializer(nbtHandler.detectZipped(in), useLE).fromStream(in);
+      setRootName(nt.getName());
+      Tag<?> rootTag = nt.getTag();
+      // 根标签必须是 CompoundTag，否则包装
+      if (rootTag instanceof CompoundTag) {
+        return nbtHandler.translateCompound((CompoundTag) rootTag);
+      } else {
+        Map<String, Object> wrapper = new LinkedHashMap<>();
+        wrapper.put("_root_value", nbtHandler.translateTagData(rootTag));
+        return wrapper;
+      }
+    }
+
     @Override
     public void flush(Writer w) throws Exception {
-      throw new UnsupportedOperationException("尚未实现");
-    };
+      throw new UnsupportedOperationException("NBT 是二进制格式，不支持写入字符流 Writer。");
+    }
 
     @Override
-    public String getType() { return TYPES.NBT; };
+    public String getType() { return TYPES.NBT; }
   }
 
-  private class BackendSNBT implements Backend {
+  private class BackendSNBT extends BackendNBT/* 工具方法直接继承就行 */ {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       throw new UnsupportedOperationException("尚未实现");
@@ -1268,6 +1350,28 @@ public class SConfig {
   /** @return 当前配置文件对象 */
   public File getFile() {
     return conf;
+  }
+
+  /** @return {@type String|null} 获取根的名称；如果当前配置格式不支持该特性返回 null 。 */
+  public String getRootName() {
+    if (confHandler instanceof RootNamedBackend) {
+      return ((RootNamedBackend) confHandler).getRootName();
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * 设置根的名称；如果当前配置格式不支持该特性静默处理。
+   * 
+   * @param name 要设置的名称
+   * @return 返回自身，允许链式调用
+   */
+  public SConfig setRootName(String name) {
+    if (confHandler instanceof RootNamedBackend) {
+      ((RootNamedBackend)confHandler).setRootName(name);
+    }
+    return this;
   }
 
   /** 原子替换文件：先写临时文件，再 move */

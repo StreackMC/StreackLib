@@ -40,8 +40,14 @@ public final class StreackLib {
 
   /** StreackLib内部持有的HTTP服务器 */
   public static HTTPServer httpServer;
+  /** TPS阻止伪共享的缓存行填充变量 */
+  private long p1, p2, p3, p4, p5, p6, p7;
   /** 当前TPS */
-  public static double currentTPS = -1.0;
+  @Contended
+  public static volatile double currentTPS = -1.0;
+  /** TPS阻止伪共享的缓存行填充变量 */
+  private long p9, p10, p11, p12, p13, p14, p15;
+
 
   /** StreackLib的环境信息 */
   public static class ENV {

@@ -1,5 +1,6 @@
 package com.github.streackmc.StreackLib.utils;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.reflect.Type;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileSystems;
@@ -179,22 +181,74 @@ public class SConfig {
   /**
    * 构造临时配置对象
    * 
-   * @param conf   配置文件内容原始来源
-   * @param ctype  格式，支持列表见于 {@link TYPES}
-   * @param suffix 临时文件后缀，如 ".yml"，可为Null
+   * @param rawData 配置文件内容原始来源
+   * @param ctype   格式，支持列表见于 {@link TYPES}
+   * @param suffix  临时文件后缀，如 ".yml"，可为Null
+   * @apiNote 默认使用 UTF-8 字符集，自定义字符集请用 {@link #SConfig(String, String, String, Charset)}
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws IOException                   读写错误
+   * @since 0.4.4
+   */
+  public SConfig(String rawData, String ctype, @Nullable String suffix) throws Exception {
+    this.confHandler = this.parseType(ctype);
+    this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
+
+    // 先根据String读取
+    try {
+      Map<String, Object> loaded;
+      try (InputStream in = new ByteArrayInputStream(rawData.getBytes(StandardCharsets.UTF_8))) {
+        logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
+        loaded = confHandler.load(in);
+      }
+      cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
+    } catch (Exception e) {
+      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
+          .set("exception", e)
+          .set("msg", e.getLocalizedMessage())
+          .broadcast();
+      throw new RuntimeException("无法加载配置文件", e);
+    } finally {
+    }
+
+    // 再根据 cache 落盘
+    flush();
+  }
+
+  /**
+   * 构造临时配置对象
+   * 
+   * @param rawData 配置文件内容原始来源
+   * @param ctype   格式，支持列表见于 {@link TYPES}
+   * @param suffix  临时文件后缀，如 ".yml"，可为Null
+   * @param charSet 使用的字符集
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException                   读写错误
    * @see #SConfig(File, String)
-   * @since 0.4.4
+   * @since 0.4.7
    */
-  public SConfig(String conf, String ctype, @Nullable String suffix) throws Exception {
+  public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) throws Exception {
     this.confHandler = this.parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
-    try (Writer w = Files.newBufferedWriter(this.conf.toPath(), StandardCharsets.UTF_8)) {
-      w.write(conf);
-    } catch (IOException e) {
-      throw e;
+
+    // 先根据String读取
+    try {
+      Map<String, Object> loaded;
+      try (InputStream in = new ByteArrayInputStream(rawData.getBytes(charSet))) {
+        logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
+        loaded = confHandler.load(in);
+      }
+      cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
+    } catch (Exception e) {
+      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
+          .set("exception", e)
+          .set("msg", e.getLocalizedMessage())
+          .broadcast();
+      throw new RuntimeException("无法加载配置文件", e);
+    } finally {
     }
+
+    // 再根据 cache 落盘
+    flush();
   }
 
   /**
@@ -205,7 +259,6 @@ public class SConfig {
    * @param suffix 临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException                   读写错误
-   * @see #SConfig(File, String)
    * @since 0.4.7
    */
   public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws Exception {

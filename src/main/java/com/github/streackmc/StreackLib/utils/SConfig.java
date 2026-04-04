@@ -1,11 +1,14 @@
 package com.github.streackmc.StreackLib.utils;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.PushbackInputStream;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.reflect.Type;
@@ -31,6 +34,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.zip.GZIPOutputStream;
 
 import javax.annotation.Nullable;
 
@@ -42,6 +46,7 @@ import org.yaml.snakeyaml.Yaml;
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.nbtHandler;
+import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -51,16 +56,27 @@ import com.moandjiezana.toml.Toml;
 import com.moandjiezana.toml.TomlWriter;
 
 import net.querz.nbt.io.NBTDeserializer;
+import net.querz.nbt.io.NBTSerializer;
 import net.querz.nbt.io.NamedTag;
+import net.querz.nbt.io.SNBTDeserializer;
+import net.querz.nbt.io.SNBTParser;
+import net.querz.nbt.io.SNBTWriter;
 import net.querz.nbt.tag.CompoundTag;
 import net.querz.nbt.tag.Tag;
 
 /**
- * 高性能多格式（json/yaml/toml/xml/ini/prop）配置中心。
- * 支持运行时热加载与严格类型读写。
+ * <h3>SConfig</h3>
+ * 高性能多格式配置管理器，支持自动重载与严格类型读写。
+ * <p>
+ * 支持多种文件格式，详见 {@link SConfig.TYPES} ：
+ * JSON / JSON with Comment / YAML / Properties / TOML / INI / NBT / SNBT
+ * <p>
+ * 支持JSON的 Array As Root 和 NBT 的 Root Name 特性，见于 {@link SConfig.TYPES#JSON} 和
+ * {@link SConfig#setRootName(String)} 。
  *
  * @author kdxiaoyi
- * @author KimiAI 亦有贡献
+ * @author Kimi[AI] ~~亦有贡献~~现因圈钱过度退出开发
+ * @author Deepseek[AI] 亦有贡献
  * @since 0.2.0
  */
 public class SConfig {
@@ -107,16 +123,24 @@ public class SConfig {
     /**
      * Minecraft NBT (二进制文件)
      * <p>
-     * 使用大端序读取，即 Java 版行为；若要使用小端请使用 {@link #NBTle}
+     * 使用大端序读取，即 Java 版行为；若要使用小端请使用 {@link TYPES#NBTle}
+     * 
+     * @apiNote 由于 {@link Writer} 不支持操作二进制数据，所以本格式的写入不经过正常流程。但仍可保证原子性。
      */
     public final static String NBT = "nbt";
     /**
      * Minecraft NBT (二进制文件)
      * <p>
-     * 使用小端序读取，即基岩版行为；若要使用大端请使用 {@link #NBT}
+     * 使用小端序读取，即基岩版行为；若要使用大端请使用 {@link TYPES#NBT}
+     * 
+     * @apiNote 由于 {@link Writer} 不支持操作二进制数据，所以本格式的写入不经过正常流程。但仍可保证原子性。
      */
     public final static String NBTle = "nbtle";
-    /** Minecraft NBT (人类可读文本) */
+    /**
+     * Minecraft NBT (人类可读文本)
+     * <p>
+     * 最大深度为 Int 上限，且会尝试将原文本经多次内存操作，警惕<b>爆堆栈或者内存</b>风险
+     */
     public final static String SNBT = "snbt";
   }
 
@@ -1296,6 +1320,9 @@ public class SConfig {
       return this;
     }
 
+    // GZIP压缩
+    private boolean compressed = false;
+
     // 根名称支持
     private String rootName;
     @Override
@@ -1306,38 +1333,111 @@ public class SConfig {
     // 配置读写
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      NamedTag nt = new NBTDeserializer(nbtHandler.detectZipped(in), useLE).fromStream(in);
+      // 需要包装为一个可回溯流，要不然前面的GZIP文件头就没了
+      PushbackInputStream inPb = new PushbackInputStream(in, 2);
+      compressed = nbtHandler.detectGZIP(inPb);
+      NamedTag nt = new NBTDeserializer(compressed, useLE).fromStream(inPb);
       setRootName(nt.getName());
       Tag<?> rootTag = nt.getTag();
       // 根标签必须是 CompoundTag，否则包装
       if (rootTag instanceof CompoundTag) {
-        return nbtHandler.translateCompound((CompoundTag) rootTag);
+        return nbtHandler.Compound2Map((CompoundTag) rootTag);
       } else {
         Map<String, Object> wrapper = new LinkedHashMap<>();
-        wrapper.put("_root_value", nbtHandler.translateTagData(rootTag));
+        wrapper.put("_root_value", nbtHandler.Tag2Java(rootTag));
         return wrapper;
       }
     }
 
     @Override
     public void flush(Writer w) throws Exception {
-      throw new UnsupportedOperationException("NBT 是二进制格式，不支持写入字符流 Writer。");
+      // NBT 是二进制格式，忽略 Writer，直接操作配置文件
+      Path dir = conf.toPath();
+      Path tmp = Files.createTempFile(dir.toAbsolutePath().getParent(), "SConfig-", "[NBT]");
+
+      // 将缓存数据转换为 NBT CompoundTag
+      CompoundTag rootCompound;
+      Object maybeArray = cache.get("_root_array");
+      if (cache.size() == 1 && maybeArray != null) {
+        // 处理根数组包装情况
+        rootCompound = new CompoundTag();
+        rootCompound.put("_root_array", nbtHandler.Java2Tag(maybeArray));
+      } else {
+        rootCompound = nbtHandler.Map2Compound(cache);
+      }
+      NamedTag namedTag = new NamedTag(rootName.isEmpty() ? "" : rootName, rootCompound);
+
+      // 写入临时文件（支持压缩）
+      try (OutputStream os = Files.newOutputStream(tmp)) {
+        OutputStream out = os;
+        if (compressed) {
+          out = new GZIPOutputStream(os);
+        }
+        NBTSerializer serializer = new NBTSerializer(useLE);
+        serializer.toStream(namedTag, out);
+        if (compressed) {
+          out.close(); // 确保 GZIP 完成
+        }
+      }
+
+      // 原子替换原文件
+      try {
+        Files.move(tmp, dir, StandardCopyOption.ATOMIC_MOVE);
+      } catch (AtomicMoveNotSupportedException e) {
+        Files.move(tmp, dir, StandardCopyOption.REPLACE_EXISTING);
+      }
+
+      // 关闭 Writer 并继续其它外部流程
+      w.close();
     }
 
     @Override
     public String getType() { return TYPES.NBT; }
   }
 
-  private class BackendSNBT extends BackendNBT/* 工具方法直接继承就行 */ {
+  private class BackendSNBT implements Backend {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      throw new UnsupportedOperationException("尚未实现");
-    };
+      // 读取文本内容
+      StringBuilder sb = new StringBuilder();
+      try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          sb.append(line);
+        }
+      }
 
-    @Override
-    public void flush(Writer w) throws Exception {
-      throw new UnsupportedOperationException("尚未实现");
-    };
+      // 转为 NBT
+      SNBTParser parser = new SNBTParser(sb.toString());
+      Tag<?> parsedTag = parser.parse();
+
+      // 处理根标签
+      if (parsedTag instanceof CompoundTag) {
+        // 如果是 CompoundTag，直接利用现有的 nbtHandler 工具转换
+        return nbtHandler.Compound2Map((CompoundTag) parsedTag);
+      } else {
+        // 其他情况（理论上 SNBT 根标签应为 CompoundTag，但这里做防御性处理）
+        Map<String, Object> wrapper = new LinkedHashMap<>();
+        wrapper.put("_root_value", nbtHandler.Tag2Java(parsedTag));
+        return wrapper;
+      }
+    }
+
+   @Override
+   public void flush(Writer w) throws Exception {
+     // 先回转数据为 NBT
+     CompoundTag compound;
+     Object maybeUnsafeRoot = cache.get("_root_value");
+     if (cache.size() == 1 && maybeUnsafeRoot != null) {
+       // 这时需要包装成一个自定义根标签，因为 SNBT 根必须是一个 Compound
+       compound = new CompoundTag();
+       compound.put("_root_value", nbtHandler.Java2Tag(maybeUnsafeRoot));
+     } else {
+       compound = nbtHandler.Map2Compound(cache);
+     }
+     // 再把 NBT 写为 SNBT
+     SNBTWriter.write(compound, w, Integer.MAX_VALUE);
+   }
 
     @Override
     public String getType() { return TYPES.SNBT; };

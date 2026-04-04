@@ -60,6 +60,13 @@ public class debugentry {
       err("[!] Caught Error @[ebugentry.test/logger] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
+    info("======== SConfig.java[NBT] =========");
+    try {
+      test_SConfig_NBT();
+    } catch (Exception e) {
+      err("[!] Caught Error @[ebugentry.test/SConfig.NBT] :" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
     info("======= SEventCentral.java =======");
     try {
       test_SEvent();
@@ -109,6 +116,52 @@ public class debugentry {
 
   private static void err(String txt) {
     System.out.println("[" + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")) + "][ERROR] " + txt);
+  }
+
+  /**
+   * 测试 SConfig 对 NBT (Minecraft level.dat) 格式的读取能力。
+   * 文件路径为 ./mcserver/world/level.dat，不强制存在。
+   */
+  private static void test_SConfig_NBT() {
+    info("======= SConfig[NBT] =======");
+    File levelDat = new File("./mcserver/world/level.dat");
+    if (!levelDat.exists()) {
+      warn("NBT 测试文件不存在，跳过读取测试: " + levelDat.getAbsolutePath());
+      return;
+    }
+    try {
+      // 使用大端序 NBT 读取 (Java 版)
+      SConfig nbtConfig = new SConfig(levelDat, SConfig.TYPES.NBT);
+      info("成功加载 NBT 文件: " + levelDat.getAbsolutePath());
+      info("根标签名称: " + nbtConfig.getRootName());
+
+      // 读取常用字段（基于 level.dat 的典型结构）
+      // 版本信息通常位于 Data.version
+      int version = nbtConfig.getInt("Data.version");
+      info("世界版本 (Data.version): " + version);
+
+      // 世界名称
+      String levelName = nbtConfig.getString("Data.LevelName");
+      info("世界名称 (Data.LevelName): " + levelName);
+
+      // 游戏类型 (0=生存,1=创造,2=冒险,3=旁观)
+      int gameType = nbtConfig.getInt("Data.GameType");
+      info("游戏类型 (Data.GameType): " + gameType);
+
+      // 是否允许命令
+      boolean allowCommands = nbtConfig.getBoolean("Data.allowCommands");
+      info("允许命令 (Data.allowCommands): " + allowCommands);
+
+      // 展示原始数据概览（仅打印一级键名）
+      Map<String, Object> raw = nbtConfig.getRawData();
+      info("顶层键集合: " + raw.keySet());
+
+      // 注意：NBT 后端未实现 flush，此处不进行写入测试
+      info("NBT 读取测试完成（仅支持读取，写入未实现）");
+    } catch (Exception e) {
+      warn("NBT 读取失败: " + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
   }
 
   private static void test_SFile(File testDir) throws Exception {

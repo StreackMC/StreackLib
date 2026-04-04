@@ -5,8 +5,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.reflect.Type;
@@ -286,7 +284,7 @@ public class SConfig {
    * @deprecated
    */
   @Deprecated
-  public <T> StreackLib put(String key, T value) {
+  public <T> SConfig put(String key, T value) {
     lock.writeLock().lock();
     try {
       cache.put(key, value);
@@ -313,15 +311,15 @@ public class SConfig {
     }
   }
   /** 写入字符串；支持嵌套 key，如 "server.port" */
-  public StreackLib put(String(String key, String value) {
+  public SConfig putString(String key, String value) {
     lock.writeLock().lock();
     try {
       putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Int
@@ -348,15 +346,15 @@ public class SConfig {
     }
   }
   /** 写入 int；支持嵌套 key，如 "server.port" */
-  public StreackLib put(Int(String key, int value) {
+  public SConfig putInt(String key, int value) {
     lock.writeLock().lock();
     try {
       putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Long
@@ -383,15 +381,15 @@ public class SConfig {
     }
   }
   /** 写入 long；支持嵌套 key，如 "server.port" */
-  public StreackLib put(Long(String key, long value) {
+  public SConfig putLong(String key, long value) {
     lock.writeLock().lock();
     try {
       putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Float
@@ -418,15 +416,15 @@ public class SConfig {
     }
   }
   /** 写入 Float；支持嵌套 key，如 "server.port" */
-  public StreackLib put(Float(String key, float value) {
+  public SConfig putFloat(String key, float value) {
     lock.writeLock().lock();
     try {
       putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Double
@@ -453,15 +451,15 @@ public class SConfig {
     }
   }
   /** 写入 double；支持嵌套 key，如 "server.port" */
-  public StreackLib put(Double(String key, double value) {
+  public SConfig putDouble(String key, double value) {
     lock.writeLock().lock();
     try {
       putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Boolean
@@ -484,15 +482,15 @@ public class SConfig {
     }
   }
   /** 写入 boolean；支持嵌套 key，如 "server.port" */
-  public StreackLib put(Boolean(String key, boolean value) {
+  public SConfig putBoolean(String key, boolean value) {
     lock.writeLock().lock();
     try {
       putNested(key, value); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // StringList
@@ -522,15 +520,15 @@ public class SConfig {
     }
   }
   /** 写入字符串列表；支持嵌套 key，如 "server.hosts" */
-  public StreackLib put(ListOfString(String key, List<String> value) {
+  public SConfig putListOfString(String key, List<String> value) {
     lock.writeLock().lock();
     try {
       putNested(key, new ArrayList<>(value)); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // List
@@ -560,15 +558,15 @@ public class SConfig {
     }
   }
   /** 写入一般列表；支持嵌套 key，如 "server.hosts" */
-  public StreackLib put(List(String key, List<Object> value) {
+  public SConfig putList(String key, List<Object> value) {
     lock.writeLock().lock();
     try {
       putNested(key, new ArrayList<>(value)); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Section (Map<String,Object>)
@@ -590,15 +588,15 @@ public class SConfig {
     }
   }
   /** 写入子配置段；支持嵌套 key，如 "server" */
-  public StreackLib put(Section(String key, Map<String, Object> section) {
+  public SConfig putSection(String key, Map<String, Object> section) {
     lock.writeLock().lock();
     try {
       putNested(key, new LinkedHashMap<>(section)); // 改为调用嵌套版本
       flush();
     } finally {
       lock.writeLock().unlock();
-      return this;
     }
+    return this;
   }
 
   // Section (SConfig)
@@ -625,7 +623,7 @@ public class SConfig {
    * <p>
    * 该方法本质是对 {@link #putSection(String, Map)} 的再包装，自动提取 SConfig 的 rawData
    */
-  public StreackLib put(Section(String key, SConfig SectionConfig) {
+  public SConfig putSection(String key, SConfig SectionConfig) {
     return putSection(key, SectionConfig.getRawData());
   }
 
@@ -635,7 +633,7 @@ public class SConfig {
    * 删除配置项；支持嵌套 key，如 "server.port"
    * 若路径不存在或中途类型不匹配，静默返回
    */
-  public StreackLib remove(String key) {
+  public SConfig remove(String key) {
     lock.writeLock().lock();
     try {
       int lastDot = getIndexOfNormalDot(key);
@@ -792,7 +790,7 @@ public class SConfig {
   /**
    * 向嵌套路径写入值，若路径非法（中间节点非 Map）则退化为普通 key 写入顶层
    */
-  private void put(Nested(String key, Object value) {
+  private void putNested(String key, Object value) {
     Map<String, Object> targetMap = ensureNestedMap(key);
     if (targetMap == null) {
       // 嵌套失败，退化为顶层写入（保持兼容）
@@ -1149,7 +1147,7 @@ public class SConfig {
     /**
      * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
      */
-    private static void put(NestedRaw(Map<String, Object> root, String key, Object value) {
+    private static void putNestedRaw(Map<String, Object> root, String key, Object value) {
       int lastDot = getIndexOfNormalDot(key);
       if (lastDot == -1) {
         root.put(key, value);

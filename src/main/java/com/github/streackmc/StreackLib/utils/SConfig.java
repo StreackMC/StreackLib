@@ -47,6 +47,7 @@ import org.yaml.snakeyaml.Yaml;
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.nbtHandler;
+import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -1448,7 +1449,7 @@ public class SConfig {
 
   /** 原子替换文件：先写临时文件，再 move */
   private void atomicWrite(Path target, IOConsumer<OutputStream> outF) throws Exception {
-    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + confType + ".");
+    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + confType + ".tmp");
     try (OutputStream out = Files.newOutputStream(tmp)) {
         outF.accept(out);
     }

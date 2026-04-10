@@ -60,13 +60,7 @@ public class debugentry {
       err("[!] Caught Error @[ebugentry.test/logger] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
-    info("======== SConfig.java[NBT] =========");
-    try {
-      test_SConfig_NBT();
-    } catch (Exception e) {
-      err("[!] Caught Error @[ebugentry.test/SConfig.NBT] :" + e.getLocalizedMessage());
-      e.printStackTrace();
-    }
+    // NBT 测试已合并进下面的 test_SConfig 方法，统一在同一测试目录执行
     info("======= SEventCentral.java =======");
     try {
       test_SEvent();
@@ -124,15 +118,38 @@ public class debugentry {
    */
   private static void test_SConfig_NBT() {
     info("======= SConfig[NBT] =======");
-    File levelDat = new File("./mcserver/world/level.dat");
-    if (!levelDat.exists()) {
-      warn("NBT 测试文件不存在，跳过读取测试: " + levelDat.getAbsolutePath());
-      return;
-    }
+    File src = new File("./mcserver/world/level.dat");
+    File dir = new File("./target/debugCI-tmp/SConfig");
+    dir.mkdirs();
+    File testFile = new File(dir, "level.dat");
+
     try {
+      if (src.exists()) {
+        // 如果源存在，复制到测试目录
+        try {
+          java.nio.file.Files.copy(src.toPath(), testFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          info("复制 NBT 测试文件到: " + testFile.getAbsolutePath());
+        } catch (Exception e) {
+          warn("复制 NBT 文件失败，尝试使用原文件: " + e.getMessage());
+          // fallback to src
+          testFile = src;
+        }
+      } else {
+        // 源不存在，创建一个空文件以便测试读取逻辑的健壮性
+        try {
+          if (!testFile.exists()) {
+            java.nio.file.Files.createFile(testFile.toPath());
+            info("未找到源 NBT，已创建空测试文件: " + testFile.getAbsolutePath());
+          }
+        } catch (Exception e) {
+          warn("无法创建测试 NBT 文件，尝试使用原路径作为回退: " + e.getMessage());
+          testFile = src; // will likely not exist, but let SConfig handle it
+        }
+      }
+
       // 使用大端序 NBT 读取 (Java 版)
-      SConfig nbtConfig = new SConfig(levelDat, SConfig.TYPES.NBT);
-      info("成功加载 NBT 文件: " + levelDat.getAbsolutePath());
+      SConfig nbtConfig = new SConfig(testFile, SConfig.TYPES.NBT);
+      info("尝试加载 NBT 文件: " + testFile.getAbsolutePath());
       info("根标签名称: " + nbtConfig.getRootName());
 
       // 读取常用字段（基于 level.dat 的典型结构）
@@ -156,8 +173,8 @@ public class debugentry {
       Map<String, Object> raw = nbtConfig.getRawData();
       info("顶层键集合: " + raw.keySet());
 
-      // 注意：NBT 后端未实现 flush，此处不进行写入测试
-      info("NBT 读取测试完成（仅支持读取，写入未实现）");
+      // 注意：NBT 后端可能未实现 flush；此处不进行写入测试
+      info("NBT 读取测试完成（若文件为空则仅验证读取路径与错误处理）");
     } catch (Exception e) {
       warn("NBT 读取失败: " + e.getLocalizedMessage());
       e.printStackTrace();
@@ -271,6 +288,23 @@ public class debugentry {
             "k1 = v1\n" +
             "k2 = 42\n").getBytes(StandardCharsets.UTF_8));
 
+    // NBT: 将 mcserver/world/level.dat 复制到测试目录（或创建空文件），以便后续测试
+    File nbtSrc = new File("./mcserver/world/level.dat");
+    File nbtTestFile = new File(dir, "level.dat");
+    try {
+      if (nbtSrc.exists()) {
+        Files.copy(nbtSrc.toPath(), nbtTestFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        info("复制 NBT 测试文件到: " + nbtTestFile.getAbsolutePath());
+      } else {
+        if (!nbtTestFile.exists()) {
+          Files.createFile(nbtTestFile.toPath());
+          info("未找到源 NBT，已创建空测试文件: " + nbtTestFile.getAbsolutePath());
+        }
+      }
+    } catch (Exception e) {
+      warn("准备 NBT 测试文件失败: " + e.getMessage());
+    }
+
     // 2) 分别对每种格式执行相同测试
     for (File f : new File[] { json, yaml, toml, ini }) {
       String ext = f.getName().substring(f.getName().lastIndexOf('.') + 1);
@@ -307,7 +341,7 @@ public class debugentry {
       info("reloaded:newStr  = " + cfg.getString("newStr"));
 
       // 热加载：把刚才写入的内容再写回文件，触发检测
-      cfg.startAutoReload();
+      cfg.setAutoReload(true);
       Thread.sleep(100); // 等待 WatchService 就绪
 
       // 修改文件内容（保留原有字段，只修改 str）
@@ -344,9 +378,9 @@ public class debugentry {
           break;
         case "toml":
           // 先停止监听避免自己写入触发重载冲突
-          cfg.stopAutoReload();
+          cfg.setAutoReload(false);
           new TomlWriter().write(hot, new FileWriter(f));
-          cfg.startAutoReload();
+          cfg.setAutoReload(true);
           break;
         case "ini":
           Ini iniHot = new Ini();
@@ -375,6 +409,72 @@ public class debugentry {
     }
 
     info("==> all tests done.");
+
+    // ----- 对 NBT 执行一组读取测试 -----
+    try {
+      info("==> nbt");
+      if (!nbtTestFile.exists()) {
+        warn("NBT 测试文件不存在，跳过 NBT 读取测试: " + nbtTestFile.getAbsolutePath());
+      } else {
+        SConfig ncfg = new SConfig(nbtTestFile, SConfig.TYPES.NBT);
+        info("nbt: root=" + ncfg.getRootName());
+        info("nbt: Data.version=" + ncfg.getInt("Data.version"));
+        info("nbt: Data.LevelName=" + ncfg.getString("Data.LevelName"));
+        info("nbt: Data.GameType=" + ncfg.getInt("Data.GameType"));
+        info("nbt: Data.allowCommands=" + ncfg.getBoolean("Data.allowCommands"));
+        info("nbt: topKeys=" + ncfg.getRawData().keySet());
+        // 尝试写入 NBT（如果后端支持写入）并验证
+        try {
+          ncfg.putString("Test.WriteMarker", "written-by-nbt-test");
+          info("nbt: 写入标记 Test.WriteMarker=written-by-nbt-test");
+          // reload 后再读取以确保写入已持久化
+          ncfg.reload();
+          info("nbt: reload 后 Test.WriteMarker=" + ncfg.getString("Test.WriteMarker"));
+        } catch (Exception ew) {
+          warn("nbt: 写入测试失败: " + ew.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      warn("NBT 读取测试失败: " + e.getMessage());
+      e.printStackTrace();
+    }
+
+    // ----- SNBT 读取与写入测试 -----
+    try {
+      info("==> snbt");
+      File snbtFile = new File(dir, "test.snbt");
+      String sampleSNBT = "{Data:{LevelName:\"snbt-test\",version:42,GameType:1,allowCommands:1b}}";
+      try {
+        Files.write(snbtFile.toPath(), sampleSNBT.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE,
+            StandardOpenOption.TRUNCATE_EXISTING);
+        info("snbt: 写入示例文件: " + snbtFile.getAbsolutePath());
+      } catch (Exception e2) {
+        warn("snbt: 无法写入示例 SNBT 文件: " + e2.getMessage());
+      }
+
+      if (!snbtFile.exists()) {
+        warn("snbt: 示例文件不存在，跳过 SNBT 测试: " + snbtFile.getAbsolutePath());
+      } else {
+        SConfig sc = new SConfig(snbtFile, SConfig.TYPES.SNBT);
+        info("snbt: root=" + sc.getRootName());
+        info("snbt: Data.version=" + sc.getInt("Data.version"));
+        info("snbt: Data.LevelName=" + sc.getString("Data.LevelName"));
+
+        // 尝试写入 SNBT
+        try {
+          sc.putString("Data.LevelName", "snbt-modified");
+          sc.putInt("Data.version", 9001);
+          info("snbt: 写入 Data.LevelName=snbt-modified, Data.version=9001");
+          sc.reload();
+          info("snbt: reload 后 Data.LevelName=" + sc.getString("Data.LevelName") + ", version=" + sc.getInt("Data.version"));
+        } catch (Exception es) {
+          warn("snbt: 写入测试失败: " + es.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      warn("SNBT 测试失败: " + e.getMessage());
+      e.printStackTrace();
+    }
   }
   
   private static void test_SEvent() throws Exception {

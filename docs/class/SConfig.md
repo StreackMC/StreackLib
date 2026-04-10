@@ -32,11 +32,11 @@ SConfig conf2 = new SConfig(Map<String, Object> conf.getRawData(), String "文�
 
 ```java
 // 启用自动重载
-conf.startAutoReload;
+conf.setAutoReload(trues);
 // 获取自动重载状态
 Boolen status = conf.isAutoReloading();
 // 禁用自动重载
-conf.stopAutoReload();
+conf.setAutoReload(false);
 ```
 
 > 自动重载被重复启用时会自动忽略且不抛错误
@@ -119,12 +119,13 @@ conf.putString(String "key", "value")
 ```
 
 ## 写入模式
-SConfig支持四种写入模式，默认为[自动保存](#自动保存)模式。
+SConfig支持四种写入模式，默认为自动保存模式。
+设置为其它值视作手动保存模式
 
-* 自动保存 `SConfig.write`
-* 手动保存
-* 写保护
-* 只读
+* 自动保存 `SConfig.WRITE_MODE.AUTOSAVE`：修改后立即保存
+* 手动保存 `SConfig.WRITE_MODE.INERTIA`：可以修改，需要手动保存
+* 写保护 `SConfig.WRITE_MODE.WRITELOCK`：可以修改，但无法保存到文件
+* 只读 `SConfig.WRITE_MODE.READONLY`：无法修改任何东西
 
 ## 特殊格式支持
 ### JSON 的 Array As Root

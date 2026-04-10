@@ -47,7 +47,6 @@ import org.yaml.snakeyaml.Yaml;
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.nbtHandler;
-import com.github.streackmc.StreackLib.utils.SConfig.TYPES;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -91,7 +90,7 @@ public class SConfig {
   /** 支持的文件类型的标准化字符串。所有字符串都不区分大小写。 */
   public final static class TYPES {
     /**
-     * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 {@link TYPES.JSONC}
+     * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 {@link TYPES#JSONC}
      * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 中；在 0.4.6 及更早版本中则会被忽略。
      * 
      *          <pre>
@@ -112,11 +111,11 @@ public class SConfig {
      */
     public final static String JSONC = "jsonc";
     /**
-     * 亦作 {@link TYPES.YML}
+     * 亦作 {@link TYPES#YML}
      */
     public final static String YAML = "yaml";
     /**
-     * 亦作 {@link TYPES.YAML}
+     * 亦作 {@link TYPES#YAML}
      */
     public final static String YML = "yaml";
     public final static String TOML = "toml";
@@ -165,11 +164,11 @@ public class SConfig {
   public final static class WRITE_MODE {
     /** 默认值。自动保存：产生修改后立即保存到文件。 */
     public final static String AUTOSAVE = "autosave";
-    /** 手动保存：所有修改必须调用 {@link #save()} 才能保存到文件 */
+    /** 手动保存：所有修改必须调用 {@link SConfig#save()} 才能保存到文件。 */
     public final static String INERTIA = "inertia";
     /** 写保护：无法修改文件，强制保存到原文件会抛出不受检异常。 */
     public final static String WRITELOCK = "writelock";
-    /** 只读：无法修改缓存和文件，强制修改会抛出不受检异常 */
+    /** 只读：无法修改缓存和文件，强制修改会抛出不受检异常。 */
     public final static String READONLY = "readonly";
   }
 
@@ -193,8 +192,7 @@ public class SConfig {
   private String confType;
 
   // save
-  private boolean doAutoSave = true;
-  private boolean readonly = false;
+  private String writeMode = "autosave";
 
   /**
    * 构造配置对象
@@ -393,17 +391,22 @@ public class SConfig {
   /**
    * **已弃用，请使用严格类型 API**
    * 写入配置项
-   * @param <T> 可为String/List/Int/Number
-   * @param key 目标配置项，没有自动新增
+   * 
+   * @param <T>   可为String/List/Int/Number
+   * @param key   目标配置项，没有自动新增
    * @param value 目标值
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    * @deprecated
    */
   @Deprecated
   public <T> SConfig put(String key, T value) {
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+      throw new IllegalStateException("只读模式下无法修改配置");
+    }
     lock.writeLock().lock();
     try {
       cache.put(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -425,12 +428,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入字符串；支持嵌套 key，如 "server.port" */
+  
+  /**
+   * 写入字符串；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putString(String key, String value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -460,12 +468,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入 int；支持嵌套 key，如 "server.port" */
+
+  /**
+   * 写入 int；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putInt(String key, int value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -495,12 +508,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入 long；支持嵌套 key，如 "server.port" */
+  
+  /**
+   * 写入 long；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putLong(String key, short value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -530,12 +548,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入 long；支持嵌套 key，如 "server.port" */
+  
+  /**
+   * 写入 long；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putLong(String key, long value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -565,12 +588,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入 Float；支持嵌套 key，如 "server.port" */
+  
+  /**
+   * 写入 Float；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putFloat(String key, float value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -600,12 +628,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入 double；支持嵌套 key，如 "server.port" */
+  
+  /**
+   * 写入 double；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putDouble(String key, double value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -631,12 +664,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入 boolean；支持嵌套 key，如 "server.port" */
+  
+  /**
+   * 写入 boolean；支持嵌套 key，如 "server.port"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putBoolean(String key, boolean value) {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -669,12 +707,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入字符串列表；支持嵌套 key，如 "server.hosts" */
+  
+  /**
+   * 写入字符串列表；支持嵌套 key，如 "server.hosts"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putListOfString(String key, List<String> value) {
     lock.writeLock().lock();
     try {
       putNested(key, new ArrayList<>(value));
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -707,12 +750,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入一般列表；支持嵌套 key，如 "server.hosts" */
+  
+  /**
+   * 写入一般列表；支持嵌套 key，如 "server.hosts"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putList(String key, List<Object> value) {
     lock.writeLock().lock();
     try {
       putNested(key, new ArrayList<>(value));
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -737,12 +785,17 @@ public class SConfig {
       lock.readLock().unlock();
     }
   }
-  /** 写入子配置段；支持嵌套 key，如 "server" */
+  
+  /**
+   * 写入子配置段；支持嵌套 key，如 "server"
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
   public SConfig putSection(String key, Map<String, Object> section) {
     lock.writeLock().lock();
     try {
       putNested(key, new LinkedHashMap<>(section));
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -772,6 +825,7 @@ public class SConfig {
    * 写入子配置段；支持嵌套 key，如 "server"
    * <p>
    * 该方法本质是对 {@link #putSection(String, Map)} 的再包装，自动提取 SConfig 的 rawData
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    */
   public SConfig putSection(String key, SConfig SectionConfig) {
     return putSection(key, SectionConfig.getRawData());
@@ -782,8 +836,12 @@ public class SConfig {
   /**
    * 删除配置项；支持嵌套 key，如 "server.port"
    * 若路径不存在或中途类型不匹配，静默返回
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    */
   public SConfig remove(String key) {
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+      throw new IllegalStateException("只读模式下无法修改配置");
+    }
     lock.writeLock().lock();
     try {
       int lastDot = getIndexOfNormalDot(key);
@@ -796,7 +854,7 @@ public class SConfig {
           parent.remove(lastKey);
         }
       }
-      if (doAutosave) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -941,6 +999,9 @@ public class SConfig {
    * 向嵌套路径写入值，若路径非法（中间节点非 Map）则退化为普通 key 写入顶层
    */
   private void putNested(String key, Object value) {
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+      throw new IllegalStateException("只读模式下无法修改配置");
+    }
     Map<String, Object> targetMap = ensureNestedMap(key);
     if (targetMap == null) {
       // 嵌套失败，退化为顶层写入（保持兼容）
@@ -961,10 +1022,16 @@ public class SConfig {
 
   /**
    * 将缓存写入磁盘
+   * 
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   * @throws RuntimeException 不受检；无法写入配置文件。
    */
-  private void flush() throws IllegalStatusException {
-    if (readonly) {
-      throw new IllegalStatusException("只读模式下无法写入缓存到文件");
+  private void flush() {
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.WRITELOCK)) {
+      throw new IllegalStateException("SConfig的写保护模式下无法写入缓存到文件");
+    }
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+      throw new IllegalStateException("只读模式下无法写入缓存到文件");
     }
     lock.writeLock().lock();
     try {
@@ -980,6 +1047,8 @@ public class SConfig {
 
   /**
    * 加载文件到缓存
+   * 
+   * @throws RuntimeException 不受检；无法加载配置文件。
    */
   private void load() {
     lock.writeLock().lock();
@@ -1366,7 +1435,7 @@ public class SConfig {
    * 若当前已启用会静默处理。
    * @throws UncheckedIOException 无法启用自动重载时
    */
-  public void startAutoReload() {
+  private void startAutoReload() {
     if (watching)
       return;
     try {
@@ -1413,7 +1482,7 @@ public class SConfig {
   }
 
   /** 停止自动重载 */
-  public SConfig stopAutoReload() {
+  private void stopAutoReload() {
     logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
     watching = false;
     if (watchThread != null)
@@ -1425,8 +1494,22 @@ public class SConfig {
     } finally {
       watchService = null;
       watchThread = null;
-      return this;
     }
+  }
+
+  /**
+   * 设置自动重载状态
+   * 
+   * @throws UncheckedIOException 不受检；无法启用自动重载。
+   * @since 0.5.0
+   */
+  public SConfig setAutoReload(boolean status) {
+    if (status) {
+      startAutoReload();
+    } else {
+      stopAutoReload();
+    }
+    return this;
   }
 
   /** @return 是否正在自动重载 */
@@ -1438,53 +1521,61 @@ public class SConfig {
   * 保存与自动保存
   * ========================================== */
 
-  /** 立即将缓存保存到文件中 */
+  /**
+   * 立即将缓存保存到文件中
+   * @since 0.5.0
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   * @throws RuntimeException 不受检；无法写入文件。
+   */
   public SConfig save() {
     flush();
     return this;
   }
 
-  /** 立即重新加载文件到缓存 */
+  /**
+   * 立即重新加载文件到缓存
+   * 
+   * @throws RuntimeException 不受检；无法加载配置文件。
+   */
   public void reload() {
     load();
   }
 
-  /** 启用立即保存 */
-  public SConfig startAutoSave() {
-    doAutoSave = true;
+  /**
+   * 设置当前的加载模式
+   * @since 0.5.0
+   * @param mode 见于 {@link SConfig.WRITE_MODE}；为 null 时设为默认的 {@link SConfig.WRITE_MODE#AUTOSAVE}；不支持时视作 {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
+   */
+  public SConfig setWriteMode(@Nullable String mode) {
+    if (mode == null) {
+      writeMode = WRITE_MODE.AUTOSAVE;
+    } else {
+      String m = mode.trim().toLowerCase();
+      switch (m) {
+        case WRITE_MODE.AUTOSAVE:
+          writeMode = m;
+          break;
+        case WRITE_MODE.READONLY:
+          writeMode = m;
+          break;
+        case WRITE_MODE.WRITELOCK:
+          writeMode = m;
+          break;
+        default:
+          writeMode = WRITE_MODE.INERTIA;
+          break;
+      }
+    }
     return this;
   }
 
-  /** 禁用立即保存 */
-  public SConfig stopAutoSave() {
-    doAutoSave = true;
-    return this;
-  }
-
-  /** @return 是否允许自动保存 */
-  public SConfig isAutoSave() {
-    return doAutoSave;
-  }
-
-  /* ==========================================
-  * 写锁定
-  * ========================================== */
-
-  /** 启用写保护 */
-  public SConfig startReadonly() {
-    readonly = true;
-    return this;
-  }
-
-  /** 禁用写保护 */
-  public SConfig stopReadonly() {
-    readonly = true;
-    return this;
-  }
-
-  /** @return 写保护状态 */
-  public SConfig isReadonly() {
-    return readonly;
+  /**
+   * @since 0.5.0
+   * @apiNote 加载模式可能不标准，此时应视作 {@link SConfig.WRITE_MODE#INERTIA} 。
+   * @return 获取当前的加载模式，见于 {@link SConfig.WRITE_MODE}。
+   */
+  public String getWriteMode() {
+    return writeMode;
   }
 
   /* ==========================================
@@ -1507,7 +1598,16 @@ public class SConfig {
 
   /**
    * 设置根的名称；如果当前配置格式不支持该特性静默处理。
-   * 
+   * @deprecated 0.5.0中弃用，请使用 {@link #putRootName(String)} 。
+   * @param name 要设置的名称
+   * @return 返回自身，允许链式调用
+   */
+  public SConfig setRootName(String name) {
+    return putRootName(name);
+  }
+  /**
+   * 设置根的名称；如果当前配置格式不支持该特性静默处理。
+   * @since 0.5.0
    * @param name 要设置的名称
    * @return 返回自身，允许链式调用
    */

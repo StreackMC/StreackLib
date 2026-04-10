@@ -8,12 +8,11 @@ import java.nio.file.Files;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import com.github.streackmc.StreackLib.self.updateChecker;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
+import com.github.streackmc.StreackLib.self.updateChecker;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
-import com.github.streackmc.StreackLib.utils.SEventCentral;
 
 public class initBukkit extends JavaPlugin {
   private Long CONFIG_VERSION = 0L;
@@ -113,7 +112,7 @@ public class initBukkit extends JavaPlugin {
 
   /* 载入配置 */
   private void LoadConf() {
-    StreackLib.ENV.conf.startAutoReload();
+    StreackLib.ENV.conf.setAutoReload(true);
     // debug mode
     if (StreackLib.isDebugMode()) {
       logger.warn("调试模式已启用，你会因此收到更多消息");

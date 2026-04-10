@@ -118,6 +118,14 @@ conf.putString(String "key", "value")
     .remove(String "deprecated");
 ```
 
+## 写入模式
+SConfig支持四种写入模式，默认为[自动保存](#自动保存)模式。
+
+* 自动保存 `SConfig.write`
+* 手动保存
+* 写保护
+* 只读
+
 ## 特殊格式支持
 ### JSON 的 Array As Root
 JSON中存在一类特殊格式：

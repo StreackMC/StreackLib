@@ -85,6 +85,7 @@ public class SConfig {
    * 常量
    * ========================================== */
 
+  /** 当前实例的唯一ID */
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
 
   /** 支持的文件类型的标准化字符串。所有字符串都不区分大小写。 */
@@ -145,18 +146,31 @@ public class SConfig {
     public final static String SNBT = "snbt";
   }
 
+  /** SConfig会通过 {@link SEventCentral} 触发的事件命名 */
   public final static class EVENTS {
     /**
      * 配置文件发生改变
      * @apiNote 仅由自动重载触发
-    */
-   public final static String CHANGED = "streacklib.sconf:changed";
-   /**
+     */
+    public final static String CHANGED = "streacklib.sconf:changed";
+    /**
      * 配置文件格式错误
      * @param exception {Exception} 原始错误数据
      * @param msg {String} 错误信息
      */
     public final static String WRONG_FORMAT = "streacklib.sconf:wrong_format";
+  }
+
+  /** SConfig支持的写入模式。如果设置错误的模式视作 {@link WRITE_MODE#AUTO_SAVE} */
+  public final static class WRITE_MODE {
+    /** 默认值。自动保存：产生修改后立即保存到文件。 */
+    public final static String AUTOSAVE = "autosave";
+    /** 手动保存：所有修改必须调用 {@link #save()} 才能保存到文件 */
+    public final static String INERTIA = "inertia";
+    /** 写保护：无法修改文件，强制保存到原文件会抛出不受检异常。 */
+    public final static String WRITELOCK = "writelock";
+    /** 只读：无法修改缓存和文件，强制修改会抛出不受检异常 */
+    public final static String READONLY = "readonly";
   }
 
   /* ==========================================
@@ -177,6 +191,10 @@ public class SConfig {
   private final File conf;
   private final Backend confHandler;
   private String confType;
+
+  // save
+  private boolean doAutoSave = true;
+  private boolean readonly = false;
 
   /**
    * 构造配置对象
@@ -385,7 +403,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       cache.put(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -412,7 +430,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -447,7 +465,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -482,7 +500,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -517,7 +535,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -552,7 +570,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -587,7 +605,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -618,7 +636,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, value);
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -656,7 +674,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, new ArrayList<>(value));
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -694,7 +712,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, new ArrayList<>(value));
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -724,7 +742,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(key, new LinkedHashMap<>(section));
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -778,7 +796,7 @@ public class SConfig {
           parent.remove(lastKey);
         }
       }
-      flush();
+      if (doAutosave) flush();
     } finally {
       lock.writeLock().unlock();
     }
@@ -935,96 +953,19 @@ public class SConfig {
     targetMap.put(lastKey, value);
   }
 
-  /* ==========================================
-   * 自动重载
-   * ========================================== */
-
-  /** 
-   * 启动自动重载
-   * 若当前已启用会静默处理。
-   */
-  public void startAutoReload() {
-    if (watching)
-      return;
-    try {
-      logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
-      watchService = FileSystems.getDefault().newWatchService();
-      Path confPath = conf.toPath().toAbsolutePath();
-      Path dir = confPath.getParent();
-      dir.register(watchService,
-        StandardWatchEventKinds.ENTRY_MODIFY,
-          StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
-      watching = true;
-
-      watchThread = new Thread(() -> {
-        while (watching && !Thread.currentThread().isInterrupted()) {
-          try {
-            WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
-            if (key == null)
-              continue;
-            for (WatchEvent<?> event : key.pollEvents()) {
-              Path changed = dir.resolve((Path) event.context());
-              if (changed.toAbsolutePath().equals(confPath)
-                && conf.lastModified() != lastModified) {
-                logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
-                reload();
-                SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
-              }
-            }
-            key.reset();
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            break;
-          } catch (Exception ignored/* 防止假死 */) {
-            continue;
-          }
-        }
-      }, "conf-reload-" + conf.getName());
-      watchThread.setDaemon(true);
-      watchThread.start();
-    } catch (IOException e) {
-      e.printStackTrace();
-      stopAutoReload();
-      throw new UncheckedIOException("无法启用自动重载：", e);
-    }
-  }
-
-  /** 停止自动重载 */
-  public void stopAutoReload() {
-    logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
-    watching = false;
-    if (watchThread != null)
-      watchThread.interrupt();
-    try {
-      if (watchService != null)
-        watchService.close();
-    } catch (IOException ignore) {
-    } finally {
-      watchService = null;
-      watchThread = null;
-    }
-  }
-
-  /** @return 是否正在自动重载 */
-  public boolean isAutoReloading() {
-    return watching;
-  }
-
   /*
    * ==========================================
    * 后端读写 路由和interface
    * ==========================================
    */
 
-  /** 立即重新加载文件到缓存 */
-  public void reload() {
-    load();
-  }
-
   /**
    * 将缓存写入磁盘
    */
-  private void flush() {
+  private void flush() throws IllegalStatusException {
+    if (readonly) {
+      throw new IllegalStatusException("只读模式下无法写入缓存到文件");
+    }
     lock.writeLock().lock();
     try {
       atomicWrite(conf.toPath(), (out) -> {
@@ -1417,6 +1358,136 @@ public class SConfig {
   }
 
   /* ==========================================
+   * 自动重载
+   * ========================================== */
+
+  /** 
+   * 启动自动重载
+   * 若当前已启用会静默处理。
+   * @throws UncheckedIOException 无法启用自动重载时
+   */
+  public void startAutoReload() {
+    if (watching)
+      return;
+    try {
+      logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
+      watchService = FileSystems.getDefault().newWatchService();
+      Path confPath = conf.toPath().toAbsolutePath();
+      Path dir = confPath.getParent();
+      dir.register(watchService,
+        StandardWatchEventKinds.ENTRY_MODIFY,
+          StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
+      watching = true;
+
+      watchThread = new Thread(() -> {
+        while (watching && !Thread.currentThread().isInterrupted()) {
+          try {
+            WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+            if (key == null)
+              continue;
+            for (WatchEvent<?> event : key.pollEvents()) {
+              Path changed = dir.resolve((Path) event.context());
+              if (changed.toAbsolutePath().equals(confPath)
+                && conf.lastModified() != lastModified) {
+                logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
+                reload();
+                SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
+              }
+            }
+            key.reset();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            break;
+          } catch (Exception ignored/* 防止假死 */) {
+            continue;
+          }
+        }
+      }, "conf-reload-" + conf.getName());
+      watchThread.setDaemon(true);
+      watchThread.start();
+    } catch (IOException e) {
+      e.printStackTrace();
+      stopAutoReload();
+      throw new UncheckedIOException("无法启用自动重载：", e);
+    }
+  }
+
+  /** 停止自动重载 */
+  public SConfig stopAutoReload() {
+    logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
+    watching = false;
+    if (watchThread != null)
+      watchThread.interrupt();
+    try {
+      if (watchService != null)
+        watchService.close();
+    } catch (IOException ignore) {
+    } finally {
+      watchService = null;
+      watchThread = null;
+      return this;
+    }
+  }
+
+  /** @return 是否正在自动重载 */
+  public boolean isAutoReloading() {
+    return watching;
+  }
+
+  /* ==========================================
+  * 保存与自动保存
+  * ========================================== */
+
+  /** 立即将缓存保存到文件中 */
+  public SConfig save() {
+    flush();
+    return this;
+  }
+
+  /** 立即重新加载文件到缓存 */
+  public void reload() {
+    load();
+  }
+
+  /** 启用立即保存 */
+  public SConfig startAutoSave() {
+    doAutoSave = true;
+    return this;
+  }
+
+  /** 禁用立即保存 */
+  public SConfig stopAutoSave() {
+    doAutoSave = true;
+    return this;
+  }
+
+  /** @return 是否允许自动保存 */
+  public SConfig isAutoSave() {
+    return doAutoSave;
+  }
+
+  /* ==========================================
+  * 写锁定
+  * ========================================== */
+
+  /** 启用写保护 */
+  public SConfig startReadonly() {
+    readonly = true;
+    return this;
+  }
+
+  /** 禁用写保护 */
+  public SConfig stopReadonly() {
+    readonly = true;
+    return this;
+  }
+
+  /** @return 写保护状态 */
+  public SConfig isReadonly() {
+    return readonly;
+  }
+
+  /* ==========================================
   * 工具方法
   * ========================================== */
 
@@ -1440,7 +1511,7 @@ public class SConfig {
    * @param name 要设置的名称
    * @return 返回自身，允许链式调用
    */
-  public SConfig setRootName(String name) {
+  public SConfig putRootName(String name) {
     if (confHandler instanceof RootNamedBackend) {
       ((RootNamedBackend)confHandler).setRootName(name);
     }

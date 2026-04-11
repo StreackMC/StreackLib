@@ -22,6 +22,16 @@
       }
     },
     {
+      "label": "Scan Dependencies for CVE",
+      "promptOnClose": true,
+      "type": "shell",
+      "command": "mvn org.owasp:dependency-check-maven:check",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+    },
+    {
       "label": "Build with maven",
       "promptOnClose": true,
       "type": "shell",

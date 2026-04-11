@@ -119,6 +119,15 @@ public class SConfig {
      */
     public final static String YML = "yaml";
     public final static String TOML = "toml";
+    /**
+     * @apiNote 0.5.0版本（不含）前，本 INI 支持使用了 {@link org.ini4j.ini4j} ，其存在已知严重漏洞
+     *          CVE-2022-41404：允许攻击者通过构造恶意 INI 文件并借此崩溃程序来完成拒绝服务攻击。
+     * @apiNote 0.5.0版本后，本 INI 支持改用 SuperMap/ini4j 临时代替。
+     * @see {@link https://nvd.nist.gov/vuln/detail/CVE-2022-41404} 漏洞详情
+     * @see {@link https://github.com/ini4j/ini4j?tab=readme-ov-file#%EF%B8%8F-roadmap-to-v060}
+     *      鸽子官方迁移几年了还没修bug
+     * @see {@link https://github.com/SuperMap/ini4j} 用于替代的库
+     */
     public final static String INI = "ini";
     public final static String PROPERTIES = "prop";
     /**
@@ -1086,13 +1095,18 @@ public class SConfig {
     public void setRootName(String name);
   }
 
+  private interface CommentableBackend extends Backend {
+    public String getComment();
+    public void setComment(String name);
+  }
+
   /*
    * ==========================================
    * 后端读写 具体实现
    * ==========================================
    */
 
-  private class BackendYaml implements Backend {
+  private class BackendYaml implements Backend {//TODO: 添加注释支持和中文路径支持
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       Yaml yaml = new Yaml();

@@ -7,7 +7,11 @@
 * 自动管理配置项
 * 缺省值配置
 
-有关于 JSON 中的 Array As Root 和 NBT 中根标签的名称 等特性，请参考[#特殊格式支持](#特殊格式支持)。
+> 有关于 JSON 中的 Array As Root 和 NBT 中根标签的名称 等特性，请参考[#特殊格式支持](#特殊格式支持)。
+
+> **安全提醒**<br>
+> 本类使用了 `org.ini4j.ini4j` ，其存在的已知高危漏洞 [CVE-2022-41404](https://nvd.nist.gov/vuln/detail/CVE-2022-41404) 会导致潜在的拒绝服务攻击风险，请不要在 `0.5.0` 版本（不含）前加载未经验证的 INI 文件。<br>
+> 该漏洞于 0.5.0 版本改用 [SuperMap/ini4j](https://github.com/SuperMap/ini4j/) 以临时修复。
 
 ## 初始化
 要想使用：

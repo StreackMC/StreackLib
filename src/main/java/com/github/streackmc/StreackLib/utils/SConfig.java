@@ -42,6 +42,7 @@ import javax.annotation.Nullable;
 import org.ini4j.Ini;
 import org.ini4j.Profile;
 import org.yaml.snakeyaml.DumperOptions;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
@@ -111,13 +112,13 @@ public class SConfig {
      */
     public final static String JSONC = "jsonc";
     /**
-     * 亦作 {@link TYPES#YML}
+     * 不支持注释，要支持请见 {@link TYPES#YAMLc}
      */
     public final static String YAML = "yaml";
     /**
-     * 亦作 {@link TYPES#YAML}
+     * 支持注释。但是这可能会产生轻微性能影响，因此建议如无必要不要使用。
      */
-    public final static String YML = "yaml";
+    public final static String YAMLc = "yamlc";
     public final static String TOML = "toml";
     /**
      * @apiNote 0.5.0版本（不含）前，本 INI 支持使用了 {@link org.ini4j.ini4j} ，其存在已知严重漏洞
@@ -185,22 +186,29 @@ public class SConfig {
    * 初始化与变量
    * ========================================== */
 
-  // file lock
+  /** 读写锁 */
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+  /** 已加载的数据 */
   private volatile Map<String, Object> cache = new ConcurrentHashMap<>();
+  
+  // autoreload
+  /** 最后修改时间戳 */
   private volatile long lastModified = 0;
-
-  // auto reload
+  /** 文件变化观察服务 */
   private WatchService watchService;
+  /** 文件变化观察线程 */
   private Thread watchThread;
+  /** 自动加载状态 */
   private volatile boolean watching = false;
-
+  
   // conf meta
+  /** 文件路径 */
   private final File conf;
+  /** 配置到文件的处理器后端 */
   private final Backend confHandler;
+  /** 文件格式：{@link TYPES} */
   private String confType;
-
-  // save
+  /** 当前写模式：{@link WRITE_MODE} */
   private String writeMode = "autosave";
 
   /**
@@ -349,6 +357,10 @@ public class SConfig {
         return new BackendYaml();
       case "yaml":
         return new BackendYaml();
+      case "ymlc":
+        return new BackendYamlC();
+      case "yamlc":
+        return new BackendYamlC();
       case "toml":
         return new BackendToml();
       case "ini":
@@ -431,7 +443,7 @@ public class SConfig {
   public String getString(String key, String def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       return v == null ? def : String.valueOf(v);
     } finally {
       lock.readLock().unlock();
@@ -446,7 +458,7 @@ public class SConfig {
   public SConfig putString(String key, String value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -463,7 +475,7 @@ public class SConfig {
   public int getInt(String key, int def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Number)
         return ((Number) v).intValue();
       if (v instanceof String) {
@@ -486,7 +498,7 @@ public class SConfig {
   public SConfig putInt(String key, int value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -503,7 +515,7 @@ public class SConfig {
   public long getShort(String key, short def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Number)
         return ((Number) v).shortValue();
       if (v instanceof String) {
@@ -526,7 +538,7 @@ public class SConfig {
   public SConfig putLong(String key, short value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -543,7 +555,7 @@ public class SConfig {
   public long getLong(String key, long def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Number)
         return ((Number) v).longValue();
       if (v instanceof String) {
@@ -566,7 +578,7 @@ public class SConfig {
   public SConfig putLong(String key, long value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -583,7 +595,7 @@ public class SConfig {
   public float getFloat(String key, float def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Number)
         return ((Number) v).floatValue();
       if (v instanceof String) {
@@ -606,7 +618,7 @@ public class SConfig {
   public SConfig putFloat(String key, float value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -623,7 +635,7 @@ public class SConfig {
   public double getDouble(String key, double def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Number)
         return ((Number) v).doubleValue();
       if (v instanceof String) {
@@ -646,7 +658,7 @@ public class SConfig {
   public SConfig putDouble(String key, double value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -663,7 +675,7 @@ public class SConfig {
   public boolean getBoolean(String key, boolean def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Boolean)
         return (Boolean) v;
       if (v instanceof String)
@@ -682,7 +694,7 @@ public class SConfig {
   public SConfig putBoolean(String key, boolean value) {
     lock.writeLock().lock();
     try {
-      putNested(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -700,7 +712,7 @@ public class SConfig {
   public List<String> getListOfString(String key, List<String> def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof List) {
         List<?> raw = (List<?>) v;
         if (raw.isEmpty() || raw.get(0) instanceof String) {
@@ -725,7 +737,7 @@ public class SConfig {
   public SConfig putListOfString(String key, List<String> value) {
     lock.writeLock().lock();
     try {
-      putNested(key, new ArrayList<>(value));
+      putNested(cache, key, new ArrayList<>(value));
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -743,7 +755,7 @@ public class SConfig {
   public List<Object> getList(String key, List<Object> def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof List) {
         List<?> raw = (List<?>) v;
         if (raw.isEmpty() || raw.get(0) instanceof Object) {
@@ -768,7 +780,7 @@ public class SConfig {
   public SConfig putList(String key, List<Object> value) {
     lock.writeLock().lock();
     try {
-      putNested(key, new ArrayList<>(value));
+      putNested(cache, key, new ArrayList<>(value));
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -786,7 +798,7 @@ public class SConfig {
   public Map<String, Object> getSection(String key, Map<String, Object> def) {
     lock.readLock().lock();
     try {
-      Object v = getNested(key);
+      Object v = getNested(cache, key);
       if (v instanceof Map)
         return new LinkedHashMap<>((Map<String, Object>) v);
       return def;
@@ -803,7 +815,7 @@ public class SConfig {
   public SConfig putSection(String key, Map<String, Object> section) {
     lock.writeLock().lock();
     try {
-      putNested(key, new LinkedHashMap<>(section));
+      putNested(cache, key, new LinkedHashMap<>(section));
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
       lock.writeLock().unlock();
@@ -857,7 +869,7 @@ public class SConfig {
       if (lastDot == -1) {
         cache.remove(key);
       } else {
-        Map<String, Object> parent = ensureNestedMap(key);
+        Map<String, Object> parent = ensureNestedMap(cache, key);
         if (parent != null) {
           String lastKey = key.substring(lastDot + 1);
           parent.remove(lastKey);
@@ -942,13 +954,13 @@ public class SConfig {
    * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
    */
   @SuppressWarnings("unchecked")
-  private Object getNested(String key) {
+  private Object getNested(Map<String, Object> originMap, String key) {
     int dot = getIndexOfNormalDot(key);
     if (dot == -1)
-      return cache.get(key);
+      return originMap.get(key);
 
     String first = key.substring(0, dot);
-    Object current = cache.get(first);
+    Object current = originMap.get(first);
     if (!(current instanceof Map))
       return null;
 
@@ -980,13 +992,13 @@ public class SConfig {
    * 若中途遇到非 Map 节点，返回 null 表示无法创建
   */
   @SuppressWarnings("unchecked")
-  private Map<String, Object> ensureNestedMap(String key) {
+  private Map<String, Object> ensureNestedMap(Map<String, Object> map, String key) {
     int lastDot = getIndexOfNormalDot(key);
     if (lastDot == -1)
-      return cache;
+      return map;
 
     List<String> parts = splitWithNormalDot(key);
-    Map<String, Object> current = cache;
+    Map<String, Object> current = map;
     for (int i = 0; i < parts.size() - 1; i++) {
       String part = parts.get(i);
       Object next = current.get(part);
@@ -1007,14 +1019,14 @@ public class SConfig {
   /**
    * 向嵌套路径写入值，若路径非法（中间节点非 Map）则退化为普通 key 写入顶层
    */
-  private void putNested(String key, Object value) {
+  private void putNested(Map<String, Object> map, String key, Object value) {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
       throw new IllegalStateException("只读模式下无法修改配置");
     }
-    Map<String, Object> targetMap = ensureNestedMap(key);
+    Map<String, Object> targetMap = ensureNestedMap(map, key);
     if (targetMap == null) {
       // 嵌套失败，退化为顶层写入（保持兼容）
-      cache.put(key, value);
+      map.put(key, value);
       return;
     }
 
@@ -1096,8 +1108,260 @@ public class SConfig {
   }
 
   private interface CommentableBackend extends Backend {
-    public String getComment();
-    public void setComment(String name);
+    public String getComment(String path);
+    public void setComment(String name, String value);
+  }
+
+  /* ==========================================
+   * 自动重载
+   * ========================================== */
+
+  /** 
+   * 启动自动重载
+   * 若当前已启用会静默处理。
+   * @throws UncheckedIOException 无法启用自动重载时
+   */
+  private void startAutoReload() {
+    if (watching)
+      return;
+    try {
+      logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
+      watchService = FileSystems.getDefault().newWatchService();
+      Path confPath = conf.toPath().toAbsolutePath();
+      Path dir = confPath.getParent();
+      dir.register(watchService,
+        StandardWatchEventKinds.ENTRY_MODIFY,
+          StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
+      watching = true;
+
+      watchThread = new Thread(() -> {
+        while (watching && !Thread.currentThread().isInterrupted()) {
+          try {
+            WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+            if (key == null)
+              continue;
+            for (WatchEvent<?> event : key.pollEvents()) {
+              Path changed = dir.resolve((Path) event.context());
+              if (changed.toAbsolutePath().equals(confPath)
+                && conf.lastModified() != lastModified) {
+                logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
+                reload();
+                SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
+              }
+            }
+            key.reset();
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            break;
+          } catch (Exception ignored/* 防止假死 */) {
+            continue;
+          }
+        }
+      }, "conf-reload-" + conf.getName());
+      watchThread.setDaemon(true);
+      watchThread.start();
+    } catch (IOException e) {
+      e.printStackTrace();
+      stopAutoReload();
+      throw new UncheckedIOException("无法启用自动重载：", e);
+    }
+  }
+
+  /** 停止自动重载 */
+  private void stopAutoReload() {
+    logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
+    watching = false;
+    if (watchThread != null)
+      watchThread.interrupt();
+    try {
+      if (watchService != null)
+        watchService.close();
+    } catch (IOException ignore) {
+    } finally {
+      watchService = null;
+      watchThread = null;
+    }
+  }
+
+  /**
+   * 设置自动重载状态
+   * 
+   * @throws UncheckedIOException 不受检；无法启用自动重载。
+   * @since 0.5.0
+   */
+  public SConfig setAutoReload(boolean status) {
+    if (status) {
+      startAutoReload();
+    } else {
+      stopAutoReload();
+    }
+    return this;
+  }
+
+  /** @return 是否正在自动重载 */
+  public boolean isAutoReloading() {
+    return watching;
+  }
+
+  /* ==========================================
+  * 保存与自动保存
+  * ========================================== */
+
+  /**
+   * 立即将缓存保存到文件中
+   * @since 0.5.0
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   * @throws RuntimeException 不受检；无法写入文件。
+   */
+  public SConfig save() {
+    flush();
+    return this;
+  }
+
+  /**
+   * 立即重新加载文件到缓存
+   * 
+   * @throws RuntimeException 不受检；无法加载配置文件。
+   */
+  public void reload() {
+    load();
+  }
+
+  /**
+   * 设置当前的加载模式
+   * @since 0.5.0
+   * @param mode 见于 {@link SConfig.WRITE_MODE}；为 null 时设为默认的 {@link SConfig.WRITE_MODE#AUTOSAVE}；不支持时视作 {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
+   */
+  public SConfig setWriteMode(@Nullable String mode) {
+    if (mode == null) {
+      writeMode = WRITE_MODE.AUTOSAVE;
+    } else {
+      String m = mode.trim().toLowerCase();
+      switch (m) {
+        case WRITE_MODE.AUTOSAVE:
+          writeMode = m;
+          break;
+        case WRITE_MODE.READONLY:
+          writeMode = m;
+          break;
+        case WRITE_MODE.WRITELOCK:
+          writeMode = m;
+          break;
+        default:
+          writeMode = WRITE_MODE.INERTIA;
+          break;
+      }
+    }
+    return this;
+  }
+
+  /**
+   * @since 0.5.0
+   * @apiNote 加载模式可能不标准，此时应视作 {@link SConfig.WRITE_MODE#INERTIA} 。
+   * @return 获取当前的加载模式，见于 {@link SConfig.WRITE_MODE}。
+   */
+  public String getWriteMode() {
+    return writeMode;
+  }
+
+  /*
+   * ==========================================
+   * 特殊格式支持
+   * ==========================================
+   */
+
+  /** @return {@type String|null} 获取根的名称；如果当前配置格式不支持该特性返回 null 。 */
+  public String getRootName() {
+    if (confHandler instanceof RootNamedBackend) {
+      String r = ((RootNamedBackend) confHandler).getRootName();
+      return (r == null) ? "" : r;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * 设置根的名称；如果当前配置格式不支持该特性静默处理。
+   * @deprecated 0.5.0中弃用，请使用 {@link #putRootName(String)} 。
+   * @param name 要设置的名称
+   * @return 返回自身，允许链式调用
+   */
+  public SConfig setRootName(String name) {
+    return putRootName(name);
+  }
+
+  /**
+   * 设置根的名称；如果当前配置格式不支持该特性静默处理。
+   * @since 0.5.0
+   * @param name 要设置的名称
+   * @return 返回自身，允许链式调用
+   */
+  public SConfig putRootName(String name) {
+    if (confHandler instanceof RootNamedBackend) {
+      ((RootNamedBackend) confHandler).setRootName(name);
+    }
+    return this;
+  }
+
+  /**
+   * @return {@type String|null} 获取注释内容；如果当前配置格式不支持该特性返回 null 。
+   */
+  public String getComment(String path) {
+    if (confHandler instanceof CommentableBackend) {
+      String r = ((CommentableBackend) confHandler).getComment(path);
+      return (r == null) ? "" : r;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * 设置根注释内容；如果当前配置格式不支持该特性静默处理。
+   * @since 0.5.0
+   * @param name 要设置的名称
+   * @return 返回自身，允许链式调用
+   */
+  public SConfig putComment(String path, String value) {
+    if (confHandler instanceof CommentableBackend) {
+      ((CommentableBackend) confHandler).setComment(path, value);
+    }
+    return this;
+  }
+
+  /*
+   * ==========================================
+   * 工具方法
+   * ==========================================
+   */
+
+  /** @return 当前配置文件对象 */
+  public File getFile() {
+    return conf;
+  }
+
+  /** 原子替换文件：先写临时文件，再 move */
+  private void atomicWrite(Path target, IOConsumer<OutputStream> outF) throws Exception {
+    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + confType + ".tmp");
+    try (OutputStream out = Files.newOutputStream(tmp)) {
+        outF.accept(out);
+    }
+    try {
+      Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
+    } catch (AtomicMoveNotSupportedException ignore) {
+      // 某些文件系统不支持原子 move，退化为复制后删除
+      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+    }
+  }
+
+  /** 简化函数式接口 */
+  @FunctionalInterface
+  private interface IOConsumer<T> {
+    void accept(T t) throws Exception;
+  }
+
+  /** 从 OutputStream 解析一个 Writer */
+  private Writer getWriter(OutputStream out) {
+    return new OutputStreamWriter(out, StandardCharsets.UTF_8);
   }
 
   /*
@@ -1106,10 +1370,12 @@ public class SConfig {
    * ==========================================
    */
 
-  private class BackendYaml implements Backend {//TODO: 添加注释支持和中文路径支持
+  private class BackendYaml implements Backend {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      Yaml yaml = new Yaml();
+      LoaderOptions yamlOpt = new LoaderOptions();
+      yamlOpt.setProcessComments(true);
+      Yaml yaml = new Yaml(yamlOpt);
       Map<String, Object> m = yaml.load(in);
       return m == null ? new HashMap<>() : m;
     };
@@ -1123,7 +1389,41 @@ public class SConfig {
     };
 
     @Override
-    public String getType() { return TYPES.YAML; };
+    public String getType() { return TYPES.YAML; }
+  }
+
+  private class BackendYamlC implements CommentableBackend {//TODO: 添加注释支持和中文路径支持
+    @Override
+    public Map<String, Object> load(InputStream in) throws Exception {
+      LoaderOptions yamlOpt = new LoaderOptions();
+      yamlOpt.setProcessComments(true);
+      Yaml yaml = new Yaml(yamlOpt);
+      Map<String, Object> m = yaml.load(in);
+      return m == null ? new HashMap<>() : m;
+    };
+
+    @Override
+    public void flush(OutputStream out) throws Exception {
+      DumperOptions opts = new DumperOptions();
+      opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+      opts.setPrettyFlow(true);
+      new Yaml(opts).dump(cache, getWriter(out));
+    };
+
+    @Override
+    public String getType() { return TYPES.YAMLc; }
+
+    @Override
+    public String getComment(String path) {
+      // TODO Auto-generated method stub
+      throw new UnsupportedOperationException("Unimplemented method 'getComment'");
+    }
+
+    @Override
+    public void setComment(String name, String value) {
+      // TODO Auto-generated method stub
+      throw new UnsupportedOperationException("Unimplemented method 'setComment'");
+    };
   }
 
   private class BackendJSON implements Backend {
@@ -1438,222 +1738,5 @@ public class SConfig {
 
     @Override
     public String getType() { return TYPES.SNBT; };
-  }
-
-  /* ==========================================
-   * 自动重载
-   * ========================================== */
-
-  /** 
-   * 启动自动重载
-   * 若当前已启用会静默处理。
-   * @throws UncheckedIOException 无法启用自动重载时
-   */
-  private void startAutoReload() {
-    if (watching)
-      return;
-    try {
-      logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
-      watchService = FileSystems.getDefault().newWatchService();
-      Path confPath = conf.toPath().toAbsolutePath();
-      Path dir = confPath.getParent();
-      dir.register(watchService,
-        StandardWatchEventKinds.ENTRY_MODIFY,
-          StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
-      watching = true;
-
-      watchThread = new Thread(() -> {
-        while (watching && !Thread.currentThread().isInterrupted()) {
-          try {
-            WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
-            if (key == null)
-              continue;
-            for (WatchEvent<?> event : key.pollEvents()) {
-              Path changed = dir.resolve((Path) event.context());
-              if (changed.toAbsolutePath().equals(confPath)
-                && conf.lastModified() != lastModified) {
-                logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
-                reload();
-                SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
-              }
-            }
-            key.reset();
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            break;
-          } catch (Exception ignored/* 防止假死 */) {
-            continue;
-          }
-        }
-      }, "conf-reload-" + conf.getName());
-      watchThread.setDaemon(true);
-      watchThread.start();
-    } catch (IOException e) {
-      e.printStackTrace();
-      stopAutoReload();
-      throw new UncheckedIOException("无法启用自动重载：", e);
-    }
-  }
-
-  /** 停止自动重载 */
-  private void stopAutoReload() {
-    logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
-    watching = false;
-    if (watchThread != null)
-      watchThread.interrupt();
-    try {
-      if (watchService != null)
-        watchService.close();
-    } catch (IOException ignore) {
-    } finally {
-      watchService = null;
-      watchThread = null;
-    }
-  }
-
-  /**
-   * 设置自动重载状态
-   * 
-   * @throws UncheckedIOException 不受检；无法启用自动重载。
-   * @since 0.5.0
-   */
-  public SConfig setAutoReload(boolean status) {
-    if (status) {
-      startAutoReload();
-    } else {
-      stopAutoReload();
-    }
-    return this;
-  }
-
-  /** @return 是否正在自动重载 */
-  public boolean isAutoReloading() {
-    return watching;
-  }
-
-  /* ==========================================
-  * 保存与自动保存
-  * ========================================== */
-
-  /**
-   * 立即将缓存保存到文件中
-   * @since 0.5.0
-   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
-   * @throws RuntimeException 不受检；无法写入文件。
-   */
-  public SConfig save() {
-    flush();
-    return this;
-  }
-
-  /**
-   * 立即重新加载文件到缓存
-   * 
-   * @throws RuntimeException 不受检；无法加载配置文件。
-   */
-  public void reload() {
-    load();
-  }
-
-  /**
-   * 设置当前的加载模式
-   * @since 0.5.0
-   * @param mode 见于 {@link SConfig.WRITE_MODE}；为 null 时设为默认的 {@link SConfig.WRITE_MODE#AUTOSAVE}；不支持时视作 {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
-   */
-  public SConfig setWriteMode(@Nullable String mode) {
-    if (mode == null) {
-      writeMode = WRITE_MODE.AUTOSAVE;
-    } else {
-      String m = mode.trim().toLowerCase();
-      switch (m) {
-        case WRITE_MODE.AUTOSAVE:
-          writeMode = m;
-          break;
-        case WRITE_MODE.READONLY:
-          writeMode = m;
-          break;
-        case WRITE_MODE.WRITELOCK:
-          writeMode = m;
-          break;
-        default:
-          writeMode = WRITE_MODE.INERTIA;
-          break;
-      }
-    }
-    return this;
-  }
-
-  /**
-   * @since 0.5.0
-   * @apiNote 加载模式可能不标准，此时应视作 {@link SConfig.WRITE_MODE#INERTIA} 。
-   * @return 获取当前的加载模式，见于 {@link SConfig.WRITE_MODE}。
-   */
-  public String getWriteMode() {
-    return writeMode;
-  }
-
-  /* ==========================================
-  * 工具方法
-  * ========================================== */
-
-  /** @return 当前配置文件对象 */
-  public File getFile() {
-    return conf;
-  }
-
-  /** @return {@type String|null} 获取根的名称；如果当前配置格式不支持该特性返回 null 。 */
-  public String getRootName() {
-    if (confHandler instanceof RootNamedBackend) {
-      return ((RootNamedBackend) confHandler).getRootName();
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * 设置根的名称；如果当前配置格式不支持该特性静默处理。
-   * @deprecated 0.5.0中弃用，请使用 {@link #putRootName(String)} 。
-   * @param name 要设置的名称
-   * @return 返回自身，允许链式调用
-   */
-  public SConfig setRootName(String name) {
-    return putRootName(name);
-  }
-  /**
-   * 设置根的名称；如果当前配置格式不支持该特性静默处理。
-   * @since 0.5.0
-   * @param name 要设置的名称
-   * @return 返回自身，允许链式调用
-   */
-  public SConfig putRootName(String name) {
-    if (confHandler instanceof RootNamedBackend) {
-      ((RootNamedBackend)confHandler).setRootName(name);
-    }
-    return this;
-  }
-
-  /** 原子替换文件：先写临时文件，再 move */
-  private void atomicWrite(Path target, IOConsumer<OutputStream> outF) throws Exception {
-    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + confType + ".tmp");
-    try (OutputStream out = Files.newOutputStream(tmp)) {
-        outF.accept(out);
-    }
-    try {
-      Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
-    } catch (AtomicMoveNotSupportedException ignore) {
-      // 某些文件系统不支持原子 move，退化为复制后删除
-      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
-    }
-  }
-
-  /** 简化函数式接口 */
-  @FunctionalInterface
-  private interface IOConsumer<T> {
-    void accept(T t) throws Exception;
-  }
-
-  /** 从 OutputStream 解析一个 Writer */
-  private Writer getWriter(OutputStream out) {
-    return new OutputStreamWriter(out, StandardCharsets.UTF_8);
   }
 }

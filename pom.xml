@@ -96,9 +96,9 @@
       <version>0.7.2</version>
     </dependency>
     <dependency>
-      <groupId>org.ini4j</groupId>
+      <groupId>com.github.SuperMap</groupId>
       <artifactId>ini4j</artifactId>
-      <version>0.5.4</version>
+      <version>0.5.6-sm-221214</version>
     </dependency>
     <dependency>
       <groupId>com.github.Querz</groupId>

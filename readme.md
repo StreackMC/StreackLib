@@ -11,11 +11,11 @@
 </div>
 
 ## 功能列表
-> 此处展示的功能非本前置库的可用全部功能，详情请[查看文档](./docs.md)。
+> 此处展示的功能非本前置库的可用全部功能，详情请[查看文档](./docs/index.md)。
 
 * HTTP服务器：轻量易管理，支持多插件共享和单插件独享；
 * 配置管理器：泛格式支持，自动重载，自动管理；
-* [*更多……*](./docs.md)
+* [*更多……*](./docs/index.md)
 
 ## 下载
 你可在[Github Release](https://github.com/StreackMC/StreackLib/releases)下载发行版<br>

@@ -885,10 +885,10 @@ public class SConfig {
 
   /**
    * @apiNote 即使已启用自动重载，仍然建议先使用 {@link #reload()} 刷新数据，以免防止某些边缘情况。
-   * @return 当前已加载的数据
+   * @return 当前已加载的数据，注意<b>不是</b>原始对象引用，而是镜像版本。
    */
   public Map<String, Object> getRawData() {
-    return cache;
+    return Collections.unmodifiableMap(cache);
   }
 
   /* ==========================================

@@ -274,10 +274,9 @@ public class SConfig {
    * @apiNote 默认使用 UTF-8 字符集，自定义字符集请用
    *          {@link #SConfig(String, String, String, Charset)}
    * @throws UnsupportedOperationException 不支持的格式
-   * @throws IOException                   读写错误
    * @since 0.4.4
    */
-  public SConfig(String rawData, String ctype, @Nullable String suffix) throws IOException {
+  public SConfig(String rawData, String ctype, @Nullable String suffix) {
     this.confHandler = this.parseType(ctype);
     this.confFile = null;
     this.setWriteMode(WRITE_MODE.MEMORY);
@@ -311,11 +310,10 @@ public class SConfig {
    * @param suffix  临时文件后缀，如 ".yml"，可为Null
    * @param charSet 使用的字符集
    * @throws UnsupportedOperationException 不支持的格式
-   * @throws IOException                   读写错误
    * @see #SConfig(File, String)
    * @since 0.4.7
    */
-  public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) throws IOException {
+  public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) {
     this.confHandler = this.parseType(ctype);
     this.confFile = null;
     this.setWriteMode(WRITE_MODE.MEMORY);
@@ -349,10 +347,9 @@ public class SConfig {
    * @param ctype   格式，支持列表见于 {@link TYPES}
    * @param suffix  临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
-   * @throws IOException                   读写错误
    * @since 0.4.7
    */
-  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws IOException {
+  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) {
     Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
     this.confHandler = this.parseType(ctype);
     this.confFile = null;

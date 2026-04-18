@@ -210,7 +210,9 @@ public class SConfig {
   /** 文件格式：{@link TYPES} */
   private String confType;
   /** 当前写模式：{@link WRITE_MODE} */
-  private String writeMode = "autosave";
+  private volatile String writeMode = "autosave";
+  /** 当前写模式是否已锁定 */
+  private volatile boolean writeModeLocked = false;
 
   /**
    * 构造配置对象
@@ -1229,11 +1231,17 @@ public class SConfig {
   }
 
   /**
-   * 设置当前的加载模式
+   * 设置当前的写入模式，会立即同步线程。
+   * 
    * @since 0.5.0
-   * @param mode 见于 {@link SConfig.WRITE_MODE}；为 null 时设为默认的 {@link SConfig.WRITE_MODE#AUTOSAVE}；不支持时视作 {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
+   * @throws IllegalStateException 写入模式已被锁定，无法修改。
+   * @param mode 见于 {@link SConfig.WRITE_MODE}；为 null 时设为默认的
+   *             {@link SConfig.WRITE_MODE#AUTOSAVE}；不支持时视作
+   *             {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
    */
   public SConfig setWriteMode(@Nullable String mode) {
+    if (writeModeLocked)
+      throw new IllegalStateException("写入模式已被锁定，无法修改。");
     if (mode == null) {
       writeMode = WRITE_MODE.AUTOSAVE;
     } else {
@@ -1257,9 +1265,29 @@ public class SConfig {
   }
 
   /**
+   * 设置当前的写入模式，<b>设置后无法修改</b>。该设置会立即同步线程。
+   * 
    * @since 0.5.0
-   * @apiNote 加载模式可能不标准，此时应视作 {@link SConfig.WRITE_MODE#INERTIA} 。
-   * @return 获取当前的加载模式，见于 {@link SConfig.WRITE_MODE}。
+   * @throws IllegalStateException 写入模式已被锁定，无法修改。
+   * @param mode 见于 {@link SConfig.WRITE_MODE}；为 null 时设为默认的
+   *             {@link SConfig.WRITE_MODE#AUTOSAVE}；不支持时视作
+   *             {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
+   */
+  public SConfig setWriteModeForever(@Nullable String mode) {
+    setWriteMode(mode);
+    this.writeModeLocked = true;
+    return this;
+  }
+
+  /** @return 当前写入模式是否已被锁定而无法修改 */
+  public boolean getWriteModeLocked() {
+    return writeModeLocked;
+  }
+
+  /**
+   * @since 0.5.0
+   * @apiNote 写入模式可能不标准，此时应视作 {@link SConfig.WRITE_MODE#INERTIA} 。
+   * @return 获取当前的写入模式，见于 {@link SConfig.WRITE_MODE}。
    */
   public String getWriteMode() {
     return writeMode;

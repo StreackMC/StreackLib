@@ -112,11 +112,12 @@ public class SConfig {
      */
     public final static String JSONC = "jsonc";
     /**
-     * 不支持注释，要支持请见 {@link TYPES#YAMLc}
+     * 不支持注释，要支持请见 {@link TYPES#YAMLc} 。
      */
     public final static String YAML = "yaml";
     /**
      * 支持注释。但是这可能会产生轻微性能影响，因此建议如无必要不要使用。
+     * @deprecated 未实现，启用无效。
      */
     public final static String YAMLc = "yamlc";
     public final static String TOML = "toml";
@@ -357,10 +358,10 @@ public class SConfig {
         return new BackendYaml();
       case "yaml":
         return new BackendYaml();
-      case "ymlc":
-        return new BackendYamlC();
-      case "yamlc":
-        return new BackendYamlC();
+      // case "ymlc":
+      //   return new BackendYamlC();
+      // case "yamlc":
+      //   return new BackendYamlC();
       case "toml":
         return new BackendToml();
       case "ini":

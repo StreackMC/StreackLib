@@ -175,14 +175,20 @@ public class SConfig {
 
   /** SConfig支持的写入模式。如果设置错误的模式视作 {@link WRITE_MODE#AUTO_SAVE} */
   public final static class WRITE_MODE {
-    /** 默认值。自动保存：产生修改后立即保存到文件。 */
+    /** 默认值。<b>自动保存</b>：产生修改后立即保存到文件。 */
     public final static String AUTOSAVE = "autosave";
-    /** 手动保存：所有修改必须调用 {@link SConfig#save()} 才能保存到文件。 */
+    /** <b>手动保存</b>：所有修改必须调用 {@link SConfig#save()} 才能保存到文件。 */
     public final static String INERTIA = "inertia";
-    /** 写保护：无法修改文件，强制保存到原文件会抛出不受检异常。 */
+    /** <b>写保护</b>：无法修改文件，强制保存到原文件会抛出不受检异常。 */
     public final static String WRITELOCK = "writelock";
-    /** 只读：无法修改缓存和文件，强制修改会抛出不受检异常。 */
+    /** <b>只读</b>：无法修改缓存和文件，强制修改会抛出不受检异常。 */
     public final static String READONLY = "readonly";
+    /**
+     * <b>仅内存模式</b>：<p>
+     * 如果是创建临时配置文件：此时不会分配临时文件对象，直到修改写入模式并调用 {@link #save()} 。<p>
+     * 无论如何：不允许读取文件、获取文件对象等，如有自动重载会在下次重载时自动停止。<p>
+     */
+    public final static String MEMORY = "memory";
   }
 
   /* ==========================================
@@ -206,13 +212,15 @@ public class SConfig {
   
   // conf meta
   /** 文件路径 */
-  private final File conf;
+  private volatile File confFile;
   /** 配置到文件的处理器后端 */
   private final Backend confHandler;
   /** 当前写模式：{@link WRITE_MODE} */
   private volatile String writeMode = "autosave";
   /** 当前写模式是否已锁定 */
   private volatile boolean writeModeLocked = false;
+  /** 临时文件对象的标识符 */
+  private String tempFileSuffix;
 
   /**
    * 构造配置对象
@@ -222,7 +230,7 @@ public class SConfig {
    * @throws UnsupportedOperationException 不支持的格式
    */
   public SConfig(File file, String ctype) {
-    this.conf = file;
+    this.confFile = file;
     this.confHandler = this.parseType(ctype);
     load();
   }
@@ -236,7 +244,7 @@ public class SConfig {
    * @since 0.4.4
    */
   public SConfig(Path file, String ctype) {
-    this.conf = file.toFile();
+    this.confFile = file.toFile();
     this.confHandler = this.parseType(ctype);
     load();
   }
@@ -250,25 +258,30 @@ public class SConfig {
    * @since 0.4.4
    */
   public SConfig(String path, String ctype) {
-    this.conf = new File(path);
+    this.confFile = new File(path);
     this.confHandler = this.parseType(ctype);
     load();
   }
 
   /**
-   * 构造临时配置对象
+   * 构造临时配置对象。
+   * <p>
+   * 此时默认使用 {@link WRITE_MODE#MEMORY} 模式。
    * 
    * @param rawData 配置文件内容原始来源
    * @param ctype   格式，支持列表见于 {@link TYPES}
    * @param suffix  临时文件后缀，如 ".yml"，可为Null
-   * @apiNote 默认使用 UTF-8 字符集，自定义字符集请用 {@link #SConfig(String, String, String, Charset)}
+   * @apiNote 默认使用 UTF-8 字符集，自定义字符集请用
+   *          {@link #SConfig(String, String, String, Charset)}
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException                   读写错误
    * @since 0.4.4
    */
   public SConfig(String rawData, String ctype, @Nullable String suffix) throws IOException {
     this.confHandler = this.parseType(ctype);
-    this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
+    this.confFile = null;
+    this.setWriteMode(WRITE_MODE.MEMORY);
+    this.tempFileSuffix = suffix;
 
     // 先根据String读取
     try {
@@ -286,13 +299,12 @@ public class SConfig {
       throw new RuntimeException("无法加载配置文件", e);
     } finally {
     }
-
-    // 再根据 cache 落盘
-    flush();
   }
 
   /**
    * 构造临时配置对象
+   * <p>
+   * 此时默认使用 {@link WRITE_MODE#MEMORY} 模式。
    * 
    * @param rawData 配置文件内容原始来源
    * @param ctype   格式，支持列表见于 {@link TYPES}
@@ -305,7 +317,9 @@ public class SConfig {
    */
   public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) throws IOException {
     this.confHandler = this.parseType(ctype);
-    this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
+    this.confFile = null;
+    this.setWriteMode(WRITE_MODE.MEMORY);
+    this.tempFileSuffix = suffix;
 
     // 先根据String读取
     try {
@@ -323,17 +337,17 @@ public class SConfig {
       throw new RuntimeException("无法加载配置文件", e);
     } finally {
     }
-
-    // 再根据 cache 落盘
-    flush();
   }
 
   /**
    * 构造临时配置对象
+   * <p>
+   * 此时默认使用 {@link WRITE_MODE#MEMORY} 模式。
    * 
-   * @param rawData   配置文件内容原始来源，为Null时视作空数据
-   * @param ctype  格式，支持列表见于 {@link TYPES}
-   * @param suffix 临时文件后缀，如 ".yml"，可为Null
+   * @param rawData 配置文件内容原始来源，为Null时视作空数据。您或许需要使用 {@link #getRawData()} 从另外一个
+   *                SConfig 中获取数据。
+   * @param ctype   格式，支持列表见于 {@link TYPES}
+   * @param suffix  临时文件后缀，如 ".yml"，可为Null
    * @throws UnsupportedOperationException 不支持的格式
    * @throws IOException                   读写错误
    * @since 0.4.7
@@ -341,10 +355,11 @@ public class SConfig {
   public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws IOException {
     Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
     this.confHandler = this.parseType(ctype);
-    this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
-    // 将 Map 直接作为数据来源并写入
+    this.confFile = null;
+    this.setWriteMode(WRITE_MODE.MEMORY);
+    this.tempFileSuffix = suffix;
+    // 将 Map 直接作为数据来源
     this.cache = rD;
-    flush();
   }
 
   private Backend parseType(String ctype) {
@@ -1056,11 +1071,14 @@ public class SConfig {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
       throw new IllegalStateException("只读模式下无法写入缓存到文件");
     }
+    // 不处理 MEMORY 模式，下文的 getFile() 会检查并自动向上传递、中断操作
     lock.writeLock().lock();
     try {
-      atomicWrite(conf.toPath(), (out) -> {
+      atomicWrite(getFile().toPath(), (out) -> {
         confHandler.flush(out);
       });
+    } catch (IllegalArgumentException se) {
+      throw se;
     } catch (Exception e) {
       throw new RuntimeException("无法写入配置文件", e);
     } finally {
@@ -1071,22 +1089,25 @@ public class SConfig {
   /**
    * 加载文件到缓存
    * 
-   * @throws RuntimeException 不受检；无法加载配置文件。
+   * @throws RuntimeException         不受检；无法加载配置文件。
+   * @throws IllegalArgumentException 不受检；当前状态不允许执行此操作。
    */
   private void load() {
     lock.writeLock().lock();
     try {
-      if (!conf.exists()) {
+      if (!getFile().exists()) {
         cache = new ConcurrentHashMap<>();
         return;
       }
       Map<String, Object> loaded;
-      try (InputStream in = new FileInputStream(conf)) {
+      try (InputStream in = new FileInputStream(getFile())) {
         logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
         loaded = confHandler.load(in);
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
-      lastModified = conf.lastModified();
+      lastModified = getFile().lastModified();
+    } catch (IllegalArgumentException se) {
+      throw se;
     } catch (Exception e) {
       SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
           .set("exception", e)
@@ -1122,15 +1143,16 @@ public class SConfig {
    * 启动自动重载
    * 若当前已启用会静默处理。
    * @throws UncheckedIOException 无法启用自动重载时
+   * @throws IlleaglStateException 不受检；当前状态不允许执行此操作。
    */
   private void startAutoReload() {
     if (watching)
       return;
     try {
       logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
-      watchService = FileSystems.getDefault().newWatchService();
-      Path confPath = conf.toPath().toAbsolutePath();
+      Path confPath = getFile().toPath().toAbsolutePath();
       Path dir = confPath.getParent();
+      watchService = FileSystems.getDefault().newWatchService();
       dir.register(watchService,
         StandardWatchEventKinds.ENTRY_MODIFY,
           StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
@@ -1145,13 +1167,15 @@ public class SConfig {
             for (WatchEvent<?> event : key.pollEvents()) {
               Path changed = dir.resolve((Path) event.context());
               if (changed.toAbsolutePath().equals(confPath)
-                && conf.lastModified() != lastModified) {
+                && getFile().lastModified() != lastModified) {
                 logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
                 reload();
                 SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
               }
             }
             key.reset();
+          } catch (IllegalArgumentException se) {
+            setAutoReload(false);
           } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             break;
@@ -1159,9 +1183,11 @@ public class SConfig {
             continue;
           }
         }
-      }, "conf-reload-" + conf.getName());
+      }, "conf-reload-" + confFile.getName());
       watchThread.setDaemon(true);
       watchThread.start();
+    } catch (IllegalArgumentException se) {
+      throw se;
     } catch (IOException e) {
       e.printStackTrace();
       stopAutoReload();
@@ -1362,9 +1388,22 @@ public class SConfig {
    * ==========================================
    */
 
-  /** @return 当前配置文件对象 */
-  public File getFile() {
-    return conf;
+  /**
+   * @return 当前配置文件对象
+   * @throws IOException 如果当前文件对象是惰性初始化，且无法初始化
+   * @throws IllegalStateException 仅内存模式无法访问文件对象
+   */
+  public File getFile() throws IOException {
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.MEMORY)) {
+      throw new IllegalStateException("仅内存模式下硬盘文件对象不可用");
+    }
+    if (confFile == null) {
+      synchronized (this) {
+        // 线程同步锁
+        confFile = File.createTempFile("SConfig-", (tempFileSuffix == null) ? confHandler.getType() : tempFileSuffix);
+      }
+    }
+    return confFile;
   }
 
   /** @return 标准化的当前配置文件类型，即可能与初始化时传入的类型略有出入。 */

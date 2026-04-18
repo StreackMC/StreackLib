@@ -1,4 +1,4 @@
-# `SConf`
+# `SConfig`
 ## 前言
 这是一个自动配置文件处理器，支持：
 
@@ -29,6 +29,10 @@ SConfig conf2 = new SConfig(Map<String, Object> conf.getRawData(), String "文�
 ```
 
 这样就获取了一个`SConf`对象。
+
+> 如果你创建了一个**临时**配置文件，那么它不会占用磁盘 IO ，也不会产生临时文件，直到首次保存到文件。（惰性初始化）<br>
+> 所以即使大规模创建临时配置文件，也无需担心磁盘负荷。<br>
+> 有关该惰性初始化的特性，请见 [`SConfig.WRITE_MODE.MEMORY`](#写入模式) 。
 
 ## 加载与重载
 在对象初始化后，其会被自动重载一次。
@@ -72,11 +76,15 @@ conf.reload();
     * `Int` key2 = `26710`
   * `Boolean` key3 = `true`
 
-## 获取配置文件对象
-你可以用这个获取存储文件对象：
+## 获取原始配置文件数据
 
 ```java
+// 获取配置文件对象
 File confFile = conf.getFile();
+// 仅内存模式无效
+
+// 获取数据（镜像，不会保存到SConfig中）
+Map<String, Object> data = conf.getRawData();
 ```
 
 ## 增删查改
@@ -130,6 +138,9 @@ SConfig支持四种写入模式，默认为自动保存模式。
 * 手动保存 `SConfig.WRITE_MODE.INERTIA`：可以修改，需要手动保存
 * 写保护 `SConfig.WRITE_MODE.WRITELOCK`：可以修改，但无法保存到文件
 * 只读 `SConfig.WRITE_MODE.READONLY`：无法修改任何东西
+* 仅内存 `SConfig.WRITE_MODE.MEMORY`：
+  * 创建临时配置文件后：修改写入模式并首次访问文件对象时才惰性初始化一个临时文件对象
+  * 无论何时：所有涉及文件对象的操作均被拒绝，例如自动重载、立即重载、保存到文件……
 
 ## 特殊格式支持
 ### JSON 的 Array As Root

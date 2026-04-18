@@ -88,7 +88,10 @@ public class SConfig {
   /** 当前实例的唯一ID */
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
 
-  /** 支持的文件类型的标准化字符串。所有字符串都不区分大小写。 */
+  /**
+   * 支持的文件类型的标准化字符串。所有字符串都不区分大小写。<p>
+   * 出于数据安全考虑，格式一经设置就无法修改，只能使用 {@link SConfig#getType() } 获取标准化的字符串。
+   */
   public final static class TYPES {
     /**
      * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 {@link TYPES#JSONC}
@@ -124,7 +127,7 @@ public class SConfig {
     /**
      * @apiNote 0.5.0版本（不含）前，本 INI 支持使用了 {@link org.ini4j.ini4j} ，其存在已知严重漏洞
      *          CVE-2022-41404：允许攻击者通过构造恶意 INI 文件并借此崩溃程序来完成拒绝服务攻击。
-     * @apiNote 0.5.0版本后，本 INI 支持改用 SuperMap/ini4j 临时代替。
+     * @apiNote 0.5.0版本后，本 INI 支持改用 SuperMap/ini4j 临时代替以修复该漏洞。
      * @see {@link https://nvd.nist.gov/vuln/detail/CVE-2022-41404} 漏洞详情
      * @see {@link https://github.com/ini4j/ini4j?tab=readme-ov-file#%EF%B8%8F-roadmap-to-v060}
      *      鸽子官方迁移几年了还没修bug
@@ -150,8 +153,7 @@ public class SConfig {
     public final static String NBTle = "nbtle";
     /**
      * Minecraft NBT (人类可读文本)
-     * <p>
-     * 最大深度为 Int 上限，且会尝试将原文本经多次内存操作，警惕<b>爆堆栈或者内存</b>风险
+     * @apiNote 最大深度为 Int 上限，且会尝试将原文本经多次内存操作，警惕<b>爆堆栈或者内存</b>风险
      */
     public final static String SNBT = "snbt";
   }
@@ -207,8 +209,6 @@ public class SConfig {
   private final File conf;
   /** 配置到文件的处理器后端 */
   private final Backend confHandler;
-  /** 文件格式：{@link TYPES} */
-  private String confType;
   /** 当前写模式：{@link WRITE_MODE} */
   private volatile String writeMode = "autosave";
   /** 当前写模式是否已锁定 */
@@ -350,8 +350,7 @@ public class SConfig {
   private Backend parseType(String ctype) {
     if (ctype == null)
       throw new IllegalArgumentException("ctype 不能为空");
-    this.confType = ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
-    switch (this.confType) {
+    switch (ctype.replaceAll("\\s+", "").toLowerCase(Locale.ROOT)) {
       case "json":
         return new BackendJSON();
       case "jsonc":
@@ -1368,9 +1367,14 @@ public class SConfig {
     return conf;
   }
 
+  /** @return 标准化的当前配置文件类型，即可能与初始化时传入的类型略有出入。 */
+  public String getType() {
+    return confHandler.getType();
+  }
+
   /** 原子替换文件：先写临时文件，再 move */
   private void atomicWrite(Path target, IOConsumer<OutputStream> outF) throws Exception {
-    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + confType + ".tmp");
+    Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + getType() + ".tmp");
     try (OutputStream out = Files.newOutputStream(tmp)) {
         outF.accept(out);
     }

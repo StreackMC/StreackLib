@@ -166,13 +166,13 @@ public final class StreackLib {
         .format(java.time.format.DateTimeFormatter.ofPattern(f));
   }
 
-  @Internal
   /**
    * 获取一个全局唯一的ID
    * @return
    * @since 0.4.4
-   */
-  public static Long getUniqueID() {
+  */
+ @Internal
+ public static Long getUniqueID() {
     return uniqueIDCounter.getAndIncrement();
   }
 }

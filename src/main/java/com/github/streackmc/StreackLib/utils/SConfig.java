@@ -266,7 +266,7 @@ public class SConfig {
    * @throws IOException                   读写错误
    * @since 0.4.4
    */
-  public SConfig(String rawData, String ctype, @Nullable String suffix) throws Exception {
+  public SConfig(String rawData, String ctype, @Nullable String suffix) throws IOException {
     this.confHandler = this.parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
 
@@ -303,7 +303,7 @@ public class SConfig {
    * @see #SConfig(File, String)
    * @since 0.4.7
    */
-  public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) throws Exception {
+  public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) throws IOException {
     this.confHandler = this.parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();
 
@@ -338,7 +338,7 @@ public class SConfig {
    * @throws IOException                   读写错误
    * @since 0.4.7
    */
-  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws Exception {
+  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) throws IOException {
     Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
     this.confHandler = this.parseType(ctype);
     this.conf = Files.createTempFile("sconfig-tmp-", suffix).toFile();

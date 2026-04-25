@@ -1,4 +1,4 @@
-package com.github.streackmc.StreackLib.types;
+package com.github.streackmc.StreackLib.utils;
 
 /**
  * 没有任何含义的Exception，抛出它不会有任何意义，捕获它也没有任何意义。

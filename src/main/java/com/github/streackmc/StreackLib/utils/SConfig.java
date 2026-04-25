@@ -416,13 +416,13 @@ public class SConfig {
   }
 
   /**
-   * **已弃用，请使用严格类型 API**
    * 获取指定配置项
-   * @param <T> 可为String/List/Int/Number
-   * @param key 目标配置项，没有自动新增
+   * 
+   * @param <T>      可为String/List/Int/Number
+   * @param key      目标配置项，没有自动新增，<b>不支持嵌套</b>
    * @param fallback 默认值，如果没有传入则为空字符串
    * @return 获取到的值
-   * @deprecated
+   * @deprecated 已弃用，请使用严格类型 API；此外本方法不支持处理嵌套路径。
    */
   @Deprecated
   @SuppressWarnings("unchecked")
@@ -441,22 +441,21 @@ public class SConfig {
   }
 
   /**
-   * **已弃用，请使用严格类型 API**
    * 写入配置项
    * 
    * @param <T>   可为String/List/Int/Number
-   * @param key   目标配置项，没有自动新增
+   * @param key   目标配置项，没有自动新增，<b>不支持嵌套</b>
    * @param value 目标值
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
-   * @deprecated
+   * @deprecated 已弃用，请使用严格类型 API；此外本方法不支持处理嵌套路径。
    */
   @Deprecated
   public <T> SConfig put(String key, T value) {
-    if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
-      throw new IllegalStateException("只读模式下无法修改配置");
-    }
     lock.writeLock().lock();
     try {
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+        throw new IllegalStateException("只读模式下无法修改配置");
+      }
       cache.put(key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
@@ -489,6 +488,9 @@ public class SConfig {
   public SConfig putString(String key, String value) {
     lock.writeLock().lock();
     try {
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+        throw new IllegalStateException("只读模式下无法修改配置");
+      }
       putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
     } finally {
@@ -891,11 +893,11 @@ public class SConfig {
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    */
   public SConfig remove(String key) {
-    if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
-      throw new IllegalStateException("只读模式下无法修改配置");
-    }
     lock.writeLock().lock();
     try {
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
+        throw new IllegalStateException("只读模式下无法修改配置");
+      }
       int lastDot = getIndexOfNormalDot(key);
       if (lastDot == -1) {
         cache.remove(key);
@@ -1289,26 +1291,31 @@ public class SConfig {
    *             {@link SConfig.WRITE_MODE#INERTIA}；不区分大小写。
    */
   public SConfig setWriteMode(@Nullable String mode) {
-    if (writeModeLocked)
-      throw new IllegalStateException("写入模式已被锁定，无法修改。");
-    if (mode == null) {
-      writeMode = WRITE_MODE.AUTOSAVE;
-    } else {
-      String m = mode.trim().toLowerCase();
-      switch (m) {
-        case WRITE_MODE.AUTOSAVE:
-          writeMode = m;
-          break;
-        case WRITE_MODE.READONLY:
-          writeMode = m;
-          break;
-        case WRITE_MODE.WRITELOCK:
-          writeMode = m;
-          break;
-        default:
-          writeMode = WRITE_MODE.INERTIA;
-          break;
+    lock.writeLock().lock();
+    try {
+      if (writeModeLocked)
+        throw new IllegalStateException("写入模式已被锁定，无法修改。");
+      if (mode == null) {
+        writeMode = WRITE_MODE.AUTOSAVE;
+      } else {
+        String m = mode.trim().toLowerCase();
+        switch (m) {
+          case WRITE_MODE.AUTOSAVE:
+            writeMode = m;
+            break;
+          case WRITE_MODE.READONLY:
+            writeMode = m;
+            break;
+          case WRITE_MODE.WRITELOCK:
+            writeMode = m;
+            break;
+          default:
+            writeMode = WRITE_MODE.INERTIA;
+            break;
+        }
       }
+    } finally {
+      lock.writeLock().unlock();
     }
     return this;
   }

@@ -16,6 +16,7 @@ import java.lang.reflect.Type;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -399,6 +400,22 @@ public class SConfig {
    * ========================================== */
 
   /**
+   * 判断一个配置是否未设置
+   * @since 0.5.0
+   * @param key 目标配置项
+   * @return 未设置、不存在时为 false
+   */
+  public boolean isExist(String key) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(cache, key);
+      return v == null ? false : true;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  /**
    * **已弃用，请使用严格类型 API**
    * 获取指定配置项
    * @param <T> 可为String/List/Int/Number
@@ -522,11 +539,11 @@ public class SConfig {
 
   // short
   /** 获取 long，缺失返回 <pre>(short) 0</pre><p>支持嵌套 key，如 "server.port" */
-  public long getShort(String key) {
+  public short getShort(String key) {
     return getShort(key, (short) 0);
   }
   /** 获取 long，缺失返回默认值；支持嵌套 key，如 "server.port" */
-  public long getShort(String key, short def) {
+  public short getShort(String key, short def) {
     lock.readLock().lock();
     try {
       Object v = getNested(cache, key);
@@ -1068,7 +1085,9 @@ public class SConfig {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
       throw new IllegalStateException("只读模式下无法写入缓存到文件");
     }
-    // 不处理 MEMORY 模式，下文的 getFile() 会检查并自动向上传递、中断操作
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.MEMORY)) {
+      throw new IllegalStateException("仅内存模式下硬盘文件对象不可用");
+    }
     lock.writeLock().lock();
     try {
       atomicWrite(getFile().toPath(), (out) -> {
@@ -1171,12 +1190,20 @@ public class SConfig {
               }
             }
             key.reset();
-          } catch (IllegalArgumentException se) {
+          } catch (IllegalArgumentException se) {// 无效状态
             setAutoReload(false);
-          } catch (InterruptedException e) {
+          } catch (InterruptedException e) {// 被 stopAutoReload() 中断
             Thread.currentThread().interrupt();
             break;
-          } catch (Exception ignored/* 防止假死 */) {
+          } catch (ClosedWatchServiceException e) {// 文件观察退出
+            break;
+          } catch (Exception ignored) {// 其它错误忽略并等待下一次重载
+            try {
+              Thread.sleep(1000);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              break;
+            }
             continue;
           }
         }

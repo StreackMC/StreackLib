@@ -97,6 +97,8 @@ conf.put(String "key", <T> "value");
 conf.remove(String "key");
 // 查
 T v = (T) conf.get(String "key", <T> fallback);
+// 查是否为空值
+boolean isUnset = conf.isExist(String "key");
 ```
 
 ### 严格类型

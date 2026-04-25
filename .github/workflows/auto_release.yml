@@ -19,6 +19,22 @@ jobs:
         id: git
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      # 检测 tag 是否包含字母（a-zA-Z），并导出 is_release / prerelease
+      - name: Detect if tag contains letters
+        id: tagcheck
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ [A-Za-z] ]]; then
+            echo "has_letters=true" >> "$GITHUB_OUTPUT"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_letters=false" >> "$GITHUB_OUTPUT"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -26,24 +42,24 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # 1. 生成主 jar / -sources.jar / -javadoc.jar
+      # 生成主 jar / -sources.jar / -javadoc.jar
       - name: Build with Maven
         run: |
           mvn -B clean package -Prelease
 
-      # 2. 检查构建产物
+      # 检查构建产物
       - name: Detect artifact name
         id: artifacts
         run: echo "name=$(cat target/artifacts.txt)" >> "$GITHUB_OUTPUT"
 
-      # 3. 上传 CI 产物
+      # 上传 CI 产物
       - name: Upload built jar
         uses: actions/upload-artifact@v4
         with:
           name: StreackLib-git@${{ steps.git.outputs.sha }}.jar
           path: target/*.jar
 
-      # 4. 读取 ChangeLog 内容
+      # 读取 ChangeLog 内容
       - name: Read ChangeLog
         id: changelog
         shell: bash
@@ -59,7 +75,7 @@ jobs:
             echo "body=*No ChangeLog yet.*" >> "$GITHUB_OUTPUT"
           fi
 
-      # 5. 生成版本信息 JSON
+      # 生成版本信息 JSON
       - name: Generate version_info.json
         run: |
           cat > version_info.json <<EOF
@@ -70,7 +86,7 @@ jobs:
               "https://gh.kdxiaoyi.top/github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.artifacts.outputs.name }}",
             ],
             "changelog": ${{ toJson(steps.changelog.outputs.body) }},
-            "is_release": true,
+            "is_release": ${{ steps.tagcheck.outputs.is_release }},
             "build_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "git_hash": "${{ steps.git.outputs.sha }}"
           }
@@ -78,7 +94,7 @@ jobs:
           echo "Generated version_info.json:"
           cat version_info.json
 
-      # 6. 发布 Release (修改 files 参数)
+      # 发布 Release (修改 files 参数)
       - name: Create Release & Upload Assets
         uses: softprops/action-gh-release@v1
         with:
@@ -89,11 +105,11 @@ jobs:
             target/*.jar
             version_info.json
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.tagcheck.outputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 7. 发布到 Maven Central 与 GitHub Packages
+      # 发布到 Maven Central 与 GitHub Packages
       # - name: Publish to Maven Central & GitHub Packages
       #   run: mvn -B deploy -Prelease -Dmaven.test.skip=true
       #   env:
@@ -106,22 +122,22 @@ jobs:
       #     # GitHub Packages 认证
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 8. 推送 version_info.json 到 version 分支
+      # 推送 version_info.json 到 version 分支
       # - name: Push to version branch
       #   run: |
       #     # 创建或切换到 version 分支
       #     git checkout version 2>/dev/null || git checkout -b version
-          
+      #     
       #     # 复制 version_info.json 到当前目录
       #     # cp version_info.json .
-          
+      #     
       #     # 配置 git
       #     git config user.name "github-actions[bot]"
       #     git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+      #     
       #     # 添加文件
       #     git add version_info.json
-          
+      #     
       #     # 检查是否有变化
       #     if git diff --staged --quiet; then
       #       echo "version_info.json 没有变化，跳过提交"

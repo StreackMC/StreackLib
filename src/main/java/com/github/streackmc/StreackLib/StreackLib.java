@@ -4,16 +4,15 @@ import java.io.File;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
 
+import org.apache.logging.log4j.util.InternalApi;
 import org.jetbrains.annotations.ApiStatus.Internal;
 
-import com.github.streackmc.StreackLib.bukkit.SBukkit;
+import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
@@ -26,29 +25,8 @@ import com.github.streackmc.StreackLib.utils.SConfig;
  */
 public final class StreackLib {
 
-  public final static class EVENTS {
-    /**
-     * TPS被刷新
-     * @param TPS double | 此刻的TPS
-     * @see StreackLib#CURRENT_TPS
-     * @see SBukkit#getServerTPS()
-     * @deprecated 0.4.7 起删除该事件
-     */
-    @Deprecated
-    public static final String LIVE_TPS_REFRESHED = "streacklib.streacklib:tps.current.refreshed";
-  }
-
-  /** StreackLib内部持有的HTTP服务器 */
-  public static HTTPServer httpServer;
-  /** TPS阻止伪共享的缓存行填充变量 */
-  private long p1, p2, p3, p4, p5, p6, p7;
-  /** 当前TPS */
-  public static volatile double currentTPS = -1.0;
-  /** TPS阻止伪共享的缓存行填充变量 */
-  private long p9, p10, p11, p12, p13, p14, p15;
-
-
   /** StreackLib的环境信息 */
+  @InternalApi
   public static class ENV {
     /** StreackLib的配置文件对象 */
     public static SConfig conf;
@@ -66,8 +44,6 @@ public final class StreackLib {
 
   private StreackLib() { // 禁止实例化
   }
-  /** TPS计算实现所用队列，其 size() 就是每秒TPS */
-  static final Deque<Long> tickTimes = new ArrayDeque<>();
   /** 唯一ID生成器 */
   private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
 
@@ -80,27 +56,7 @@ public final class StreackLib {
    */
   @Nullable
   public static HTTPServer getHttpServer() {
-    return httpServer;
-  }
-
-  /**
-   * 新建一个HTTPServer对象
-   * @param hostname 监听地址
-   * @param port 监听端口
-   * @return 获取到的对象
-   */
-  public static HTTPServer newHttpServer(String hostname, int port) {
-    return new HTTPServer(hostname, port, initBukkit.pluginSelf);
-  }
-
-  /**
-   * 获取一个指向一个文件的配置文件对象。使用此对象方法可以更快捷地操作配置文件。建议使用前先使用Bukkit自带的释放配置文件以放出默认配置文件。
-   * @param file 配置文件的对象
-   * @param type 配置文件的类型
-   * @return 一个配置文件对象
-   */
-  public static SConfig initConf(File file, String type) {
-    return new SConfig(file, type);
+    return manager.backend.httpServer;
   }
 
   // ===================== Other Utils =====================
@@ -164,6 +120,23 @@ public final class StreackLib {
     return java.time.LocalDateTime
         .ofInstant(java.time.Instant.ofEpochMilli(t), timezone)
         .format(java.time.format.DateTimeFormatter.ofPattern(f));
+  }
+
+  /**
+   * 获取当前服务器的TPS数值，精确到2位小数。
+   * 
+   * @return double[5] 数组，索引对应：
+   *         [0] = 最近1秒的TPS，这个不可能有小数部分
+   *         [1] = 最近1分钟的平均TPS
+   *         [2] = 最近5分钟的平均TPS
+   *         [3] = 最近15分钟的平均TPS
+   *         [4] = 时间戳
+   *         如果发生非致命错误则会返回-1.0
+   * @author kdxiaoyi
+   * @since 0.5.0
+   */
+  public static double[] getServerTPS() throws Exception {
+    return manager.backend.getLiveTPS();
   }
 
   /**

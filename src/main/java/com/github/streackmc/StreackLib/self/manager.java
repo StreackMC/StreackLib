@@ -17,6 +17,7 @@ import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.Nullable;
 
 import com.github.streackmc.StreackLib.StreackLib;
+import com.github.streackmc.StreackLib.self.backend.StreackLibDefaultBackend;
 
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
@@ -35,6 +36,8 @@ public class manager {
 
   private manager() {}// 禁止实例化
 
+  /** 功能后端，默认为全未实现，需要等待对应平台加载器将其初始化 */
+  public static volatile StreackLibDefaultBackend backend = new StreackLibDefaultBackend("use string for safely init");
 
   /**
    * 提取JAR内部资源文件

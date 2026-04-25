@@ -1,4 +1,4 @@
-package com.github.streackmc.StreackLib;
+package com.github.streackmc.StreackLib.self.initializer;
 
 import java.io.File;
 import java.io.InputStream;
@@ -7,19 +7,20 @@ import java.nio.file.Files;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.jetbrains.annotations.ApiStatus.Internal;
 
+import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.self.updateChecker;
-import com.github.streackmc.StreackLib.utils.HTTPServer;
+import com.github.streackmc.StreackLib.self.backend.StreackLibBukkitBackend;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
-public class initBukkit extends JavaPlugin {
+@Internal
+public class forBukkit extends JavaPlugin {
   private Long CONFIG_VERSION = 0L;
 
-  // 共享变量
-  public static JavaPlugin pluginSelf;
-  public static BukkitRunnable UpdateCheckTask;
+  StreackLibBukkitBackend backend;
 
   @Override
   public void onEnable() {
@@ -37,10 +38,10 @@ public class initBukkit extends JavaPlugin {
 
     // 填充共享变量
     logger.plugin = this;
-    pluginSelf = this;
     StreackLib.ENV.dataPath = this.getDataFolder();
     StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
     StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
+    backend = new StreackLibBukkitBackend();
 
     // 读取构建信息
     try {
@@ -60,63 +61,48 @@ public class initBukkit extends JavaPlugin {
 
     // 配置文件初始化
     CheckConfigUpdate();
-    LoadConf();
+    StreackLib.ENV.conf.setAutoReload(true);
+    // debug mode
+    if (StreackLib.isDebugMode()) {
+      logger.warn("调试模式已启用，你会因此收到更多消息");
+      logger.debug("当前环境信息：\n" + manager.generateDebugInfo());
+    }
 
     // 启用组件
     logger.info("初始化成功！正在启用组件。");
-    EnableHTTPServer();
 
     // 计划自动更新
     if (!StreackLib.isDebugMode()) {
       logger.info("强制跳过更新检查，因为此功能尚未完成。");
       return;
     } else {
-      UpdateCheckTask = new BukkitRunnable() {
+      backend.UpdateCheckTask = new BukkitRunnable() {
         @Override
         public void run() {
           updateChecker.checkUpdate();
         }
       };
-      UpdateCheckTask.runTaskTimerAsynchronously(pluginSelf, 100L, 86400L);
+      backend.UpdateCheckTask.runTaskTimerAsynchronously(this, 100L, 86400L);
     }
 
     // TPS追踪
-    new BukkitRunnable() {
+    backend.UpdateTpsTask = new BukkitRunnable() {
       @Override
       public void run() {
-        long now = System.currentTimeMillis();
-        StreackLib.tickTimes.addLast(now);
-
-        // 移除 1 秒前的记录
-        while (
-          !StreackLib.tickTimes.isEmpty()
-          // 处理1秒前的过期记录，含右边界不含左边界
-          && now - StreackLib.tickTimes.peekFirst() >= 1000
-        ) {
-          StreackLib.tickTimes.pollFirst();
-        }
-
-        // 队列大小即为最近 1 秒的 tick 数（理想为 20）
-        StreackLib.currentTPS = Math.round(StreackLib.tickTimes.size());
-        logger.debug("Current TPS:%s", StreackLib.currentTPS);
+        backend.onTickDoing();
       }
-    }.runTaskTimer(logger.plugin, 0L, 1L); // 每 tick 执行一次
+    };
+    backend.UpdateTpsTask.runTaskTimer(logger.plugin, 0L, 1L);
 
     // 完成
+    manager.backend = backend;
     logger.info("已启用StreackLib v" + getDescription().getVersion() + "");
   }
   @Override
   public void onDisable() {
-    DisableHTTPServer();
-  }
-
-  /* 载入配置 */
-  private void LoadConf() {
-    StreackLib.ENV.conf.setAutoReload(true);
-    // debug mode
-    if (StreackLib.isDebugMode()) {
-      logger.warn("调试模式已启用，你会因此收到更多消息");
-      logger.debug("当前环境信息：\n" + manager.generateDebugInfo());
+    if (backend.httpServer != null) {
+      backend.httpServer.stopServer();
+      backend.httpServer = null;
     }
   }
 
@@ -142,26 +128,6 @@ public class initBukkit extends JavaPlugin {
         logger.severe("配置文件更新失败：" + e.getLocalizedMessage());
         e.printStackTrace();
       }
-    }
-  }
-
-  /* HTTPServer */
-  private void EnableHTTPServer() {
-    String host = StreackLib.ENV.conf.getString("http-server.host", "0.0.0.0");
-    int port = StreackLib.ENV.conf.getInt("http-server.port", 8080);
-    logger.info("处理模块：HTTPServer");
-    if (StreackLib.ENV.conf.getBoolean("http-server.enabled", false)) {
-      StreackLib.httpServer = new HTTPServer(host, port, this);
-      StreackLib.httpServer.startServer();
-      logger.info("HTTP 服务器已启动于 " + host + ":" + port);
-    } else {
-      StreackLib.httpServer = null;
-      logger.info("HTTP 服务器未启用");
-    }
-  }
-  private void DisableHTTPServer() {
-    if (StreackLib.httpServer != null) {
-      StreackLib.httpServer.stopServer();
     }
   }
 }

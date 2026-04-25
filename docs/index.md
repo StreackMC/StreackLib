@@ -43,7 +43,7 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * `final static class EVENTS`：该类可以触发的事件的名称定义集；没有此子类表述不触发事件。
 * `final long INSTANCE_ID`：该类**可以实例化**才存在，表示全局唯一的实例ID。
 
-### 类文档目录
+### 工具类文档目录
 #### 通用
 
 * [StreackLib](./class/StreackLib.md)
@@ -51,14 +51,7 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * [HTTPServer](./class/HTTPServer.md)
 * [SConfig](./class/SConfig.md)
 * [SFile](./class/SFile.md)
-
-#### Bukkit/Spigot/Paper
-
-* [SBukkit](./class/Bukkit/SBukkit.md)
-
-### 数据类型文档目录
-
-#### 通用
-
+* [SItemUtils](./utils/SItem.md#SItemUtils)
 * [SEvent](./class/SEventCentral.md#事件数据对象-sevent)
-* [IgnoredException](./types/IgnoredException.md)
+* [SItem](./utils/SItem.md)
+* [IgnoredException](./utils/IgnoredException.md)

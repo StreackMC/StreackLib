@@ -20,7 +20,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +42,6 @@ import fi.iki.elonen.NanoHTTPD;
  */
 public class HTTPServer extends NanoHTTPD {
 
-  private final JavaPlugin plugin;
   private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
   private String listenAddress;
   public int MAX_URI = 2048;
@@ -82,12 +80,10 @@ public class HTTPServer extends NanoHTTPD {
    * 
    * @param hostname 监听地址
    * @param port     监听端口
-   * @param plugin   发起的插件对象
    */
-  public HTTPServer(String hostname, int port, JavaPlugin plugin) {
+  public HTTPServer(String hostname, int port) {
     super(hostname, port);
     this.listenAddress = hostname + ":" + port;
-    this.plugin = plugin;
     this.MAX_URI = StreackLib.ENV.conf.getInt("http-server.max-uri-length", 2048);
     this.MAX_FILE_SIZE = StreackLib.ENV.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
   }

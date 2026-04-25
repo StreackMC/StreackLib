@@ -210,6 +210,10 @@ public class SConfig {
   private Thread watchThread;
   /** 自动加载状态 */
   private volatile boolean watching = false;
+  /** 两次观察文件的间隔。只能为正。默认1000，单位ms。 */
+  private long autoreloadInvertal = 1000;
+  /** 重载出错需等待多久。负数立即中断，0立即重试。默认2000，单位ms。 */
+  private long autoreloadBreak = 2000;
   
   // conf meta
   /** 文件路径 */
@@ -1157,15 +1161,23 @@ public class SConfig {
    * 自动重载
    * ========================================== */
 
-  /** 
+  /**
    * 启动自动重载
    * 若当前已启用会静默处理。
-   * @throws UncheckedIOException 无法启用自动重载时
-   * @throws IlleaglStateException 不受检；当前状态不允许执行此操作。
+   * 
+   * @throws UncheckedIOException     无法启用自动重载时
+   * @throws IlleaglStateException    不受检；当前状态不允许执行此操作。
+   * @throws IllegalArgumentException 不受检；错误的间隔时长。
    */
   private void startAutoReload() {
     if (watching)
       return;
+    if (writeMode.equals(WRITE_MODE.MEMORY)) {
+      throw new IllegalStateException("仅内存模式下无法启用自动重载");
+    }
+    if (autoreloadInvertal <= 0) {
+      throw new IllegalArgumentException("自动重载间隔不是有效的正数：" + autoreloadInvertal);
+    }
     try {
       logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
       Path confPath = getFile().toPath().toAbsolutePath();
@@ -1179,7 +1191,7 @@ public class SConfig {
       watchThread = new Thread(() -> {
         while (watching && !Thread.currentThread().isInterrupted()) {
           try {
-            WatchKey key = watchService.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+            WatchKey key = watchService.poll(autoreloadInvertal, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (key == null)
               continue;
             for (WatchEvent<?> event : key.pollEvents()) {
@@ -1201,7 +1213,12 @@ public class SConfig {
             break;
           } catch (Exception ignored) {// 其它错误忽略并等待下一次重载
             try {
-              Thread.sleep(1000);
+              if (autoreloadBreak < 0) {
+                throw new InterruptedException("由用户配置的失败自动结束自动重载");
+              } else if (autoreloadBreak != 0) {
+                // 如果是正数则睡眠
+                Thread.sleep(autoreloadBreak);
+              }
             } catch (InterruptedException e) {
               Thread.currentThread().interrupt();
               break;
@@ -1240,7 +1257,9 @@ public class SConfig {
   /**
    * 设置自动重载状态
    * 
-   * @throws UncheckedIOException 不受检；无法启用自动重载。
+   * @throws UncheckedIOException     不受检；无法启用自动重载。
+   * @throws IllegalStateException    不受检；当前状态不允许执行此操作：{@link WRITE_MODE} 为仅内存。
+   * @throws IllegalArgumentException 不受检；{@link #getAutoReloadInterval()} 是非正数。
    * @since 0.5.0
    */
   public SConfig setAutoReload(boolean status) {
@@ -1255,6 +1274,52 @@ public class SConfig {
   /** @return 是否正在自动重载 */
   public boolean isAutoReloading() {
     return watching;
+  }
+
+  /**
+   * 设置自动重载观察间隔，影响检查周期
+   * 
+   * @param ms 间隔毫秒数，设置为非正数会导致无法启动自动重载
+   * @apiNote 如若当前已启用自动重载会立中断并重启
+   * @since 0.5.0
+   */
+  public SConfig setAutoReloadInterval(@Nullable Long ms) {
+    autoreloadInvertal = (ms == null) ? 1000 : ms;
+    if (watching) {
+      stopAutoReload();
+      startAutoReload();
+    }
+    return this;
+  }
+
+  /**
+   * @return 获取自动重载观察间隔
+   * @see #setAutoReloadInterval(long)
+   * @apiNote 不推荐设置过小的值，否则如果一直出现错误可能会占用过多资源。
+   * @since 0.5.0
+   */
+  public long getAutoReloadInterval() {
+    return autoreloadInvertal;
+  }
+
+  /**
+   * 设置自动重载等待间隔，影响出错后等待时长
+   * 
+   * @param ms 间隔毫秒数，负数表示中断自动重载，0表示立即重试。默认为2000。
+   * @since 0.5.0
+   */
+  public SConfig setAutoReloadBreak(@Nullable Long ms) {
+    autoreloadBreak = (ms == null) ? 1000 : ms;
+    return this;
+  }
+
+  /**
+   * @return 获取自动重载等待间隔
+   * @see #setAutoReloadBreak(long)
+   * @since 0.5.0
+   */
+  public long getAutoReloadBreak() {
+    return autoreloadBreak;
   }
 
   /* ==========================================

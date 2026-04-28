@@ -544,11 +544,11 @@ public class SConfig {
   }
 
   // short
-  /** 获取 long，缺失返回 <pre>(short) 0</pre><p>支持嵌套 key，如 "server.port" */
+  /** 获取 short，缺失返回 <pre>(short) 0</pre><p>支持嵌套 key，如 "server.port" */
   public short getShort(String key) {
     return getShort(key, (short) 0);
   }
-  /** 获取 long，缺失返回默认值；支持嵌套 key，如 "server.port" */
+  /** 获取 short，缺失返回默认值；支持嵌套 key，如 "server.port" */
   public short getShort(String key, short def) {
     lock.readLock().lock();
     try {
@@ -568,11 +568,11 @@ public class SConfig {
   }
   
   /**
-   * 写入 long；支持嵌套 key，如 "server.port"
+   * 写入 short；支持嵌套 key，如 "server.port"
    * 
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    */
-  public SConfig putLong(String key, short value) {
+  public SConfig putShort(String key, short value) {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);

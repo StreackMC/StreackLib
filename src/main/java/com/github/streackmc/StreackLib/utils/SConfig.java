@@ -176,13 +176,13 @@ public class SConfig {
 
   /** SConfig支持的写入模式。如果设置错误的模式视作 {@link WRITE_MODE#AUTO_SAVE} */
   public final static class WRITE_MODE {
-    /** 默认值。<b>自动保存</b>：产生修改后立即保存到文件。 */
+    /** 默认值。<b>自动保存</b>：产生修改后立即保存到文件。此时可以读入文件。 */
     public final static String AUTOSAVE = "autosave";
-    /** <b>手动保存</b>：所有修改必须调用 {@link SConfig#save()} 才能保存到文件。 */
+    /** <b>手动保存</b>：所有修改必须调用 {@link SConfig#save()} 才能保存到文件。此时可以读入文件。 */
     public final static String INERTIA = "inertia";
-    /** <b>写保护</b>：无法修改文件，强制保存到原文件会抛出不受检异常。 */
+    /** <b>写保护</b>：无法修改文件，强制保存到原文件会抛出不受检异常。此时可以读入文件。 */
     public final static String WRITELOCK = "writelock";
-    /** <b>只读</b>：无法修改缓存和文件，强制修改会抛出不受检异常。 */
+    /** <b>只读</b>：无法修改缓存和文件，强制修改会抛出不受检异常。此时可以读入文件。 */
     public final static String READONLY = "readonly";
     /**
      * <b>仅内存模式</b>：<p>
@@ -1113,8 +1113,12 @@ public class SConfig {
    * 
    * @throws RuntimeException         不受检；无法加载配置文件。
    * @throws IllegalArgumentException 不受检；当前状态不允许执行此操作。
+   * @throws IllegalStateException    不受检；当前状态不允许执行此操作。
    */
   private void load() {
+    if (writeMode.equalsIgnoreCase(WRITE_MODE.MEMORY)) {
+      throw new IllegalStateException("仅内存模式下无法加载文件到缓存");
+    }
     lock.writeLock().lock();
     try {
       if (!getFile().exists()) {
@@ -1309,7 +1313,7 @@ public class SConfig {
    * @since 0.5.0
    */
   public SConfig setAutoReloadBreak(@Nullable Long ms) {
-    autoreloadBreak = (ms == null) ? 1000 : ms;
+    autoreloadBreak = (ms == null) ? 2000 : ms;
     return this;
   }
 
@@ -1802,7 +1806,14 @@ public class SConfig {
       return this;
     }
 
-    // GZIP压缩
+    /**
+     * 当前NBT读写是否需要 GZIP 压缩。Java 版 NBT 需要压缩，而基岩版不需要。
+     * 
+     * @apiNote 本标志是线程安全的：{@link BackendNBT#load(InputStream)} 和
+     *          {@link BackendNBT#flush(OutputStream)} 的锁由外部统一接口
+     *          {@link SConfig#load()} 和 {@link SConfig#flush()} 唯一管理，内部无需重复锁定。
+     * @apiNote 请勿直接调用本方法，否则请确保线程安全。参阅 {@link SConfig#lock} 。
+     */
     private boolean compressed = false;
 
     // 根名称支持
@@ -1838,7 +1849,7 @@ public class SConfig {
       Object maybeArray = cache.get("_root_array");
       if (cache.size() == 1 && maybeArray != null) {
         rootCompound = new CompoundTag();
-        rootCompound.put("_root_array", nbtHandler.Java2Tag(maybeArray));
+        rootCompound.put("_root_array", nbtHandler.Java2Tag(maybeArray));//TODO: 根数组行为不一致
       } else {
         rootCompound = nbtHandler.Map2Compound(cache);
       }

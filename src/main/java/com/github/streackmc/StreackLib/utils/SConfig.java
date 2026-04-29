@@ -300,7 +300,7 @@ public class SConfig {
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
-      throw new RuntimeException("无法加载配置文件", e);
+      throw new RuntimeException("无法加载配置文件：" + e.getLocalizedMessage(), e);
     } finally {
     }
   }
@@ -337,7 +337,7 @@ public class SConfig {
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
-      throw new RuntimeException("无法加载配置文件", e);
+      throw new RuntimeException("无法加载配置文件：" + e.getLocalizedMessage(), e);
     } finally {
     }
   }
@@ -1102,7 +1102,7 @@ public class SConfig {
     } catch (IllegalArgumentException se) {
       throw se;
     } catch (Exception e) {
-      throw new RuntimeException("无法写入配置文件", e);
+      throw new RuntimeException("无法写入配置文件：" + e.getLocalizedMessage(), e);
     } finally {
       lock.writeLock().unlock();
     }
@@ -1134,12 +1134,12 @@ public class SConfig {
       lastModified = getFile().lastModified();
     } catch (IllegalArgumentException se) {
       throw se;
-    } catch (Exception e) {
+    } catch (Exception e) {//TODO: 单独处理 confFile==null 且 Exception 为 FileNotFoundException
       SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
-      throw new RuntimeException("无法加载配置文件", e);
+      throw new RuntimeException("无法加载配置文件：" + e.getLocalizedMessage(), e);
     } finally {
       lock.writeLock().unlock();
     }
@@ -1238,7 +1238,7 @@ public class SConfig {
     } catch (IOException e) {
       e.printStackTrace();
       stopAutoReload();
-      throw new UncheckedIOException("无法启用自动重载：", e);
+      throw new UncheckedIOException("无法启用自动重载：" + e.getLocalizedMessage(), e);
     }
   }
 

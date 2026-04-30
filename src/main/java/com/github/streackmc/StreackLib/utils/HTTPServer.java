@@ -251,6 +251,34 @@ public class HTTPServer extends NanoHTTPD {
         .replaceAll("[\r\n]+", " ");
     NanoHTTPD.Method method = session.getMethod();
 
+    // 处理IP封禁，共享游戏内封禁
+    if (StreackLib.ENV.conf.getBoolean("http-server.banip.sync-game", true)) {//TODO: 独立黑名单处理，添加内网穿透真实IP获取，添加内联黑名单处理
+      SConfig potentialBanEntry = manager.backend.checkBan(ip);// 应该不会有人执行 /ban 127.0.0.1
+      long expireTime = potentialBanEntry.getLong("expire", 0L);
+      if (potentialBanEntry.getBoolean("banned", false)
+          && (expireTime >= System.currentTimeMillis() || expireTime < 0L)) {
+        logger.info(
+            getServerFullName() + String.format("拒绝了 %s 的连接：[ %s ]", ip, potentialBanEntry.getString("reason", "")));
+        if (StreackLib.ENV.conf.getBoolean("http-server.use-404-as-403", false)) {
+          // 用户要求使用404代替403
+          return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+        } else {
+          // 拼接返回值
+          String reasonStr = MCColor.toHtml(potentialBanEntry.getString("reason", ""));
+          reasonStr = (reasonStr.isBlank()) ? "Your" : "Because [" + reasonStr + "], your";
+
+          String expireStr = ((expireTime < 0) ? "until forever."
+              : "until " + StreackLib.formatTime(expireTime, "YYYY-MM-DD hh:mm:ss") + ".");
+          return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_HTML,
+              String.format(
+                  "403 Forbidden: %s IP has been banned from this server since %s , %s",
+                  reasonStr,
+                  StreackLib.formatTime(potentialBanEntry.getLong("create", 0L), "YYYY-MM-DD hh:mm:ss"),
+                  expireStr));
+        }
+      }
+    }
+
     // 广播事件并日志
     logger.info(
         getServerFullName() + "收到请求#" + id + "\n"

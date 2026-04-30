@@ -243,7 +243,7 @@ public class HTTPServer extends NanoHTTPD {
   @Override
   public Response serve(IHTTPSession session) {
     // 准备请求信息
-    String id = System.currentTimeMillis() + "-" + new Random().nextInt(100000);
+    String id = StreackLib.getUniqueID(/* 获取全局唯一ID */).toString();
     String ip = session.getRemoteIpAddress();
     String uri = session.getUri()
         .replaceAll("\\.\\./", "")

@@ -202,18 +202,22 @@ public final class logger {
       return plugin.getLogger();
     }
 
+    @Override
     public void debug(String msg) {
       log().info(msg);
     }
 
+    @Override
     public void info(String msg) {
       log().info(msg);
     }
 
+    @Override
     public void warn(String msg) {
       log().warning(msg);
     }
 
+    @Override
     public void error(String msg, Throwable t) {
       log().log(Level.SEVERE, msg, t);
     }
@@ -223,18 +227,22 @@ public final class logger {
   private static final class Slf4jBackend implements Backend {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(logger.class);
 
+    @Override
     public void debug(String msg) {
       LOG.info(msg);
     }
 
+    @Override
     public void info(String msg) {
       LOG.info(msg);
     }
 
+    @Override
     public void warn(String msg) {
       LOG.warn(msg);
     }
 
+    @Override
     public void error(String msg, Throwable t) {
       LOG.error(msg, t);
     }
@@ -244,18 +252,22 @@ public final class logger {
   private static final class JulBackend implements Backend {
     private static final Logger LOG = Logger.getLogger(logger.class.getName());
 
+    @Override
     public void debug(String msg) {
       LOG.info(msg);
     }
 
+    @Override
     public void info(String msg) {
       LOG.info(msg);
     }
 
+    @Override
     public void warn(String msg) {
       LOG.warning(msg);
     }
 
+    @Override
     public void error(String msg, Throwable t) {
       LOG.log(Level.SEVERE, msg, t);
     }
@@ -265,7 +277,7 @@ public final class logger {
 
   /** 简单格式化：用 String.format，兼容 %s 等占位符 */
   private static String format(String msg, Object... arg) {
-    return arg.length == 0 ? msg : String.format(msg, arg);
+    return arg.length == 0 ? msg : String.format((msg == null) ? "" : msg, arg);
   }
 
   /** 解析传入参数，返回最终消息与可选 Throwable */

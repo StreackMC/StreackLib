@@ -1470,9 +1470,8 @@ public class SConfig {
   }
 
   /**
-   * 设置根注释内容；如果当前配置格式不支持该特性静默处理。
+   * 设置注释内容；如果当前配置格式不支持该特性静默处理。
    * @since 0.5.0
-   * @param name 要设置的名称
    * @return 返回自身，允许链式调用
    */
   public SConfig putComment(String path, String value) {

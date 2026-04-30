@@ -275,7 +275,6 @@ public final class SEventCentral {
    * 显式调用 {@link EventBuilder#broadcast()} 完成广播。
    *
    * @param name 事件名称，不能为 null
-   * @param id   可选的事件 ID（用于标识发起者）
    * @return 事件构建器，用于链式设置数据和执行广播
    */
   public static EventBuilder broadcastEvent(String name) {

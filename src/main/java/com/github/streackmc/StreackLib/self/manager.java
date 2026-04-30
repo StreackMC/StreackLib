@@ -160,7 +160,7 @@ public class manager {
    * @since 0.4.4
    */
   @Internal
-  public class getCallerMethod {
+  public static class getCallerMethod {
     public static final Set<String> NO_STREACKLIB = Set.of(// 栈追踪白名单
         "java.lang.", // 跳过 Thread 等 JDK 基础类
         "sun.reflect.", // 跳过反射内部实现

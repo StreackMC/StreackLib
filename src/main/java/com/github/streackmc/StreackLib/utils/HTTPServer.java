@@ -200,8 +200,10 @@ public class HTTPServer extends NanoHTTPD {
    * @param ip 目标IP，注意不会校验格式
    * @throws IllegalArgumentException 传入IP不合法
    * @return 封禁的原因
+   * @deprecated 自 0.5.0 弃用，仅存档，已有新基于平台API的实现。
    */
   @Nullable
+  @Deprecated
   public static String detailBannedIp(@NotNull String ip) throws IllegalArgumentException {
     Objects.requireNonNull(ip, "传入了一个 null");
 
@@ -240,27 +242,34 @@ public class HTTPServer extends NanoHTTPD {
 
   @Override
   public Response serve(IHTTPSession session) {
+    // 准备请求信息
     String id = System.currentTimeMillis() + "-" + new Random().nextInt(100000);
-    String uri = session.getUri();
-    uri = uri.replaceAll("\\.\\./", "")
+    String ip = session.getRemoteIpAddress();
+    String uri = session.getUri()
+        .replaceAll("\\.\\./", "")
         .replaceAll("[\\p{Cntrl}&&[^\r\n]]+", "")
-        .replaceAll("[\r\n]+", " "); // 清洗URL
+        .replaceAll("[\r\n]+", " ");
+    NanoHTTPD.Method method = session.getMethod();
+
+    // 广播事件并日志
     logger.info(
         getServerFullName() + "收到请求#" + id + "\n"
-            + " 来源 = [未校验]" + session.getRemoteIpAddress() + "\n"
+            + " 来源 = [未校验]" + ip + "\n"
             + " 路径 = " + uri + "\n"
-            + " 方法 = " + session.getMethod());
+            + " 方法 = " + method.toString());
     SEventCentral.broadcastEvent(EVENTS.ON_REQUEST, INSTANCE_ID)
         .set("address", this.listenAddress)
         .set("uri", uri)
-        .set("origin", session.getRemoteIpAddress())
-        .set("method", session.getMethod())
+        .set("origin", ip)
+        .set("method", method.toString())
         .broadcast();
+
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
       logger.warn(getServerFullName() + "请求#" + id + " 的URI过长，已拒绝。");
       return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
     }
+
     // 有请求处理器时
     Handler h = handlerMap.get(uri);
     if (h != null) {
@@ -270,28 +279,33 @@ public class HTTPServer extends NanoHTTPD {
       } catch (Exception ex) {
         ex.printStackTrace();
         logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getLocalizedMessage());
-        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
+        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+            "500 Internal Server Error");
       }
     }
+
     // 没有请求处理器时
     if (!StreackLib.ENV.conf.getBoolean("http-server.allow-file-transport", false)) {
       // 文件传输未启用
       logger.debug(getServerFullName() + "请求#" + id + " 没有命中已注册的处理器，且文件传输已禁用。");
       return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
     }
+
     // 文件传递
     try {
       SFile.mkdir(StreackLib.ENV.dataPath, "HTTPServer");
       File root = new File(StreackLib.ENV.dataPath, "HTTPServer");
       File reach = new File(root, uri).getCanonicalFile();
       logger.debug(getServerFullName() + "请求#" + id + " 正在获取文件 " + reach.getAbsolutePath());
+
       // 防止路径穿越
       if (!reach.getPath().startsWith(root.getCanonicalPath())) {
         logger.warning(getServerFullName() + "请求#" + id + " 试图调用非法路径，已被拦截。");
         return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
       }
-      if (reach.exists() && reach.isFile()) {// 判断文件是否合法
-        // 判断大小是否合法
+
+      if (reach.exists() && reach.isFile()) {
+        // 判断文件是否可访问
         int size = 0;
         String mime = "application/octet-stream";
         try {
@@ -302,23 +316,29 @@ public class HTTPServer extends NanoHTTPD {
             mime = "application/octet-stream";
           }
           logger.debug(getServerFullName() + "请求#" + id + " 获取的文件信息：\n"
-          + " 大小   = " + size + "Bytes\n"
-          + " MIME  = " + mime);
+              + " 大小   = " + size + "Bytes\n"
+              + " MIME  = " + mime);
         } catch (Exception e) {
           logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getLocalizedMessage());
           e.printStackTrace();
-          return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
+          return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+              "500 Internal Server Error");
         }
+
+        // 文件体积限制
         if (size > MAX_FILE_SIZE) {
-          logger.warning(getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
+          logger.warning(
+              getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
           return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
-            "413 Payload Too Large");
-          }
-          // 返回文件
-          FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
-          logger.debug(getServerFullName() + "请求#" + id + " 开始传输文件 @ " + fileChannel.toString());
-          return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
-        //return newFixedLengthResponse(Response.Status.OK, "application/octet-stream", new FileInputStream(reach), reach.length());
+              "413 Payload Too Large");
+        }
+
+        // 返回文件
+        FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
+        logger.debug(getServerFullName() + "请求#" + id + " 开始传输文件 @ " + fileChannel.toString());
+        return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
+        // return newFixedLengthResponse(Response.Status.OK, "application/octet-stream",
+        // new FileInputStream(reach), reach.length());
       } else {
         // 文件不存在
         logger.debug(getServerFullName() + "请求#" + id + " 请求的文件不存在。");
@@ -327,7 +347,8 @@ public class HTTPServer extends NanoHTTPD {
     } catch (IOException e) {
       logger.severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getLocalizedMessage());
       e.printStackTrace();
-      return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT, "500 Internal Server Error");
+      return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+          "500 Internal Server Error");
     }
   }
 

@@ -174,7 +174,10 @@ public class SConfig {
     public final static String WRONG_FORMAT = "streacklib.sconf:wrong_format";
   }
 
-  /** SConfig支持的写入模式。如果设置错误的模式视作 {@link WRITE_MODE#AUTO_SAVE} */
+  /**
+   * SConfig支持的写入模式。如果设置错误的模式视作 {@link WRITE_MODE#AUTO_SAVE} 。
+   * @apiNote 因本模式不允许而抛出的错误都是 {@link IllegalStateException} 。
+   */
   public final static class WRITE_MODE {
     /** 默认值。<b>自动保存</b>：产生修改后立即保存到文件。此时可以读入文件。 */
     public final static String AUTOSAVE = "autosave";
@@ -1113,27 +1116,32 @@ public class SConfig {
    * 
    * @throws RuntimeException         不受检；无法加载配置文件。
    * @throws IllegalArgumentException 不受检；当前状态不允许执行此操作。
-   * @throws IllegalStateException    不受检；当前状态不允许执行此操作。
+   * @throws NullPointerException     不受检；当前配置文件尚未初始化。常见于临时配置文件却没有调用 {@link #save()} 存盘。
+   * @throws IllegalStateException    不受检；当前状态不允许执行此操作。例如：{@link WRITE_MODE} 不允许。
    */
+  @SuppressWarnings("null") // 理论上在校验后后续调用不可能出现 Null 。
   private void load() {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.MEMORY)) {
       throw new IllegalStateException("仅内存模式下无法加载文件到缓存");
     }
     lock.writeLock().lock();
     try {
-      if (!getFile().exists()) {
+      if (getFile(false) == null) {
+        throw new NullPointerException("");
+      }
+      if (!getFile(false).exists()) {
         cache = new ConcurrentHashMap<>();
         return;
       }
       Map<String, Object> loaded;
-      try (InputStream in = new FileInputStream(getFile())) {
+      try (InputStream in = new FileInputStream(getFile(false))) {
         logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
         loaded = confHandler.load(in);
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
-      lastModified = getFile().lastModified();
-    } catch (IllegalArgumentException se) {
-      throw se;
+      lastModified = getFile(false).lastModified();
+    } catch (IllegalArgumentException eIA) {
+      throw eIA;
     } catch (Exception e) {//TODO: 单独处理 confFile==null 且 Exception 为 FileNotFoundException
       SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
           .set("exception", e)
@@ -1488,15 +1496,30 @@ public class SConfig {
    */
 
   /**
-   * @return 当前配置文件对象
-   * @throws IOException 如果当前文件对象是惰性初始化，且无法初始化
+   * @return 当前配置文件对象。本方法不会返回 Null 。
+   * @throws IOException           如果当前文件对象是惰性初始化，且无法初始化
    * @throws IllegalStateException 仅内存模式无法访问文件对象
    */
   public File getFile() throws IOException {
+    return getFile(true);
+  }
+
+  /**
+   * @return 当前配置文件对象。<b>特定情况下可为 Null 。</b>
+   * @param allowCreate 如果配置文件是惰性初始化且<b>尚未初始化</b>，是否要立即初始化一个。拒绝则会返回 Null 。
+   * @throws IOException           如果当前文件对象是惰性初始化，且无法初始化
+   * @throws IllegalStateException 仅内存模式无法访问文件对象
+   * @since 0.5.0
+   */
+  @Nullable
+  public File getFile(boolean allowCreate) throws IOException {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.MEMORY)) {
       throw new IllegalStateException("仅内存模式下硬盘文件对象不可用");
     }
     if (confFile == null) {
+      if (!allowCreate) {
+        return null;
+      }
       synchronized (this) {
         // 线程同步锁
         confFile = File.createTempFile("SConfig-", (tempFileSuffix == null) ? confHandler.getType() : tempFileSuffix);

@@ -178,6 +178,7 @@ JSON中存在一类特殊格式：
 #### Object As Root
 诸如NBT格式可能存在另外一种相似的情况，即任何值作为根。
 这种写法不标准、不推荐，即使 SConfig 会将其类似地放入 `_root_value` 中。
+**请注意：**NBT格式会将包括数组在内的数据放入 `_root_value` 中。
 
 ### RootName
 诸如NBT等格式的根数据结构也会有一个 name ，若用JSON表达就是：

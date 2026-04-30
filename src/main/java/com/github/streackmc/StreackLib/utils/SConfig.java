@@ -1860,10 +1860,10 @@ public class SConfig {
     public void flush(OutputStream out) throws Exception {
       // 构建 NBT 数据
       CompoundTag rootCompound;
-      Object maybeArray = cache.get("_root_array");
+      Object maybeArray = cache.get("_root_value");
       if (cache.size() == 1 && maybeArray != null) {
         rootCompound = new CompoundTag();
-        rootCompound.put("_root_array", nbtHandler.Java2Tag(maybeArray));//TODO: 根数组行为不一致
+        rootCompound.put("_root_value", nbtHandler.Java2Tag(maybeArray));
       } else {
         rootCompound = nbtHandler.Map2Compound(cache);
       }

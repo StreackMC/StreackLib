@@ -74,7 +74,7 @@ import net.querz.nbt.tag.Tag;
  * <p>
  * 支持JSON的 Array As Root 和 NBT 的 Root Name 特性，见于 {@link SConfig.TYPES#JSON} 和
  * {@link SConfig#setRootName(String)} 。
- *
+ * 
  * @author kdxiaoyi
  * @author Kimi[AI] ~~亦有贡献~~现因圈钱过度退出开发
  * @author Deepseek[AI] 亦有贡献
@@ -176,7 +176,9 @@ public class SConfig {
 
   /**
    * SConfig支持的写入模式。如果设置错误的模式视作 {@link WRITE_MODE#AUTO_SAVE} 。
+   * 
    * @apiNote 因本模式不允许而抛出的错误都是 {@link IllegalStateException} 。
+   * @see {@link #setWriteMode(String)} 或 {@link {@link #setWriteModeForever(String)}} ，可以设置写入模式或永久变更。
    */
   public final static class WRITE_MODE {
     /** 默认值。<b>自动保存</b>：产生修改后立即保存到文件。此时可以读入文件。 */
@@ -189,7 +191,7 @@ public class SConfig {
     public final static String READONLY = "readonly";
     /**
      * <b>仅内存模式</b>：<p>
-     * 如果是创建临时配置文件：此时不会分配临时文件对象，直到修改写入模式并调用 {@link #save()} 。<p>
+     * 如果是创建临时配置文件：此时不会分配临时文件对象（惰性初始化），直到修改写入模式并调用 {@link #save()} 或 {@link #getFile()} 。<p>
      * 无论如何：不允许读取文件、获取文件对象等，如有自动重载会在下次重载时自动停止。<p>
      */
     public final static String MEMORY = "memory";
@@ -1578,7 +1580,7 @@ public class SConfig {
     public String getType() { return TYPES.YAML; }
   }
 
-  private class BackendYamlC implements CommentableBackend {//TODO: 添加注释支持和中文路径支持
+  private class BackendYamlC implements CommentableBackend {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       LoaderOptions yamlOpt = new LoaderOptions();

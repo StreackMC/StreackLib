@@ -240,7 +240,7 @@ public class SConfig {
   public SConfig(File file, String ctype) {
     this.confFile = file;
     this.confHandler = this.parseType(ctype);
-    load();
+    reload();
   }
 
   /**
@@ -254,7 +254,7 @@ public class SConfig {
   public SConfig(Path file, String ctype) {
     this.confFile = file.toFile();
     this.confHandler = this.parseType(ctype);
-    load();
+    reload();
   }
 
   /**
@@ -268,7 +268,7 @@ public class SConfig {
   public SConfig(String path, String ctype) {
     this.confFile = new File(path);
     this.confHandler = this.parseType(ctype);
-    load();
+    reload();
   }
 
   /**
@@ -464,7 +464,7 @@ public class SConfig {
         throw new IllegalStateException("只读模式下无法修改配置");
       }
       cache.put(key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -499,7 +499,7 @@ public class SConfig {
         throw new IllegalStateException("只读模式下无法修改配置");
       }
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -539,7 +539,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -579,7 +579,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -619,7 +619,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -659,7 +659,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -699,7 +699,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -735,7 +735,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -778,7 +778,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, new ArrayList<>(value));
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -821,7 +821,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, new ArrayList<>(value));
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -856,7 +856,7 @@ public class SConfig {
     lock.writeLock().lock();
     try {
       putNested(cache, key, new LinkedHashMap<>(section));
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -915,7 +915,7 @@ public class SConfig {
           parent.remove(lastKey);
         }
       }
-      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) flush();
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
     }
@@ -1082,12 +1082,14 @@ public class SConfig {
    */
 
   /**
-   * 将缓存写入磁盘
+   * 将缓存写入磁盘。
+   * <p>
+   * 如果配置文件没有初始化（新建的临时配置文件），本方法将新建一个临时文件。
    * 
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    * @throws RuntimeException 不受检；无法写入配置文件。
    */
-  private void flush() {
+  public SConfig save() {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.WRITELOCK)) {
       throw new IllegalStateException("SConfig的写保护模式下无法写入缓存到文件");
     }
@@ -1109,18 +1111,23 @@ public class SConfig {
     } finally {
       lock.writeLock().unlock();
     }
+    return this;
   }
 
   /**
-   * 加载文件到缓存
+   * 加载文件到缓存。
+   * <p>
+   * 如果配置文件没有初始化（新建的临时配置文件），请先使用 {@link #save()} 或 {@link #getFile(boolean)}
+   * 创建一个临时文件。
    * 
    * @throws RuntimeException         不受检；无法加载配置文件。
    * @throws IllegalArgumentException 不受检；当前状态不允许执行此操作。
-   * @throws NullPointerException     不受检；当前配置文件尚未初始化。常见于临时配置文件却没有调用 {@link #save()} 存盘。
+   * @throws NullPointerException     不受检；当前配置文件尚未初始化。常见于临时配置文件却没有调用
+   *                                  {@link #save()} 存盘。
    * @throws IllegalStateException    不受检；当前状态不允许执行此操作。例如：{@link WRITE_MODE} 不允许。
    */
   @SuppressWarnings("null") // 理论上在校验后后续调用不可能出现 Null 。
-  private void load() {
+  public SConfig reload() {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.MEMORY)) {
       throw new IllegalStateException("仅内存模式下无法加载文件到缓存");
     }
@@ -1131,7 +1138,7 @@ public class SConfig {
       }
       if (!getFile(false).exists()) {
         cache = new ConcurrentHashMap<>();
-        return;
+        return this;
       }
       Map<String, Object> loaded;
       try (InputStream in = new FileInputStream(getFile(false))) {
@@ -1142,7 +1149,7 @@ public class SConfig {
       lastModified = getFile(false).lastModified();
     } catch (IllegalArgumentException eIA) {
       throw eIA;
-    } catch (Exception e) {//TODO: 单独处理 confFile==null 且 Exception 为 FileNotFoundException
+    } catch (Exception e) {
       SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
@@ -1151,6 +1158,7 @@ public class SConfig {
     } finally {
       lock.writeLock().unlock();
     }
+    return this;
   }
 
   private interface Backend {
@@ -1181,6 +1189,7 @@ public class SConfig {
    * @throws IlleaglStateException    不受检；当前状态不允许执行此操作。
    * @throws IllegalArgumentException 不受检；错误的间隔时长。
    */
+  @SuppressWarnings("null") // 同理一般不会是 Null
   private void startAutoReload() {
     if (watching)
       return;
@@ -1192,7 +1201,10 @@ public class SConfig {
     }
     try {
       logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
-      Path confPath = getFile().toPath().toAbsolutePath();
+      if (getFile(false) == null) {
+        throw new NullPointerException("");
+      }
+      Path confPath = getFile(false).toPath().toAbsolutePath();
       Path dir = confPath.getParent();
       watchService = FileSystems.getDefault().newWatchService();
       dir.register(watchService,
@@ -1209,7 +1221,7 @@ public class SConfig {
             for (WatchEvent<?> event : key.pollEvents()) {
               Path changed = dir.resolve((Path) event.context());
               if (changed.toAbsolutePath().equals(confPath)
-                && getFile().lastModified() != lastModified) {
+                && getFile(false).lastModified() != lastModified) {
                 logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
                 reload();
                 SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
@@ -1335,28 +1347,8 @@ public class SConfig {
   }
 
   /* ==========================================
-  * 保存与自动保存
+  * 写入模式的设置
   * ========================================== */
-
-  /**
-   * 立即将缓存保存到文件中
-   * @since 0.5.0
-   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
-   * @throws RuntimeException 不受检；无法写入文件。
-   */
-  public SConfig save() {
-    flush();
-    return this;
-  }
-
-  /**
-   * 立即重新加载文件到缓存
-   * 
-   * @throws RuntimeException 不受检；无法加载配置文件。
-   */
-  public void reload() {
-    load();
-  }
 
   /**
    * 设置当前的写入模式，会立即同步线程。
@@ -1833,7 +1825,7 @@ public class SConfig {
      * 
      * @apiNote 本标志是线程安全的：{@link BackendNBT#load(InputStream)} 和
      *          {@link BackendNBT#flush(OutputStream)} 的锁由外部统一接口
-     *          {@link SConfig#load()} 和 {@link SConfig#flush()} 唯一管理，内部无需重复锁定。
+     *          {@link SConfig#reload()} 和 {@link SConfig#save()} 唯一管理，内部无需重复锁定。
      * @apiNote 请勿直接调用本方法，否则请确保线程安全。参阅 {@link SConfig#lock} 。
      */
     private boolean compressed = false;

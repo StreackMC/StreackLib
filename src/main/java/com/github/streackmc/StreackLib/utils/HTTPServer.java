@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -42,10 +41,16 @@ import fi.iki.elonen.NanoHTTPD;
  */
 public class HTTPServer extends NanoHTTPD {
 
-  private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
-  private String listenAddress;
   public int MAX_URI = 2048;
   public long MAX_FILE_SIZE = 20L/* MB */ * 1024 * 1024;
+  private final Map<String, Handler> handlerMap = new ConcurrentHashMap<>();
+  private String listenAddress;
+
+  /** 函数式接口，方便 Lambda 注册 */
+  @FunctionalInterface
+  public interface Handler {
+    Response handle(NanoHTTPD.IHTTPSession session) throws Exception;
+  }
 
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
   public final static class EVENTS {
@@ -240,19 +245,25 @@ public class HTTPServer extends NanoHTTPD {
     return null;
   }
 
-  @Override
-  public Response serve(IHTTPSession session) {
-    // 准备请求信息
-    String id = StreackLib.getUniqueID(/* 获取全局唯一ID */).toString();
-    String ip = session.getRemoteIpAddress();
-    String uri = session.getUri()
-        .replaceAll("\\.\\./", "")
-        .replaceAll("[\\p{Cntrl}&&[^\r\n]]+", "")
-        .replaceAll("[\r\n]+", " ");
-    NanoHTTPD.Method method = session.getMethod();
+  /** 获取一个封禁对应的 Response ，为 Null 表示没有被封禁 */
+  @Nullable
+  protected Response checkBan(String ip, String sessionId, NanoHTTPD.Method method) {
+    // 内建黑名单
+    List<String> bannedList = StreackLib.ENV.conf.getListOfString("http-server.banip.blacklist");
+    if (bannedList.indexOf(ip) >= 0) {
+      logger.info(
+          getServerFullName() + String.format("拒绝了 %s 的连接：[ 内置黑名单 ]", ip));
+      if (StreackLib.ENV.conf.getBoolean("http-server.use-404-as-403", false)) {
+        // 用户要求使用404代替403
+        return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+      } else {
+        return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT,
+            "403 Your IP has been banned from this server.");
+      }
+    }
 
-    // 处理IP封禁，共享游戏内封禁
-    if (StreackLib.ENV.conf.getBoolean("http-server.banip.sync-game", true)) {//TODO: 独立黑名单处理，添加内网穿透真实IP获取，添加内联黑名单处理
+    // 游戏内封禁
+    if (StreackLib.ENV.conf.getBoolean("http-server.banip.sync-game", true)) {
       SConfig potentialBanEntry = manager.backend.checkBan(ip);// 应该不会有人执行 /ban 127.0.0.1
       long expireTime = potentialBanEntry.getLong("expire", 0L);
       if (potentialBanEntry.getBoolean("banned", false)
@@ -278,6 +289,26 @@ public class HTTPServer extends NanoHTTPD {
         }
       }
     }
+
+    // 未查询到
+    return null;
+  }
+
+  @Override
+  public Response serve(IHTTPSession session) {
+    // 准备请求信息
+    String id = StreackLib.getUniqueID(/* 获取全局唯一ID */).toString();
+    String ip = session.getRemoteIpAddress();
+    String uri = session.getUri()
+        .replaceAll("\\.\\./", "")
+        .replaceAll("[\\p{Cntrl}&&[^\r\n]]+", "")
+        .replaceAll("[\r\n]+", " ");
+    NanoHTTPD.Method method = session.getMethod();
+
+    // 处理IP封禁，共享游戏内封禁
+    Response potentialBanRsp = checkBan(ip, id, method);
+    if (potentialBanRsp != null)
+      return potentialBanRsp;
 
     // 广播事件并日志
     logger.info(
@@ -378,11 +409,5 @@ public class HTTPServer extends NanoHTTPD {
       return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
           "500 Internal Server Error");
     }
-  }
-
-  /** 函数式接口，方便 Lambda 注册 */
-  @FunctionalInterface
-  public interface Handler {
-    Response handle(NanoHTTPD.IHTTPSession session) throws Exception;
   }
 }

@@ -45,7 +45,7 @@ public final class StreackLib {
   private StreackLib() { // 禁止实例化
   }
   /** 唯一ID生成器 */
-  private static final AtomicLong uniqueIDCounter = new AtomicLong(0);
+  private static final AtomicLong uniqueIDCounter = new AtomicLong(596478L);
 
   // ===================== Class Caller =====================
 

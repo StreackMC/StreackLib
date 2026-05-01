@@ -3,6 +3,6 @@ version: ${project.version}
 author: "StreackMC Team"
 description: ${project.description}
 website: https://github.com/StreackMC/StreackLib
-api-version: '1.14'
+api-version: '1.20.5'
 main: com.github.streackmc.StreackLib.self.initializer.forBukkit
 load: STARTUP

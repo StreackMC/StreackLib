@@ -21,6 +21,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.nanohttpd.protocols.http.IHTTPSession;
+import org.nanohttpd.protocols.http.NanoHTTPD;
+import org.nanohttpd.protocols.http.request.Method;
+import org.nanohttpd.protocols.http.response.Response;
+import org.nanohttpd.protocols.http.response.Status;
+import org.nanohttpd.protocols.http.threading.DefaultAsyncRunner;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
@@ -29,10 +35,8 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import fi.iki.elonen.NanoHTTPD;
-
 /**
- * 基于 NanoHTTPD 的简易转发服务器。
+ * 基于 NanoHTTPd 的简易转发服务器。
  * 其它插件可通过 registerHandler(String path, Handler h) 注册自己的子路由。
  * 
  * @author kdxiaoyi
@@ -49,7 +53,7 @@ public class HTTPServer extends NanoHTTPD {
   /** 函数式接口，方便 Lambda 注册 */
   @FunctionalInterface
   public interface Handler {
-    Response handle(NanoHTTPD.IHTTPSession session) throws Exception;
+    Response handle(IHTTPSession session) throws Exception;
   }
 
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
@@ -247,7 +251,7 @@ public class HTTPServer extends NanoHTTPD {
 
   /** 获取一个封禁对应的 Response ，为 Null 表示没有被封禁 */
   @Nullable
-  protected Response checkBan(String ip, String sessionId, NanoHTTPD.Method method) {
+  protected Response checkBan(String ip, String sessionId, Method method) {
     // 内建黑名单
     List<String> bannedList = StreackLib.ENV.conf.getListOfString("http-server.banip.blacklist");
     if (bannedList.indexOf(ip) >= 0) {
@@ -255,9 +259,9 @@ public class HTTPServer extends NanoHTTPD {
           getServerFullName() + String.format("拒绝了 %s 的连接：[ 内置黑名单 ]", ip));
       if (StreackLib.ENV.conf.getBoolean("http-server.use-404-as-403", false)) {
         // 用户要求使用404代替403
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+        return Response.newFixedLengthResponse(Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       } else {
-        return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT,
+        return Response.newFixedLengthResponse(Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT,
             "403 Your IP has been banned from this server.");
       }
     }
@@ -272,7 +276,7 @@ public class HTTPServer extends NanoHTTPD {
             getServerFullName() + String.format("拒绝了 %s 的连接：[ %s ]", ip, potentialBanEntry.getString("reason", "")));
         if (StreackLib.ENV.conf.getBoolean("http-server.use-404-as-403", false)) {
           // 用户要求使用404代替403
-          return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+          return Response.newFixedLengthResponse(Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
         } else {
           // 拼接返回值
           String reasonStr = MCColor.toHtml(potentialBanEntry.getString("reason", ""));
@@ -280,7 +284,7 @@ public class HTTPServer extends NanoHTTPD {
 
           String expireStr = ((expireTime < 0) ? "until forever."
               : "until " + StreackLib.formatTime(expireTime, "YYYY-MM-DD hh:mm:ss") + ".");
-          return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_HTML,
+          return Response.newFixedLengthResponse(Status.FORBIDDEN, NanoHTTPD.MIME_HTML,
               String.format(
                   "403 Forbidden: %s IP has been banned from this server since %s , %s",
                   reasonStr,
@@ -294,6 +298,11 @@ public class HTTPServer extends NanoHTTPD {
     return null;
   }
 
+  // ======================================================
+  // 自定义对接层结束，以下为 NanoHTTPD 侧对接层
+  // ======================================================
+
+  /** 请求解析完成，开始处理并返回数据 */
   @Override
   public Response serve(IHTTPSession session) {
     // 准备请求信息
@@ -303,7 +312,7 @@ public class HTTPServer extends NanoHTTPD {
         .replaceAll("\\.\\./", "")
         .replaceAll("[\\p{Cntrl}&&[^\r\n]]+", "")
         .replaceAll("[\r\n]+", " ");
-    NanoHTTPD.Method method = session.getMethod();
+    Method method = session.getMethod();
 
     // 处理IP封禁，共享游戏内封禁
     Response potentialBanRsp = checkBan(ip, id, method);
@@ -326,7 +335,7 @@ public class HTTPServer extends NanoHTTPD {
     // 不处理过长uri
     if (uri.length() > MAX_URI) {
       logger.warn(getServerFullName() + "请求#" + id + " 的URI过长，已拒绝。");
-      return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
+      return Response.newFixedLengthResponse(Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT, "414 Request-URI Too Long");
     }
 
     // 有请求处理器时
@@ -338,7 +347,7 @@ public class HTTPServer extends NanoHTTPD {
       } catch (Exception ex) {
         ex.printStackTrace();
         logger.severe(getServerFullName() + "请求#" + id + " 上的事件时发生异常：事件处理器抛出错误：" + ex.getLocalizedMessage());
-        return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+        return Response.newFixedLengthResponse(Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
             "500 Internal Server Error");
       }
     }
@@ -347,7 +356,7 @@ public class HTTPServer extends NanoHTTPD {
     if (!StreackLib.ENV.conf.getBoolean("http-server.allow-file-transport", false)) {
       // 文件传输未启用
       logger.debug(getServerFullName() + "请求#" + id + " 没有命中已注册的处理器，且文件传输已禁用。");
-      return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+      return Response.newFixedLengthResponse(Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
     }
 
     // 文件传递
@@ -360,7 +369,7 @@ public class HTTPServer extends NanoHTTPD {
       // 防止路径穿越
       if (!reach.getPath().startsWith(root.getCanonicalPath())) {
         logger.warning(getServerFullName() + "请求#" + id + " 试图调用非法路径，已被拦截。");
-        return newFixedLengthResponse(Response.Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
+        return Response.newFixedLengthResponse(Status.FORBIDDEN, NanoHTTPD.MIME_PLAINTEXT, "403 Forbidden");
       }
 
       if (reach.exists() && reach.isFile()) {
@@ -380,7 +389,7 @@ public class HTTPServer extends NanoHTTPD {
         } catch (Exception e) {
           logger.severe(getServerFullName() + "请求#" + id + " 请求的文件无法获取：" + e.getLocalizedMessage());
           e.printStackTrace();
-          return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+          return Response.newFixedLengthResponse(Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
               "500 Internal Server Error");
         }
 
@@ -388,25 +397,25 @@ public class HTTPServer extends NanoHTTPD {
         if (size > MAX_FILE_SIZE) {
           logger.warning(
               getServerFullName() + "请求#" + id + " 请求的文件体积超出了限制：应小于等于 " + MAX_FILE_SIZE + " 字节，实为 " + size + " 字节。");
-          return newFixedLengthResponse(Response.Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
+          return Response.newFixedLengthResponse(Status.BAD_REQUEST, NanoHTTPD.MIME_PLAINTEXT,
               "413 Payload Too Large");
         }
 
         // 返回文件
         FileChannel fileChannel = FileChannel.open(reach.toPath(), StandardOpenOption.READ);
         logger.debug(getServerFullName() + "请求#" + id + " 开始传输文件 @ " + fileChannel.toString());
-        return newChunkedResponse(Response.Status.OK, mime, Channels.newInputStream(fileChannel));
-        // return newFixedLengthResponse(Response.Status.OK, "application/octet-stream",
+        return Response.newChunkedResponse(Status.OK, mime, Channels.newInputStream(fileChannel));
+        // return Response.newFixedLengthResponse(Status.OK, "application/octet-stream",
         // new FileInputStream(reach), reach.length());
       } else {
         // 文件不存在
         logger.debug(getServerFullName() + "请求#" + id + " 请求的文件不存在。");
-        return newFixedLengthResponse(Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
+        return Response.newFixedLengthResponse(Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       }
     } catch (IOException e) {
       logger.severe(getServerFullName() + "请求#" + id + " 的文件传输发生异常：" + e.getLocalizedMessage());
       e.printStackTrace();
-      return newFixedLengthResponse(Response.Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
+      return Response.newFixedLengthResponse(Status.INTERNAL_ERROR, NanoHTTPD.MIME_PLAINTEXT,
           "500 Internal Server Error");
     }
   }

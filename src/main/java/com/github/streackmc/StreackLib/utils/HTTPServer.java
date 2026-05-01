@@ -92,6 +92,7 @@ public class HTTPServer extends NanoHTTPD {
    */
   public HTTPServer(String hostname, int port) {
     super(hostname, port);
+    putProxyProtocolSupport(StreackLib.ENV.conf.getString("http-server.proxy-protocol-version"));
     this.listenAddress = hostname + ":" + port;
     this.MAX_URI = StreackLib.ENV.conf.getInt("http-server.max-uri-length", 2048);
     this.MAX_FILE_SIZE = StreackLib.ENV.conf.getLong("http-server.max-file-size-kb", 20480L) * 1024;
@@ -322,7 +323,7 @@ public class HTTPServer extends NanoHTTPD {
     // 广播事件并日志
     logger.info(
         getServerFullName() + "收到请求#" + id + "\n"
-            + " 来源 = [未校验]" + ip + "\n"
+            + " 来源 = " + ip + "\n"
             + " 路径 = " + uri + "\n"
             + " 方法 = " + method.toString());
     SEventCentral.broadcastEvent(EVENTS.ON_REQUEST, INSTANCE_ID)

@@ -42,6 +42,7 @@ public class forBukkit extends JavaPlugin {
     StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
     StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
     backend = new StreackLibBukkitBackend();
+    manager.backend = backend;
 
     // 读取构建信息
     try {

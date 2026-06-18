@@ -4,6 +4,10 @@ import java.util.regex.Pattern;
 
 /**
  * 提供格式化代码相关功能支持
+ * <p>
+ * 关于乱码(§k)效果的前端渲染实现（CSS 动画、字符替换等），
+ * 请参考 JS 版本的实现：
+ * {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js}
  * 
  * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81}
  * @author kdxiaoyi
@@ -69,6 +73,7 @@ public class MCColor {
    * 
    * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
    * @see {@link #toHtmlBE(String)}：此方法将 §n 按基岩版行为，作为颜色处理
+   * @see {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js} JS 版前端渲染实现（CSS 动画驱动乱码效果）
    * @param text 要处理的文本
    * @return 处理后的文本
    * @since 0.4.5
@@ -86,6 +91,7 @@ public class MCColor {
    * 
    * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
    * @see #toHtml(String)
+   * @see {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js} JS 版前端渲染实现（CSS 动画驱动乱码效果）
    * @param text 要处理的文本
    * @return 处理后的文本
    * @since 0.4.7
@@ -229,7 +235,30 @@ public class MCColor {
   }
 
   /**
+   * 生成一个随机的半角字符（ASCII 可见字符 32-126）
+   * @return 随机半角字符
+   * @since 0.4.8
+   */
+  public static char randomHalfChar() {
+    return (char) (32 + (int) (Math.random() * 95));
+  }
+
+  /**
+   * 生成一个随机的全角字符（CJK 统一表意文字 U+4E00-U+9FFF）
+   * @return 随机全角字符
+   * @since 0.4.8
+   */
+  public static char randomFullChar() {
+    return (char) (0x4E00 + (int) (Math.random() * (0x9FFF - 0x4E00 + 1)));
+  }
+
+  /**
    * 包装文本为带样式的span标签
+   * <p>
+   * 当 {@code obfuscated} 为 {@code true} 时，每个字符会被包装为独立的
+   * {@code <span class="mc-obf-char mc-obf-half/full" data-obf="N">}，
+   * 供前端 CSS 动画驱动渲染乱码效果。这里给出一种前端渲染方案：
+   * {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js}
    * 
    * @param text          要包装的文本
    * @param color         颜色代码（如#RRGGBB），null表示默认颜色
@@ -237,17 +266,38 @@ public class MCColor {
    * @param italic        是否斜体
    * @param underline     是否下划线
    * @param strikethrough 是否删除线
-   * @param obfuscated    是否乱码<p>需要HTML侧自行编写 .MC-format-obfuscated 的CSS规则
+   * @param obfuscated    是否乱码，为 {@code true} 时将逐字符生成独立 span，
+   *                      并区分半角（mc-obf-half）与全角（mc-obf-full）字符，
+   *                      前端需配合 JS 版实现 CSS 动画渲染
    * @return 包装好的span标签
    * @since 0.4.5
+   * @see #randomHalfChar()
+   * @see #randomFullChar()
    */
   public static String wrapWithHtmlSpan(String text, String color, boolean bold, boolean italic,
       boolean underline, boolean strikethrough, boolean obfuscated) {
-    // HTML特殊字符转义（必须先转义&）
-    text = text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace("\"", "&quot;");
+    String innerHtml;
+    if (obfuscated) {
+      // 为每个字符生成独立 span，供前端通过 CSS 动画渲染乱码效果
+      StringBuilder sb = new StringBuilder();
+      int obfCount = 0;
+      for (int i = 0; i < text.length(); i++) {
+        char ch = text.charAt(i);
+        boolean isCJK = ch >= 0x4E00 && ch <= 0x9FFF;
+        String charClass = isCJK ? "mc-obf-char mc-obf-full" : "mc-obf-char mc-obf-half";
+        String blankChar = isCJK ? "\u3000" : "&nbsp;";
+        obfCount = (obfCount + 1) % 11;
+        sb.append(String.format("<span class=\"%s\" data-obf=\"%d\">%s</span>",
+            charClass, obfCount, blankChar));
+      }
+      innerHtml = sb.toString();
+    } else {
+      // HTML特殊字符转义（必须先转义&）
+      innerHtml = text.replace("&", "&amp;")
+          .replace("<", "&lt;")
+          .replace(">", "&gt;")
+          .replace("\"", "&quot;");
+    }
 
     StringBuilder attrs = new StringBuilder();
     StringBuilder style = new StringBuilder();
@@ -277,7 +327,7 @@ public class MCColor {
       attrs.append("style=\"").append(style).append("\"");
     }
 
-    return String.format("<span %s>%s</span>", attrs.toString().trim(), text);
+    return String.format("<span %s>%s</span>", attrs.toString().trim(), innerHtml);
   }
 
   /**

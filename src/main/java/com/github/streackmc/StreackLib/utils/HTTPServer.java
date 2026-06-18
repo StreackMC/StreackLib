@@ -258,7 +258,7 @@ public class HTTPServer extends NanoHTTPD {
     if (bannedList.indexOf(ip) >= 0) {
       logger.info(
           getServerFullName() + String.format("拒绝了 %s 的连接：[ 内置黑名单 ]", ip));
-      if (StreackLib.ENV.conf.getBoolean("http-server.use-404-as-403", false)) {
+      if (StreackLib.ENV.conf.getBoolean("http-server.banip.use-404-as-403", false)) {
         // 用户要求使用404代替403
         return Response.newFixedLengthResponse(Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "404 Not Found");
       } else {
@@ -270,7 +270,7 @@ public class HTTPServer extends NanoHTTPD {
     // 游戏内封禁
     if (StreackLib.ENV.conf.getBoolean("http-server.banip.sync-game", true)) {
       SConfig potentialBanEntry = manager.backend.checkBan(ip);// 应该不会有人执行 /ban 127.0.0.1
-      long expireTime = potentialBanEntry.getLong("expire", 0L);
+      long expireTime = potentialBanEntry.getLong("expire", -1L);
       if (potentialBanEntry.getBoolean("banned", false)
           && (expireTime >= System.currentTimeMillis() || expireTime < 0L)) {
         logger.info(

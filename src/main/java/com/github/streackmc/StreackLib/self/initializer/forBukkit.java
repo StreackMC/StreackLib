@@ -102,7 +102,7 @@ public class forBukkit extends JavaPlugin {
   public void onDisable() {
     if (backend.httpServer != null) {
       backend.httpServer.stopServer();
-      backend.httpServer = null;
+      backend.setHttpServer(null);
     }
   }
 

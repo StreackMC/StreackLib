@@ -18,6 +18,7 @@ public class StreackLibDefaultBackend {
     logger.info("处理模块：HTTPServer");
     if (StreackLib.ENV.conf.getBoolean("http-server.enabled", false)) {
       this.httpServer = new HTTPServer(host, port);
+      this.setHttpServer(httpServer);
       this.httpServer.startServer();
       logger.info("HTTP 服务器已启动于 " + host + ":" + port);
     } else {
@@ -31,7 +32,8 @@ public class StreackLibDefaultBackend {
   }
 
   /** StreackLib内部持有的HTTP服务器 */
-  public HTTPServer httpServer = null;
+  public volatile HTTPServer httpServer = null;
+  public void setHttpServer(HTTPServer hs) { httpServer=hs; };
 
   /** @return {@type double[5]} TPS数据 
    * @throws Exception */

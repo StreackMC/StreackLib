@@ -1,18 +1,147 @@
 package com.github.streackmc.StreackLib.self.backend;
 
+import java.util.logging.Level;
+
 import org.jetbrains.annotations.ApiStatus.Internal;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.self.logger.LoggerBackend;
 import com.github.streackmc.StreackLib.utils.HTTPServer;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
 /** 内部功能跨平台跳板，需要实现全部方法，否则视作未实现，返回默认值。 */
 @Internal
 public class StreackLibDefaultBackend {
+  public class DefaultLogBackend implements logger.LoggerBackend {
+
+  private volatile LoggerBackend detected;
+  private volatile boolean resolved;
+
+  private LoggerBackend resolve() {
+    if (!resolved) {
+      synchronized (this) {
+        if (!resolved) {
+          detected = detect();
+          resolved = true;
+        }
+      }
+    }
+    return detected;
+  }
+
+  /** 按优先级探测可用日志实现 */
+  private static LoggerBackend detect() {
+    // 1. SLF4J — 检查是否有可用 Provider（排除 NOP）
+    try {
+      Class.forName("org.slf4j.LoggerFactory");
+      org.slf4j.Logger slf4j = org.slf4j.LoggerFactory.getLogger(DefaultLogBackend.class);
+      if (!slf4j.getClass().getName().equals("org.slf4j.helpers.NOPLogger")) {
+        return new Slf4jBackend(slf4j);
+      }
+    } catch (Exception ignored) {
+      // SLF4J 不可用
+    }
+
+    // 2. JUL 保底
+    return new JulBackend();
+  }
+
+  @Override
+  public void debug(String msg) {
+    resolve().debug(msg);
+  }
+
+  @Override
+  public void info(String msg) {
+    resolve().info(msg);
+  }
+
+  @Override
+  public void warn(String msg) {
+    resolve().warn(msg);
+  }
+
+  @Override
+  public void error(String msg, Throwable t) {
+    resolve().error(msg, t);
+  }
+
+  // ==================== 内部实现 ====================
+
+  /** SLF4J 后端 */
+  private static final class Slf4jBackend implements LoggerBackend {
+    private final org.slf4j.Logger log;
+
+    Slf4jBackend(org.slf4j.Logger log) {
+      this.log = log;
+    }
+
+    @Override
+    public void debug(String msg) {
+      log.info(msg);
+    }
+
+    @Override
+    public void info(String msg) {
+      log.info(msg);
+    }
+
+    @Override
+    public void warn(String msg) {
+      log.warn(msg);
+    }
+
+    @Override
+    public void error(String msg, Throwable t) {
+      log.error(msg, t);
+    }
+  }
+
+  /** java.util.logging 保底后端 */
+  private static final class JulBackend implements LoggerBackend {
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(DefaultLogBackend.class.getName());
+
+    @Override
+    public void debug(String msg) {
+      LOG.info(msg);
+    }
+
+    @Override
+    public void info(String msg) {
+      LOG.info(msg);
+    }
+
+    @Override
+    public void warn(String msg) {
+      LOG.warning(msg);
+    }
+
+    @Override
+    public void error(String msg, Throwable t) {
+      LOG.log(Level.SEVERE, msg, t);
+    }
+  }
+  }
+
+  public final DefaultLogBackend logBackend = new DefaultLogBackend();
+
+  /**
+   * 获取日志后端，子类可重写以提供平台特定实现。
+   * <p>
+   * 默认返回 {@link #logBackend}（惰性探测 SLF4J → JUL）。
+   */
+  public LoggerBackend getLogBackend() {
+    return logBackend;
+  }
+
   /** 调用本方法请保证 {@link StreackLib#ENV} 已被初始化！！ */
   public StreackLibDefaultBackend() {
     // 检查 HTTPServer
+    if (StreackLib.ENV.conf == null) {
+      logger.warn("StreackLib.ENV.conf 未初始化，跳过 HTTP 服务器启动");
+      return;
+    }
     String host = StreackLib.ENV.conf.getString("http-server.host", "0.0.0.0");
     int port = StreackLib.ENV.conf.getInt("http-server.port", 8080);
     logger.info("处理模块：HTTPServer");

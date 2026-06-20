@@ -5,16 +5,61 @@ import java.util.Date;
 import java.util.Deque;
 import java.util.regex.Pattern;
 
+import javax.annotation.Nullable;
+
 import org.bukkit.BanEntry;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.ApiStatus.Internal;
 
+import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.self.logger.LoggerBackend;
 import com.github.streackmc.StreackLib.utils.SConfig;
 
 @Internal
 public class StreackLibBukkitBackend extends StreackLibDefaultBackend {
+  /** Bukkit 日志后端，使用 {@link #plugin} 的 Bukkit Logger 输出 */
+  public class BukkitLogBackend implements logger.LoggerBackend {
+    @Override
+    public void debug(String msg) {
+      if (plugin != null) plugin.getLogger().info(msg);
+    }
+
+    @Override
+    public void info(String msg) {
+      if (plugin != null) plugin.getLogger().info(msg);
+    }
+
+    @Override
+    public void warn(String msg) {
+      if (plugin != null) plugin.getLogger().warning(msg);
+    }
+
+    @Override
+    public void error(String msg, Throwable t) {
+      if (plugin != null) plugin.getLogger().log(java.util.logging.Level.SEVERE, msg, t);
+    }
+  }
+
+  private volatile LoggerBackend bukkitLogBackend;
+
+  @Override
+  public LoggerBackend getLogBackend() {
+    if (bukkitLogBackend == null) {
+      synchronized (this) {
+        if (bukkitLogBackend == null) {
+          bukkitLogBackend = new BukkitLogBackend();
+        }
+      }
+    }
+    return bukkitLogBackend;
+  }
+
+  @Nullable
+  public volatile JavaPlugin plugin = null;
+
   public StreackLibBukkitBackend() {
     super();
   }

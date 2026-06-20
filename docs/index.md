@@ -14,6 +14,7 @@
     <!-- 记得修改版本号 -->
     <version>0.0.0</version>
     <scope>provided</scope>
+    <!-- 如果你选择使用内嵌方式本库也可工作。参考后文 -->
 </dependency>
 ```
 
@@ -39,6 +40,17 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
   return;
 }
 ```
+
+#### 内嵌工作模式
+如果你将本库内嵌到你的插件内，甚至是非 MC 服务器插件的 Java 项目内，本库也可工作，**但**：
+
+* 不会进行任何初始化，例如 HTTPServer 不会自动启动
+* 所有配置文件定义的内容都视作默认值
+
+另外，如果你想修改这些默认值，有两个方向：
+
+* 通过 `StreackLib.ENV.` 拿到配置文件对象并手动通过 SConfig 修改
+* 直接使用其他 SConfig 覆盖上述引用
 
 ### 通用属性
 每个公开的类都有以下若干子属性：

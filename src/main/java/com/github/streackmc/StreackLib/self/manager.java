@@ -38,6 +38,8 @@ public class manager {
 
   /** 功能后端，默认为全未实现，需要等待对应平台加载器将其初始化 */
   public static volatile StreackLibDefaultBackend backend = new StreackLibDefaultBackend("use string for safely init");
+  /** 获取后端 */
+  public static final StreackLibDefaultBackend getBackend() { return backend; }
 
   /**
    * 提取JAR内部资源文件

@@ -37,11 +37,11 @@ public class forBukkit extends JavaPlugin {
     saveDefaultConfig();
 
     // 填充共享变量
-    logger.plugin = this;
     StreackLib.ENV.dataPath = this.getDataFolder();
     StreackLib.ENV.conf = new SConfig(new File(StreackLib.ENV.dataPath, "config.yml"), "YAML");
     StreackLib.ENV.serverProperties = new SConfig(this.getDataPath().resolve("../../server.properties"), "prop");
     backend = new StreackLibBukkitBackend();
+    backend.plugin = this;
     manager.backend = backend;
 
     // 读取构建信息
@@ -93,7 +93,7 @@ public class forBukkit extends JavaPlugin {
         backend.onTickDoing();
       }
     };
-    backend.UpdateTpsTask.runTaskTimer(logger.plugin, 0L, 1L);
+    backend.UpdateTpsTask.runTaskTimer(this, 0L, 1L);
 
     // 完成
     manager.backend = backend;

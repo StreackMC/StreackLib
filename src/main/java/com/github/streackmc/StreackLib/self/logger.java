@@ -3,11 +3,8 @@ package com.github.streackmc.StreackLib.self;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.apache.logging.log4j.util.InternalApi;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.streackmc.StreackLib.StreackLib;
@@ -25,14 +22,14 @@ import com.github.streackmc.StreackLib.StreackLib;
  * logger.info("玩家 %s 加入了游戏", player.getName());
  * }</pre>
  * <p>
- * 优先级（运行时一次性探测）：
- * <ol>
- * <li>Bukkit 插件 Logger（通过 {@link #init(JavaPlugin)} 注入）</li>
- * <li>SLF4J（如果存在）</li>
- * <li>java.util.logging（保底）</li>
- * </ol>
+ * 后端选择策略（通过 {@link manager#getBackend()}.{@link
+ * com.github.streackmc.StreackLib.self.backend.StreackLibDefaultBackend#getLogBackend() getLogBackend()} 获取）：
+ * <ul>
+ *   <li>{@link com.github.streackmc.StreackLib.self.backend.StreackLibBukkitBackend} — Bukkit 环境，返回 {@code BukkitLogBackend} 使用 {@code plugin.getLogger()}</li>
+ *   <li>{@link com.github.streackmc.StreackLib.self.backend.StreackLibDefaultBackend} — 默认/嵌入环境，返回 {@code DefaultLogBackend} 惰性探测 SLF4J → java.util.logging</li>
+ * </ul>
  * <p>
- * 未来支持 Fabric 时，只需新增一个 {@link Backend} 实现即可，无需改动业务代码。
+ * 未来支持 Fabric 时，只需新增一个 {@link LoggerBackend} 实现即可，无需改动业务代码。
  *
  * @author KimiAI 编写
  * @author GitHub Copilot 编写
@@ -140,137 +137,19 @@ public final class logger {
 
   /* ===================== 内部实现 ===================== */
 
-  /** 供外部探测的插件实例，null 表示未接入 Bukkit */
-  public static JavaPlugin plugin = null;
-
-  /** 日志后端接口，隔离具体实现 */
-  public interface Backend {
+  public static interface LoggerBackend {
+    /** 输出调试信息 */
     void debug(String msg);
-
+    /** 输出一般信息 */
     void info(String msg);
-
+    /** 输出警告信息 */
     void warn(String msg);
-
+    /** 输出错误信息（可携带异常） */
     void error(String msg, Throwable t);
   }
 
-  /** 后端实例，惰性初始化且只初始化一次 */
-  private static volatile Backend BACKEND;
-
-  private static Backend backend() {
-    if (BACKEND == null) {
-      synchronized (logger.class) {
-        if (BACKEND == null) {
-          BACKEND = detectBackend();
-        }
-      }
-    }
-    return BACKEND;
-  }
-
-  /** 按优先级探测并实例化 Backend */
-  private static Backend detectBackend() {
-    // 1. Bukkit
-    if (plugin != null) {
-      try {
-        if (org.bukkit.Bukkit.getServer() != null) {
-          return new BukkitBackend();
-        }
-      } catch (Exception ignored) {
-      }
-    }
-
-    // 2. SLF4J - 检查是否有可用 Provider（排除 NOP）
-    try {
-      Class.forName("org.slf4j.LoggerFactory");
-      org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Backend.class);
-      if (!logger.getClass().getName().equals("org.slf4j.helpers.NOPLogger")) {
-        return new Slf4jBackend();
-      }
-    } catch (Exception ignored) {
-    }
-
-    // 3. JUL 保底
-    return new JulBackend();
-  }
-
-  /* -------------------- 后端实现 -------------------- */
-
-  /** Bukkit 插件日志 */
-  private static final class BukkitBackend implements Backend {
-    private Logger log() {
-      return plugin.getLogger();
-    }
-
-    @Override
-    public void debug(String msg) {
-      log().info(msg);
-    }
-
-    @Override
-    public void info(String msg) {
-      log().info(msg);
-    }
-
-    @Override
-    public void warn(String msg) {
-      log().warning(msg);
-    }
-
-    @Override
-    public void error(String msg, Throwable t) {
-      log().log(Level.SEVERE, msg, t);
-    }
-  }
-
-  /** SLF4J 日志（无插件时） */
-  private static final class Slf4jBackend implements Backend {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(logger.class);
-
-    @Override
-    public void debug(String msg) {
-      LOG.info(msg);
-    }
-
-    @Override
-    public void info(String msg) {
-      LOG.info(msg);
-    }
-
-    @Override
-    public void warn(String msg) {
-      LOG.warn(msg);
-    }
-
-    @Override
-    public void error(String msg, Throwable t) {
-      LOG.error(msg, t);
-    }
-  }
-
-  /** java.util.logging 保底 */
-  private static final class JulBackend implements Backend {
-    private static final Logger LOG = Logger.getLogger(logger.class.getName());
-
-    @Override
-    public void debug(String msg) {
-      LOG.info(msg);
-    }
-
-    @Override
-    public void info(String msg) {
-      LOG.info(msg);
-    }
-
-    @Override
-    public void warn(String msg) {
-      LOG.warning(msg);
-    }
-
-    @Override
-    public void error(String msg, Throwable t) {
-      LOG.log(Level.SEVERE, msg, t);
-    }
+  private static LoggerBackend backend() {
+    return manager.getBackend().getLogBackend();
   }
 
   /* -------------------- 工具方法 -------------------- */

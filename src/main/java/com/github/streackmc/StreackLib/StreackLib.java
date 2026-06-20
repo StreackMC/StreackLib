@@ -68,7 +68,7 @@ public final class StreackLib {
    * @since 0.4.3
    */
   public static boolean isDebugMode() {
-    return ENV.conf.getBoolean("debug", false);
+    return ENV.conf != null && ENV.conf.getBoolean("debug", false);
   }
 
   /**

@@ -22,6 +22,7 @@ import com.github.streackmc.StreackLib.utils.MCColor;
 import com.github.streackmc.StreackLib.utils.SConfig;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.github.streackmc.StreackLib.utils.SFile;
+import com.github.streackmc.StreackLib.utils.SMail;
 import com.google.gson.GsonBuilder;
 import com.moandjiezana.toml.TomlWriter;
 
@@ -90,6 +91,13 @@ public class debugentry {
       test_MCColor();
     } catch (Exception e) {
       err("[!] Caught Error @[debugentry.test/MCColor] :" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
+    info("========== SMail.java ==========");
+    try {
+      test_SMail();
+    } catch (Exception e) {
+      err("[!] Caught Error @[debugentry.test/SMail] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");
@@ -496,6 +504,117 @@ public class debugentry {
     info("[§aHello§bWorld] 转HTML   → " + MCColor.toHtml("[§aHello§bWorld]"));
     info("[&#ffcd1aH&#ffbb29e&#ffaa37l&#ff9846l&#ff8654o&#ff7563W&#ff6371o&#ff5180r&#ff408el&#ff2e9dd] 转义     → " + MCColor.toHtml("[&#ffcd1aH&#ffbb29e&#ffaa37l&#ff9846l&#ff8654o&#ff7563W&#ff6371o&#ff5180r&#ff408el&#ff2e9dd]"));
     info("[§#ffcd1aH§#ffbb29e§#ffaa37l§#ff9846l§#ff8654o§#ff7563W§#ff6371o§#ff5180r§#ff408el§#ff2e9dd] 转为HTML → " + MCColor.toHtml("[§#ffcd1aH§#ffbb29e§#ffaa37l§#ff9846l§#ff8654o§#ff7563W§#ff6371o§#ff5180r§#ff408el§#ff2e9dd]"));
+  }
+
+  private static void test_SMail() throws Exception {
+    // ---------- 加载秘密凭据 ----------
+    File secretFile = new File("./email-secret.yml");
+    boolean hasSecrets = secretFile.exists() && secretFile.isFile();
+
+    if (hasSecrets) {
+      info("发现 email-secret.yml，正在加载邮件凭据…");
+      SConfig secretConf = new SConfig(secretFile, SConfig.TYPES.YAML);
+      // 合并到 ENV.conf 中
+      Map<String, Object> emails = secretConf.getSection("emails");
+      if (emails != null && !emails.isEmpty()) {
+        StreackLib.ENV.conf.putSection("emails", emails);
+        info(String.format("已加载 %d 个邮件 Profile", emails.size()));
+      }
+    } else {
+      warn("未找到 email-secret.yml，跳过真实发送测试");
+      warn("提示: 复制 email-secret.yml.example 为 email-secret.yml 并填入凭据即可启用");
+    }
+
+    // ---------- 测试 1：Builder 构建（不发送） ----------
+    info("--- SMail[构建测试] ---");
+    SMail.Builder builder = SMail.builder("profile_smtp");
+    builder.to("test@example.com")
+        .cc("cc@example.com")
+        .bcc("bcc@example.com")
+        .subject("SMail 单元测试")
+        .body("<h1>测试</h1><p>这是 SMail 的构建测试</p>", true)
+        .alternative("这是 SMail 的构建测试（纯文本降级）")
+        .charset("UTF-8")
+        .priority(1);
+    info("Builder 构建完成");
+
+    // 测试复用 SConfig 的 Builder
+    SConfig reuseConf = new SConfig("", "json", null);
+    reuseConf.putString("subject", "复用配置测试");
+    SMail.Builder builderReuse = SMail.builder("profile_selfsign", reuseConf);
+    builderReuse.to("another@example.com")
+        .body("纯文本测试", false);
+    info("复用 SConfig 的 Builder 构建完成");
+
+    // ---------- 测试 2：按 Profile 加载配置 ----------
+    info("--- SMail[Profile 配置解析] ---");
+    if (hasSecrets) {
+      for (String profileName : new String[] { "profile_smtp", "profile_selfsign" }) {
+        Map<String, Object> profileRaw = StreackLib.ENV.conf.getSection("emails." + profileName);
+        if (profileRaw != null && !profileRaw.isEmpty()) {
+          info(String.format("Profile [%s] 已加载: mode=%s, from=%s",
+              profileName,
+              profileRaw.getOrDefault("mode", "?"),
+              profileRaw.getOrDefault("from", "?")));
+        } else {
+          warn(String.format("Profile [%s] 未在 email-secret.yml 中定义", profileName));
+        }
+      }
+    }
+
+    // ---------- 测试 3：真实发送 ----------
+    if (hasSecrets) {
+      // ---- SMTP 发送 ----
+      if (StreackLib.ENV.conf.getSection("emails.profile_smtp") != null) {
+        info("--- SMail[SMTP 发送测试] ---");
+        try {
+          String mode = new SConfig(StreackLib.ENV.conf.getSection("emails.profile_smtp"), "yaml", ".yml")
+              .getString("mode", "");
+          if (mode.equalsIgnoreCase("smtp")) {
+            SMail.builder("profile_smtp")
+                .to("test@example.com")
+                .subject("SMail SMTP 测试")
+                .body("<h1>SMTP 测试</h1><p>如果收到这封邮件，说明 SMTP 模式正常工作。</p>", true)
+                .alternative("SMTP 测试 — 如果收到这封邮件，说明 SMTP 模式正常工作。")
+                .build()
+                .send();
+            info("SMTP 发送完成（若未报错则成功）");
+          } else {
+            warn("profile_smtp 的 mode 不是 smtp，跳过 SMTP 发送测试");
+          }
+        } catch (Exception e) {
+          err(String.format("SMTP 发送失败: %s", e.getLocalizedMessage()));
+        }
+      } else {
+        warn("未配置 profile_smtp，跳过 SMTP 发送测试");
+      }
+
+      // ---- SELFSIGN 发送 ----
+      if (StreackLib.ENV.conf.getSection("emails.profile_selfsign") != null) {
+        info("--- SMail[SELFSIGN 发送测试] ---");
+        try {
+          String mode = new SConfig(StreackLib.ENV.conf.getSection("emails.profile_selfsign"), "yaml", ".yml")
+              .getString("mode", "");
+          if (mode.equalsIgnoreCase("selfsign")) {
+            SMail.builder("profile_selfsign")
+                .to("test@example.com")
+                .subject("SMail DKIM 测试")
+                .body("DKIM 自签名发送测试", false)
+                .build()
+                .send();
+            info("SELFSIGN 发送完成（若未报错则成功）");
+          } else {
+            warn("profile_selfsign 的 mode 不是 selfsign，跳过 SELFSIGN 发送测试");
+          }
+        } catch (Exception e) {
+          err(String.format("SELFSIGN 发送失败: %s", e.getLocalizedMessage()));
+        }
+      } else {
+        warn("未配置 profile_selfsign，跳过 SELFSIGN 发送测试");
+      }
+    }
+
+    info("SMail 测试完成");
   }
 
   /**

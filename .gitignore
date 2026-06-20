@@ -19,3 +19,6 @@ dependency-reduced-pom.xml
 /mcserver/v*
 /mcserver/w*
 .DS_Store
+
+# 本地邮件测试凭据（含密码/私钥等敏感信息）
+email-secret.yml

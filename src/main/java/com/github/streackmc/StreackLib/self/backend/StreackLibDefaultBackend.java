@@ -1,5 +1,6 @@
 package com.github.streackmc.StreackLib.self.backend;
 
+import java.io.File;
 import java.util.logging.Level;
 
 import org.jetbrains.annotations.ApiStatus.Internal;
@@ -157,6 +158,13 @@ public class StreackLibDefaultBackend {
 
   /** 不进行任何初始化，仅供manager新建默认用 */
   public StreackLibDefaultBackend(String v) {
+    // 嵌入/非插件模式下 ENV 未初始化 → 填充空白内存配置确保后续读取不 NPE
+    if (StreackLib.ENV.conf == null) {
+      StreackLib.ENV.conf = new SConfig("", "YAML", ".yml");
+    }
+    if (StreackLib.ENV.dataPath == null) {
+      StreackLib.ENV.dataPath = new File(System.getProperty("user.dir", "."));
+    }
     logger.debug("正在使用游戏沟通跳板-默认构造" + ((v == null) ? "" : v));
   }
 

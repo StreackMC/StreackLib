@@ -52,6 +52,8 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * 通过 `StreackLib.ENV.` 拿到配置文件对象并手动通过 SConfig 修改
 * 直接使用其他 SConfig 覆盖上述引用
 
+这是因为插件首次运行，如果没有通过 `self.initializer.` 方法初始化，那么 `self.manager` 默认持有 `self.backend.StreackLibDefaultBackend` ，它会将 `StreackLib.ENV` 全部设为空 SConfig 。
+
 ### 通用属性
 每个公开的类都有以下若干子属性：
 

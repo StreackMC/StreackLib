@@ -6,6 +6,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "debugentry",
+      "request": "launch",
+      "mainClass": "com.github.streackmc.StreackLib.debugentry",
+      "projectName": "StreackLib"
+    },
+    {
+      "type": "java",
       "name": "Attach to Paper Server",
       "request": "attach",
       "hostName": "localhost",

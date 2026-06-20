@@ -65,6 +65,7 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 
 * [StreackLib](./class/StreackLib.md)
 * [SEventCentral](./class/SEventCentral.md)
+* [SMail](./class/SMail.md)
 * [HTTPServer](./class/HTTPServer.md)
 * [SConfig](./class/SConfig.md)
 * [SFile](./class/SFile.md)

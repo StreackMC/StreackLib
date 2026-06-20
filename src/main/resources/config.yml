@@ -7,6 +7,40 @@
 # 注有 * 的配置项表示该配置不支持自动重载，需要重启才能应用更改。
 ##
 
+## Email
+# 本配置节下第一个配置节的名称是“档案名称”，其他应用调用时要传入档案名。每个档案如何设置见下。
+emails:
+  profile_smtp:
+    # 发件邮箱
+    from: "foo@example.com"
+    # 发件人名
+    from-who: "Mr. Foo"
+    # 若回复，应该回到哪里
+    reply-to: "bar@example.com"
+    # 本配置的档案名称为[profile_smtp]
+    # 每个配置都需要填写下面的工作模式
+    mode: "smtp"
+    # 对于 SMTP 模式，你需要填写 服务地址、账户密码或者 OAUTH Token
+    server: 
+    port: 
+    username: 
+    password: 
+    # 如果你配置了下面的 OAUTH Token ，那么会自动忽略账号密码验证
+    oauth-token: 
+  profile_selfsign:
+    from: "foo@example.com"
+    from-who: "Mr. Foo"
+    reply-to: "bar@example.com"
+    # 本配置的档案名称为[profile_selfsign]
+    mode: "selfsign"
+    # 你需要配置 DKIM DNS 记录，这个模式一般用于需要以你自己的域名发件
+    # 哪个域名？该域名需要配置相关 DNS 记录，否则邮件会被收件方拒收
+    domain: "example.com"
+    # DKIM 记录验证的 Selector ，即 selector._domainkey.yourdomain.com
+    selector: "default"
+    # DKIM 私钥文件，支持 PEM 和 DER 两种格式
+    private_key: "/foo/bar/key"
+
 ## HTTPServer
 http-server:
   ## *是否开启内置 HTTP 服务器
@@ -71,5 +105,5 @@ update-checker:
 debug: false
 
 ## *配置文件版本
-version: 4
+version: 5
 # 除非在更新配置文件版本，否则请勿修改该值！！！

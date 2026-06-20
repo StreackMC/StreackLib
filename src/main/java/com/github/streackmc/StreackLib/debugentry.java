@@ -16,7 +16,6 @@ import org.ini4j.Ini;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.yaml.snakeyaml.Yaml;
 
-import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.utils.MCColor;
 import com.github.streackmc.StreackLib.utils.SConfig;
@@ -51,12 +50,11 @@ public class debugentry {
     info(">>>>>>>>>> TEST STARTED <<<<<<<<<<");
     info("========== Basic Info ==========");
     info("\n" + manager.generateDebugInfo());
-    info("======= logger.java =======");
+    info("======= java =======");
     try {
-      logger.info("info from logger.java");
-      logger.warn("warn from logger.java");
-      logger.severe("severe from logger.java");
-      logger.debug("debug from logger.java");
+      info("info from java");
+      warn("warn from java");
+      err("severe from java");
     } catch (Exception e) {
       err("[!] Caught Error @[ebugentry.test/logger] :" + e.getLocalizedMessage());
       e.printStackTrace();

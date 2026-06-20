@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 
 import javax.naming.NamingException;
 import javax.naming.directory.Attributes;
@@ -171,8 +172,21 @@ public class SMail {
    * @throws InvaildConfigException Profile 无效
    * @throws RuntimeException       邮件发送时发生错误
    */
-  public void send() {
+  public void send() throws Exception {
     profileSrv.send();
+  }
+
+  /**
+   * 异步将邮件发送出去
+   * 
+   * @return 异步操作，你可以使用 {@link CompletableFuture#exceptionally(java.util.function.Function)} 捕获发送邮件时的错误
+   * @throws InvaildConfigException Profile 无效
+   * @throws RuntimeException       邮件发送时发生错误
+   */
+  public CompletableFuture<Void> sendAsync() {
+    return CompletableFuture.runAsync(() -> {
+      profileSrv.send();
+    });
   }
 
   /** 获取邮件参数 */

@@ -136,9 +136,26 @@ public class StreackLibDefaultBackend {
     return logBackend;
   }
 
-  /** 调用本方法请保证 {@link StreackLib#ENV} 已被初始化！！ */
+  /**
+   * 不执行任何初始化。
+   * <p>
+   * 警告：不要在构造器内调用 {@link #logger}！因为平台加载器（如 Bukkit）会先 new 子类实例，
+   * 然后才赋值给 {@code manager.backend}。如果在 {@code super()} 中调用 logger，
+   * 那时 {@code manager.backend} 还指向旧的默认实例，导致日志跑到错误的后端去。
+   * <p>
+   * 所有初始化逻辑（HTTPServer 等）请放在 {@link #init()} 中，由加载器在设好
+   * {@code manager.backend} 后显式调用。
+   */
   public StreackLibDefaultBackend() {
-    // 检查 HTTPServer
+  }
+
+  /**
+   * 初始化 HTTP 服务器等模块。
+   * <p>
+   * <b>必须</b>在 {@code manager.backend} 被设为本实例之后调用，这样才能确保
+   * 内部的 {@code logger} 调用路由到正确的后端。
+   */
+  public void init() {
     if (StreackLib.ENV.conf == null) {
       logger.warn("StreackLib.ENV.conf 未初始化，跳过 HTTP 服务器启动");
       return;

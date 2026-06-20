@@ -43,6 +43,7 @@ public class forBukkit extends JavaPlugin {
     backend = new StreackLibBukkitBackend();
     backend.plugin = this;
     manager.backend = backend;
+    backend.init(); // 初始化 HTTP 服务器等（此时 manager.backend 已指向本实例，logger 路由正确）
 
     // 读取构建信息
     try {

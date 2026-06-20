@@ -8,6 +8,7 @@ import org.apache.logging.log4j.util.InternalApi;
 import org.jetbrains.annotations.NotNull;
 
 import com.github.streackmc.StreackLib.StreackLib;
+import com.github.streackmc.StreackLib.self.backend.StreackLibDefaultBackend;
 
 /**
  * 全局静态日志工具，自动根据运行环境选择日志后端。
@@ -149,7 +150,22 @@ public final class logger {
   }
 
   private static LoggerBackend backend() {
-    return manager.getBackend().getLogBackend();
+    StreackLibDefaultBackend b = manager.getBackend();
+    if (b == null) {
+      // manager 静态初始化尚未完成时使用 System.out 兜底
+      return LoggerFallback.INSTANCE;
+    }
+    return b.getLogBackend();
+  }
+
+  /** manager 未就绪时的兜底后端 */
+  private static final class LoggerFallback {
+    static final LoggerBackend INSTANCE = new LoggerBackend() {
+      @Override public void debug(String msg) { System.out.println("[DEBUG] " + msg); }
+      @Override public void info(String msg)  { System.out.println("[INFO] " + msg); }
+      @Override public void warn(String msg)  { System.out.println("[WARN] " + msg); }
+      @Override public void error(String msg, Throwable t) { System.err.println("[ERROR] " + msg); if (t != null) t.printStackTrace(); }
+    };
   }
 
   /* -------------------- 工具方法 -------------------- */

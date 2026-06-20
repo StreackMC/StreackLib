@@ -572,7 +572,7 @@ public class debugentry {
               .getString("mode", "");
           if (mode.equalsIgnoreCase("smtp")) {
             SMail.builder("profile_smtp")
-                .to("kdxiaoyi@outlook.com")
+                .to(StreackLib.ENV.conf.getString("test.email_to", "bar@example.com"))
                 .subject("SMail SMTP 测试")
                 .body("<h1>SMTP 测试</h1><p>如果收到这封邮件，说明 SMTP 模式正常工作。</p>", true)
                 .alternative("SMTP 测试 — 如果收到这封邮件，说明 SMTP 模式正常工作。")

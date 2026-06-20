@@ -1,5 +1,6 @@
 name: StreackLib
 version: ${project.version}
+build-type: ${build.type}
 author: "StreackMC Team"
 description: ${project.description}
 website: https://github.com/StreackMC/StreackLib

@@ -68,10 +68,16 @@ public class manager {
    */
   @Internal
   public static boolean isPreviewBuild() {
-    if (System.getProperty("build.type", "preview").equals("release")) {
-      return false;
+    // 优先从构建信息（plugin.yml 中过滤后的 build-type）读取
+    String type = null;
+    if (StreackLib.ENV.buildConf != null) {
+      type = StreackLib.ENV.buildConf.getString("build-type", null);
     }
-    return true;
+    if (type == null || type.isEmpty()) {
+      // 回退到运行时系统属性，最后兜底 "preview"
+      type = System.getProperty("build.type", "preview");
+    }
+    return !"release".equals(type);
   }
 
   /**

@@ -47,7 +47,6 @@ import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
-import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.nbtHandler;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -296,7 +295,6 @@ public class SConfig {
     try {
       Map<String, Object> loaded;
       try (InputStream in = new ByteArrayInputStream(rawData.getBytes(StandardCharsets.UTF_8))) {
-        logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
         loaded = confHandler.load(in);
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
@@ -333,7 +331,6 @@ public class SConfig {
     try {
       Map<String, Object> loaded;
       try (InputStream in = new ByteArrayInputStream(rawData.getBytes(charSet))) {
-        logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
         loaded = confHandler.load(in);
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
@@ -1144,7 +1141,6 @@ public class SConfig {
       }
       Map<String, Object> loaded;
       try (InputStream in = new FileInputStream(getFile(false))) {
-        logger.debug("SConfig#%s 正在加载配置文件", INSTANCE_ID);
         loaded = confHandler.load(in);
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
@@ -1202,7 +1198,6 @@ public class SConfig {
       throw new IllegalArgumentException("自动重载间隔不是有效的正数：" + autoreloadInvertal);
     }
     try {
-      logger.debug("SConfig#%s 正在启动自动重载", INSTANCE_ID);
       if (getFile(false) == null) {
         throw new NullPointerException("");
       }
@@ -1224,7 +1219,6 @@ public class SConfig {
               Path changed = dir.resolve((Path) event.context());
               if (changed.toAbsolutePath().equals(confPath)
                 && getFile(false).lastModified() != lastModified) {
-                logger.debug("SConfig#%s 自动重载中……", INSTANCE_ID);
                 reload();
                 SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
               }
@@ -1266,7 +1260,6 @@ public class SConfig {
 
   /** 停止自动重载 */
   private void stopAutoReload() {
-    logger.debug("SConfig#%s 正在停止自动重载", INSTANCE_ID);
     watching = false;
     if (watchThread != null)
       watchThread.interrupt();

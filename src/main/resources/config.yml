@@ -27,6 +27,10 @@ emails:
     password: 
     # 如果你配置了下面的 OAUTH Token ，那么会自动忽略账号密码验证
     oauth-token: 
+    # 接受的连接超时时长（ms）
+    timeout: 30000
+    # 是否使用 TLS 确保安全连接
+    tls: true
   profile_selfsign:
     from: "foo@example.com"
     from-who: "Mr. Foo"

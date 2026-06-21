@@ -393,9 +393,9 @@ public class SMail {
         props.put("mail.smtp.port", String.valueOf(port));
         props.put("mail.smtp.auth", "true");
         props.put("mail.smtp.starttls.enable", String.valueOf(profileConf.getBoolean("tls", true)));
-        props.put("mail.smtp.connectiontimeout", profileConf.getString("timeout", "30000"));
-        props.put("mail.smtp.timeout", profileConf.getString("timeout", "30000"));
-        props.put("mail.smtp.writetimeout", profileConf.getString("timeout", "30000"));
+        props.put("mail.smtp.connectiontimeout", profileConf.getString("timeout", "10000"));
+        props.put("mail.smtp.timeout", profileConf.getString("timeout", "10000"));
+        props.put("mail.smtp.writetimeout", profileConf.getString("timeout", "10000"));
 
         // 如果配置了 OAuth Token，使用其代替密码
         final String authPassword;

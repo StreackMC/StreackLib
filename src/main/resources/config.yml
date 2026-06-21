@@ -14,7 +14,7 @@ emails:
     # 发件邮箱
     from: "foo@example.com"
     # 发件人名
-    from-who: "Mr. Foo"
+    from-who: "Mr.Foo"
     # 若回复，应该回到哪里
     reply-to: "bar@example.com"
     # 本配置的档案名称为[profile_smtp]
@@ -22,18 +22,19 @@ emails:
     mode: "smtp"
     # 对于 SMTP 模式，你需要填写 服务地址、账户密码或者 OAUTH Token
     server: 
-    port: 
+    # 一般为 587(STARTTLS) ，部分服务器接受 465(SSL)
+    port: 587
     username: 
     password: 
     # 如果你配置了下面的 OAUTH Token ，那么会自动忽略账号密码验证
     oauth-token: 
     # 接受的连接超时时长（ms）
-    timeout: 30000
+    timeout: 10000
     # 是否使用 TLS 确保安全连接
     tls: true
   profile_selfsign:
     from: "foo@example.com"
-    from-who: "Mr. Foo"
+    from-who: "Mr.Foo"
     reply-to: "bar@example.com"
     # 本配置的档案名称为[profile_selfsign]
     mode: "selfsign"

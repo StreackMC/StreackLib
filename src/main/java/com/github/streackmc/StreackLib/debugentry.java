@@ -17,11 +17,11 @@ import org.jetbrains.annotations.VisibleForTesting;
 import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.self.manager;
+import com.github.streackmc.StreackLib.types.SConfig;
+import com.github.streackmc.StreackLib.types.SMail;
 import com.github.streackmc.StreackLib.utils.MCColor;
-import com.github.streackmc.StreackLib.utils.SConfig;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.github.streackmc.StreackLib.utils.SFile;
-import com.github.streackmc.StreackLib.utils.SMail;
 import com.google.gson.GsonBuilder;
 import com.moandjiezana.toml.TomlWriter;
 

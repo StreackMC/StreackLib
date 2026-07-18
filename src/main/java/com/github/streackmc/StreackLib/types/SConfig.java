@@ -1,4 +1,4 @@
-package com.github.streackmc.StreackLib.utils;
+package com.github.streackmc.StreackLib.types;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -48,6 +48,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.nbtHandler;
+import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;

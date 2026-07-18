@@ -1,4 +1,4 @@
-package com.github.streackmc.StreackLib.utils;
+package com.github.streackmc.StreackLib.types;
 
 import com.github.streackmc.StreackLib.errors.IgnoredExceptionInterlayer;
 

@@ -1,4 +1,4 @@
-package com.github.streackmc.StreackLib.utils;
+package com.github.streackmc.StreackLib.types;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +31,9 @@ import org.nanohttpd.protocols.http.threading.DefaultAsyncRunner;
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
+import com.github.streackmc.StreackLib.utils.MCColor;
+import com.github.streackmc.StreackLib.utils.SEventCentral;
+import com.github.streackmc.StreackLib.utils.SFile;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;

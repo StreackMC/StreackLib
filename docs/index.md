@@ -61,15 +61,21 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * `final long INSTANCE_ID`：该类**可以实例化**才存在，表示全局唯一的实例ID。
 
 ### 工具类文档目录
-#### 通用
+
+#### 可实例化工具
+
+* [SEvent](./class/SEventCentral.md#事件数据对象-sevent)
+* [SMail](./types/SMail.md)
+* [SConfig](./types/SConfig.md)
+* [IgnoredException](./types/IgnoredException.md)
+* [HTTPServer](./types/HTTPServer.md)
+
+#### 静态工具
+
+* [MCColor](./class/MCColor.md)
+* [SEventCentral](./class/SEventCentral.md)
+* [SFile](./class/SFile.md)
+
+#### 其它
 
 * [StreackLib](./class/StreackLib.md)
-* [SEventCentral](./class/SEventCentral.md)
-* [SMail](./class/SMail.md)
-* [HTTPServer](./class/HTTPServer.md)
-* [SConfig](./class/SConfig.md)
-* [SFile](./class/SFile.md)
-* [SItemUtils](./utils/SItem.md#SItemUtils)
-* [SEvent](./class/SEventCentral.md#事件数据对象-sevent)
-* [SItem](./utils/SItem.md)
-* [IgnoredException](./utils/IgnoredException.md)

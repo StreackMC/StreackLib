@@ -16,7 +16,7 @@ import org.jetbrains.annotations.ApiStatus.Internal;
 
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.logger.LoggerBackend;
-import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.types.SConfig;
 
 @Internal
 public class StreackLibBukkitBackend extends StreackLibDefaultBackend {

@@ -13,8 +13,8 @@ import org.apache.logging.log4j.util.InternalApi;
 import org.jetbrains.annotations.ApiStatus.Internal;
 
 import com.github.streackmc.StreackLib.self.manager;
-import com.github.streackmc.StreackLib.utils.HTTPServer;
-import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.types.HTTPServer;
+import com.github.streackmc.StreackLib.types.SConfig;
 
 /**
  * 杂项工具类，也作为其它工具类的跳板。

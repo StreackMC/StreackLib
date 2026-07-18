@@ -8,8 +8,8 @@ import org.jetbrains.annotations.ApiStatus.Internal;
 import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.logger.LoggerBackend;
-import com.github.streackmc.StreackLib.utils.HTTPServer;
-import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.types.HTTPServer;
+import com.github.streackmc.StreackLib.types.SConfig;
 
 /** 内部功能跨平台跳板，需要实现全部方法，否则视作未实现，返回默认值。 */
 @Internal

@@ -1,4 +1,4 @@
-package com.github.streackmc.StreackLib.utils;
+package com.github.streackmc.StreackLib.types;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;

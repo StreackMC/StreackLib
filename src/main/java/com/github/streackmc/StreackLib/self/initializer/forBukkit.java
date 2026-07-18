@@ -14,7 +14,7 @@ import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.self.updateChecker;
 import com.github.streackmc.StreackLib.self.backend.StreackLibBukkitBackend;
-import com.github.streackmc.StreackLib.utils.SConfig;
+import com.github.streackmc.StreackLib.types.SConfig;
 
 @Internal
 public class forBukkit extends JavaPlugin {

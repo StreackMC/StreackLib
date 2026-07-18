@@ -73,6 +73,7 @@ public class debugentry {
         info(String.format("ID为 %s 的配置文件变更", event.CALLER_ID));
       });
       test_SConfig("./target/debugCI-tmp/SConfig");
+      test_SConfig_NBT();
     } catch (Exception e) {
       err("[!] Caught Error @[ebugentry.test/SConfig] :" + e.getLocalizedMessage());
       e.printStackTrace();

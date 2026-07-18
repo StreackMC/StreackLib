@@ -7,7 +7,7 @@ package com.github.streackmc.StreackLib.errors;
  * @author kdxiaoyi
  * @since 0.4.5
  */
-public class IgnoredException extends RuntimeException {
+public class IgnoredException extends StreackLibNewableRuntimeException {
   /**
    * 用法见下，不过这个是带消息的
    * <p>

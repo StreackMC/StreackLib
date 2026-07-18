@@ -46,7 +46,6 @@ import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 
-import com.github.streackmc.StreackLib.StreackLib;
 import com.github.streackmc.StreackLib.self.nbtHandler;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
 import com.google.gson.Gson;
@@ -80,14 +79,11 @@ import net.querz.nbt.tag.Tag;
  * @author Deepseek[AI] 亦有贡献
  * @since 0.2.0
  */
-public class SConfig {
+public class SConfig extends StreackLibNewable {
 
   /* ==========================================
    * 常量
    * ========================================== */
-
-  /** 当前实例的唯一ID */
-  public final Long INSTANCE_ID = StreackLib.getUniqueID();
 
   /**
    * 支持的文件类型的标准化字符串。所有字符串都不区分大小写。<p>

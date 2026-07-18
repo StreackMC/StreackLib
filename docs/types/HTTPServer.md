@@ -3,6 +3,8 @@
 `HTTPServer`类提供了一个统一的内嵌简易HTTP服务器平台，其它插件可以自行监听此服务器上某特定地址（Path）上的所有请求（Post/Get/...）。
 除此之外，你也可以自行创建一个独立的HTTP服务器，私有化使用。
 
+* 本类不继承 `StreackLibNewable`
+
 ## 获取HTTP Server
 首先，你需要额外引入以处理HTTP Response：
 

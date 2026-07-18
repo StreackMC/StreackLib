@@ -10,10 +10,11 @@ import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.logger.LoggerBackend;
 import com.github.streackmc.StreackLib.types.HTTPServer;
 import com.github.streackmc.StreackLib.types.SConfig;
+import com.github.streackmc.StreackLib.types.StreackLibNewable;
 
 /** 内部功能跨平台跳板，需要实现全部方法，否则视作未实现，返回默认值。 */
 @Internal
-public class StreackLibDefaultBackend {
+public class StreackLibDefaultBackend extends StreackLibNewable {
   public class DefaultLogBackend implements logger.LoggerBackend {
 
   private volatile LoggerBackend detected;

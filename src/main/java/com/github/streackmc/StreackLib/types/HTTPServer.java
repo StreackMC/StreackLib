@@ -42,6 +42,7 @@ import com.google.gson.reflect.TypeToken;
  * 基于 NanoHTTPd 的简易转发服务器。
  * 其它插件可通过 registerHandler(String path, Handler h) 注册自己的子路由。
  * 
+ * @apiNote 本实例化类不继承 {@link StreackLibNewable}，而是 {@link NanoHTTPD} 。
  * @author kdxiaoyi
  * @author KimiAI 亦有贡献
  * @since 0.1.0

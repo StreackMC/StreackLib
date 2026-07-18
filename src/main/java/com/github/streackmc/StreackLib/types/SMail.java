@@ -100,10 +100,11 @@ import jakarta.mail.internet.MimeMultipart;
  *     .send();
  * }</pre>
  * 
+ * @apiNote 0.6.0 版本（不含）前，本类没有 {@link TIME_STAMP} 和 {@link INSTANCE_ID} 属性。
  * @since 0.5.2
  * @author kdxiaoyi
  */
-public class SMail {
+public class SMail extends StreackLibNewable {
   /** 邮件参数 */
   private final SConfig emailConf;
   /** 发件档案参数（来自 config.yml 的 emails.{profile} 节） */
@@ -196,7 +197,8 @@ public class SMail {
 
   // ======================== 邮件的参数处理
 
-  public static class Builder {
+  /** SMail 邮件构造器 */
+  public static class Builder extends StreackLibNewable {
     /** 原始档案名 */
     private final String profileRaw;
     /** 邮件参数 */

@@ -26,6 +26,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.jetbrains.annotations.NotNull;
+
 import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.self.manager;
 
@@ -671,7 +673,10 @@ public final class SFile {
    */
   public static List<String> lsStr(String path) throws IOException {
     List<File> files = lsInternal(path);
-    return files.stream().map(File::getName).collect(Collectors.toList());
+    return files.stream()
+        .filter(Objects::nonNull) // 显式过滤 null
+        .map(File::getName)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -683,7 +688,10 @@ public final class SFile {
    */
   public static List<String> lsStr(File dir) throws IOException {
     List<File> files = lsInternal(dir.getPath());
-    return files.stream().map(File::getName).collect(Collectors.toList());
+    return files.stream()
+        .filter(Objects::nonNull) // 显式过滤 null
+        .map(File::getName)
+        .collect(Collectors.toList());
   }
 
   /**
@@ -733,8 +741,6 @@ public final class SFile {
   public static boolean sn(File target, File link) throws IOException {
     return createLinkInternal(target.getPath(), link.getPath());
   }
-
-
 
     // ==================== 具体实现 ====================
 
@@ -998,6 +1004,7 @@ public final class SFile {
    * @return 文件对象列表
    * @throws IOException 如果路径不存在或不是目录
    */
+  @NotNull
   private static List<File> lsInternal(String path) throws IOException {
     File dir = new File(path);
     

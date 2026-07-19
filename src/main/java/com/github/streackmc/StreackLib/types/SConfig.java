@@ -266,7 +266,7 @@ public class SConfig extends StreackLibNewable {
    * @since 0.2.0
    */
   public SConfig(File file, String ctype) {
-    this(file, ctype, StandardCharsets.UTF_8);
+    this(file, StandardCharsets.UTF_8, ctype);
   }
 
   /**
@@ -279,9 +279,9 @@ public class SConfig extends StreackLibNewable {
    * @throws NullPointerException          参数含有 Null
    * @since 0.6.0
    */
-  public SConfig(File file, String ctype, Charset charSet) {
+  public SConfig(File file, @Nullable Charset charSet, String ctype) {
     this.confFile = Objects.requireNonNull(file, "file 不能为 Null");
-    this.charSet = Objects.requireNonNull(charSet, "charSet 不能为 Null");
+    this.charSet = Objects.requireNonNullElse(charSet, StandardCharsets.UTF_8);
     this.confHandler = this.parseType(ctype);
     reload();
   }
@@ -307,10 +307,10 @@ public class SConfig extends StreackLibNewable {
    * @param charSet 使用的字符集
    * @throws UnsupportedOperationException 不支持的格式
    * @throws NullPointerException          参数含有 Null
-   * @since 0.4.4
+   * @since 0.6.0
    */
-  public SConfig(Path file, String ctype, Charset charSet) {
-    this(file.toFile(), ctype, charSet);
+  public SConfig(Path file, @Nullable Charset charSet, String ctype) {
+    this(file.toFile(), charSet, ctype);
   }
 
   /**
@@ -334,10 +334,10 @@ public class SConfig extends StreackLibNewable {
    * @param charSet 使用的字符集
    * @throws UnsupportedOperationException 不支持的格式
    * @throws NullPointerException          首个参数是 Null
-   * @since 0.4.4
+   * @since 0.6.0
    */
-  public SConfig(String path, String ctype, Charset charSet) {
-    this(new File(path), ctype, charSet);
+  public SConfig(String path, @Nullable Charset charSet, String ctype) {
+    this(new File(path), charSet, ctype);
   }
   
     // --- 临时配置文件构造 ---
@@ -357,7 +357,7 @@ public class SConfig extends StreackLibNewable {
    * @since 0.4.4
    */
   public SConfig(String rawData, String ctype, @Nullable String suffix) {
-    this(rawData, ctype, suffix, StandardCharsets.UTF_8);
+    this(rawData, StandardCharsets.UTF_8, ctype, suffix);
   }
 
   /**
@@ -372,14 +372,14 @@ public class SConfig extends StreackLibNewable {
    * @throws UnsupportedOperationException 不支持的格式
    * @throws NullPointerException          部分参数含有 Null
    * @see #SConfig(File, String)
-   * @since 0.4.7
+   * @since 0.6.0
    */
-  public SConfig(String rawData, String ctype, @Nullable String suffix, Charset charSet) {
+  public SConfig(String rawData, @Nullable Charset charSet, String ctype, @Nullable String suffix) {
     this.confHandler = this.parseType(ctype);
     this.confFile = null;
     this.setWriteMode(WRITE_MODE.MEMORY);
     this.tempFileSuffix = suffix;
-    this.charSet = Objects.requireNonNull(charSet, "charSet 不能为 Null");
+    this.charSet = Objects.requireNonNullElse(charSet, StandardCharsets.UTF_8);
     // 先根据String读取
     try {
       Map<String, Object> loaded;
@@ -410,7 +410,7 @@ public class SConfig extends StreackLibNewable {
    * @since 0.4.7
    */
   public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) {
-    this(rawData, ctype, suffix, StandardCharsets.UTF_8);
+    this(rawData, StandardCharsets.UTF_8, ctype, suffix);
   }
 
   /**
@@ -427,11 +427,11 @@ public class SConfig extends StreackLibNewable {
    * @throws NullPointerException          参数含有 Null
    * @since 0.6.0
    */
-  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix, Charset charSet) {
+  public SConfig(@Nullable Map<String, Object> rawData, @Nullable Charset charSet , String ctype, @Nullable String suffix) {
     Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
     this.confHandler = this.parseType(ctype);
     this.confFile = null;
-    this.charSet = Objects.requireNonNull(charSet, "charSet 不能为 Null");
+    this.charSet = Objects.requireNonNullElse(charSet, StandardCharsets.UTF_8);
     this.setWriteMode(WRITE_MODE.MEMORY);
     this.tempFileSuffix = suffix;
     // 将 Map 直接作为数据来源

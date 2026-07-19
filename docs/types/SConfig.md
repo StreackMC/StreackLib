@@ -161,6 +161,10 @@ String v = conf.getString(String "key", "fallback");
 * boolean/byte
   * `0 == false`, `1 == true`
 * List
+* LocalDate
+* LocalTime
+* LocalDateTime
+* BigDecimal
 
 ### 链式调用
 `putXXX()`和`remove()`系列方法均支持链式调用：

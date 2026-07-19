@@ -14,6 +14,7 @@ import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -26,6 +27,10 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -890,6 +895,146 @@ public class SConfig extends StreackLibNewable {
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    */
   public SConfig putBoolean(String key, boolean value) {
+    lock.writeLock().lock();
+    try {
+      putNested(cache, key, value);
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
+    } finally {
+      lock.writeLock().unlock();
+    }
+    return this;
+  }
+
+  // LocalTime
+  /** 获取 LocalTime，缺失返回 null；支持嵌套 key */
+  @Nullable
+  public LocalTime getLocalTime(String key) {
+    return getLocalTime(key, null);
+  }
+  /** 获取 LocalTime，缺失返回默认值；支持嵌套 key */
+  public LocalTime getLocalTime(String key, LocalTime def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(cache, key);
+      if (v instanceof LocalTime) return (LocalTime) v;
+      if (v instanceof String) {
+        try { return LocalTime.parse((String) v); } catch (DateTimeParseException ignore) {}
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /**
+   * 写入 LocalTime（将按 ISO-8601 格式存储）；支持嵌套 key
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
+  public SConfig putLocalTime(String key, LocalTime value) {
+    lock.writeLock().lock();
+    try {
+      putNested(cache, key, value);
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
+    } finally {
+      lock.writeLock().unlock();
+    }
+    return this;
+  }
+
+  // LocalDate
+  /** 获取 LocalDate，缺失返回 null；支持嵌套 key */
+  @Nullable
+  public LocalDate getLocalDate(String key) {
+    return getLocalDate(key, null);
+  }
+  /** 获取 LocalDate，缺失返回默认值；支持嵌套 key */
+  public LocalDate getLocalDate(String key, LocalDate def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(cache, key);
+      if (v instanceof LocalDate) return (LocalDate) v;
+      if (v instanceof String) {
+        try { return LocalDate.parse((String) v); } catch (DateTimeParseException ignore) {}
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /**
+   * 写入 LocalDate（将按 ISO-8601 格式存储）；支持嵌套 key
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
+  public SConfig putLocalDate(String key, LocalDate value) {
+    lock.writeLock().lock();
+    try {
+      putNested(cache, key, value);
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
+    } finally {
+      lock.writeLock().unlock();
+    }
+    return this;
+  }
+
+  // LocalDateTime
+  /** 获取 LocalDateTime，缺失返回 null；支持嵌套 key */
+  @Nullable
+  public LocalDateTime getLocalDateTime(String key) {
+    return getLocalDateTime(key, null);
+  }
+  /** 获取 LocalDateTime，缺失返回默认值；支持嵌套 key */
+  public LocalDateTime getLocalDateTime(String key, LocalDateTime def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(cache, key);
+      if (v instanceof LocalDateTime) return (LocalDateTime) v;
+      if (v instanceof String) {
+        try { return LocalDateTime.parse((String) v); } catch (DateTimeParseException ignore) {}
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /**
+   * 写入 LocalDateTime（将按 ISO-8601 格式存储）；支持嵌套 key
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
+  public SConfig putLocalDateTime(String key, LocalDateTime value) {
+    lock.writeLock().lock();
+    try {
+      putNested(cache, key, value);
+      if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
+    } finally {
+      lock.writeLock().unlock();
+    }
+    return this;
+  }
+
+  // BigDecimal
+  /** 获取 BigDecimal，缺失返回 {@link BigDecimal#ZERO}；支持嵌套 key */
+  public BigDecimal getBigDecimal(String key) {
+    return getBigDecimal(key, BigDecimal.ZERO);
+  }
+  /** 获取 BigDecimal，缺失返回默认值；支持嵌套 key */
+  public BigDecimal getBigDecimal(String key, BigDecimal def) {
+    lock.readLock().lock();
+    try {
+      Object v = getNested(cache, key);
+      if (v instanceof BigDecimal) return (BigDecimal) v;
+      if (v instanceof Number) return BigDecimal.valueOf(((Number) v).doubleValue());
+      if (v instanceof String) {
+        try { return new BigDecimal((String) v); } catch (NumberFormatException ignore) {}
+      }
+      return def;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+  /**
+   * 写入 BigDecimal；支持嵌套 key
+   * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
+   */
+  public SConfig putBigDecimal(String key, BigDecimal value) {
     lock.writeLock().lock();
     try {
       putNested(cache, key, value);

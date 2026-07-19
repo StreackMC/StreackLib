@@ -5,16 +5,15 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.Nullable;
 
 import org.apache.logging.log4j.util.InternalApi;
-import org.jetbrains.annotations.ApiStatus.Internal;
 
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.types.HTTPServer;
 import com.github.streackmc.StreackLib.types.SConfig;
+import com.github.streackmc.StreackLib.types.StreackLibNewable;
 
 /**
  * 杂项工具类，也作为其它工具类的跳板。
@@ -44,8 +43,6 @@ public final class StreackLib {
 
   private StreackLib() { // 禁止实例化
   }
-  /** 唯一ID生成器 */
-  private static final AtomicLong uniqueIDCounter = new AtomicLong(596478L);
 
   // ===================== Class Caller =====================
 
@@ -144,8 +141,7 @@ public final class StreackLib {
    * @return
    * @since 0.4.4
   */
- @Internal
- public static Long getUniqueID() {
-    return uniqueIDCounter.getAndIncrement();
+  public static Long getUniqueID() {
+    return StreackLibNewable.getUniqueID();
   }
 }

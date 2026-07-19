@@ -36,7 +36,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
 import java.util.zip.GZIPOutputStream;
 
 import javax.annotation.Nullable;
@@ -48,6 +50,7 @@ import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.comments.CommentLine;
 import org.yaml.snakeyaml.comments.CommentType;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.nodes.MappingNode;
 import org.yaml.snakeyaml.nodes.Node;
 import org.yaml.snakeyaml.nodes.NodeTuple;
@@ -120,16 +123,23 @@ public class SConfig extends StreackLibNewable {
      */
     public final static String JSONC = "jsonc";
     /**
-     * 不支持注释，要支持请见 {@link TYPES#YAMLc} 。
+     * 不支持注释，要支持请见 {@link TYPES#YAMLc} 或 {@link TYPES#YAMLi} 。
+     * <p>
+     * 由于本类的类型安全的特性，自 0.6.0 版本起，不支持解析 YAML 的自定义类型。
      */
     public final static String YAML = "yaml";
     /**
      * 支持 Block 注释。使用 SnakeYAML 2.0 原生注释 API 实现。
+     * <p>
+     * 由于本类的类型安全的特性，自 0.6.0 版本起，不支持解析 YAML 的自定义类型。
      * @since 0.5.0
      */
     public final static String YAMLc = "yamlc";
     /**
      * 支持 Block 注释与<b>行内注释</b>。但是这可能会产生轻微性能影响，因此建议如无必要不要使用。
+     * <p>
+     * 由于本类的类型安全的特性，自 0.6.0 版本起，不支持解析 YAML 的自定义类型。
+     * 
      * @apiNote 行内注释可能会影响值的读取。本库的行为是 String 读取与写入将携带行内注释，而其他类型读取将静默忽略行内注释、写入则保留原样。
      * @since 0.6.0
      */
@@ -224,7 +234,7 @@ public class SConfig extends StreackLibNewable {
   /** 文件变化观察线程 */
   private Thread watchThread;
   /** 自动加载状态 */
-  private volatile boolean watching = false;
+  private volatile AtomicBoolean watching = new AtomicBoolean(false);
   /** 两次观察文件的间隔。只能为正。默认1000，单位ms。 */
   private long autoreloadInvertal = 1000;
   /** 重载出错需等待多久。负数立即中断，0立即重试。默认2000，单位ms。 */
@@ -420,6 +430,7 @@ public class SConfig extends StreackLibNewable {
 
   /**
    * 判断一个配置是否未设置
+   * @apiNote 如果配置项被设置为 Null 也会返回 false
    * @since 0.5.0
    * @param key 目标配置项
    * @return 未设置、不存在时为 false
@@ -432,6 +443,88 @@ public class SConfig extends StreackLibNewable {
     } finally {
       lock.readLock().unlock();
     }
+  }
+
+  /**
+   * 判断一个配置是否可触达：具体来说，本方法将检查目标配置项中间是否有无法深入的非嵌套层。
+   * <p>
+   * 用于防止顶层写入退化非常好用。
+   * 
+   * @see {@link #isReachable(String, Runnable)} 在可触达时执行 Lambda 表达式
+   * @see {@link #isReachable(BiFunction, String, Object)} 在可触达时执行写入
+   * @since 0.6.0
+   * @param key 目标配置项
+   * @return 无法触达时为 false
+   */
+  @SuppressWarnings(/* 本类型检查已通过双保险确保无异常 */"unchecked")
+  public boolean isReachable(String key) {
+    lock.readLock().lock();
+    try {
+      int dot = getIndexOfNormalDot(key);
+      if (dot == -1) {
+        // 无嵌套路径，顶层 key 始终可触达
+        return true;
+      }
+      // 检查所有中间段（除最后一段外）是否均为 Map
+      List<String> parts = splitWithNormalDot(key);
+      Map<String, Object> current = cache;
+      for (int i = 0; i < parts.size() - 1; i++) {
+        Object next = current.get(parts.get(i));
+        if (!(next instanceof Map)) {
+          return false; // 中间节点非 Map，无法深入
+        }
+        // 再深入
+        current = (Map<String, Object>) next;
+      }
+      return true;
+    } catch (ClassCastException e) {
+      // 冗余设计
+      return false;
+    } finally {
+      lock.readLock().unlock();
+    }
+  }
+
+  /**
+   * 判断一个配置是否可触达，若触达则写入。
+   * <p>
+   * 用于防止顶层写入退化非常好用：
+   * <pre><code>
+   * conf.isReachable(conf::putDouble, "user.score", 99.5);
+   * </code></pre>
+   * @since 0.6.0
+   * @param key 目标配置项
+   * @param putFunction 写入函数，应为 putXXX 系列方法。
+   * @param value 写入值
+   * @param <T> 写入值类型
+   * @return 无法触达时为 false
+   */
+  public <T> boolean isReachable(BiFunction<String, T, SConfig> putFunction, String key, T value) {
+    boolean reachable = isReachable(key);
+    if (reachable) {
+      putFunction.apply(key, value);
+    }
+    return reachable;
+  }
+
+  /**
+   * 判断一个配置是否可触达，若触达则执行 Lambda 表达式。
+   * <p>
+   * 用于防止顶层写入退化非常好用：
+   * <pre><code>
+   * conf.isReachable("user.score", () -> conf.putDouble("user.score", 99.5));
+   * </code></pre>
+   * @since 0.6.0
+   * @param key 目标配置项
+   * @param putAction 目标动作，应为无参 Lambda 表达式。
+   * @return 无法触达时为 false
+   */
+  public boolean isReachable(String key, Runnable putAction) {
+    boolean reachable = isReachable(key);
+    if (reachable) {
+      putAction.run();
+    }
+    return reachable;
   }
 
   /**
@@ -1150,6 +1243,7 @@ public class SConfig extends StreackLibNewable {
       }
       if (!getFile(false).exists()) {
         cache = new ConcurrentHashMap<>();
+        lastModified = 0L; // 同步时间戳，File.lastModified() 对不存在的文件返回 0L
         return this;
       }
       Map<String, Object> loaded;
@@ -1202,7 +1296,7 @@ public class SConfig extends StreackLibNewable {
    */
   @SuppressWarnings("null") // 同理一般不会是 Null
   private void startAutoReload() {
-    if (watching)
+    if (watching.get())
       return;
     if (writeMode.equals(WRITE_MODE.MEMORY)) {
       throw new IllegalStateException("仅内存模式下无法启用自动重载");
@@ -1220,10 +1314,10 @@ public class SConfig extends StreackLibNewable {
       dir.register(watchService,
         StandardWatchEventKinds.ENTRY_MODIFY,
           StandardWatchEventKinds.ENTRY_CREATE/* 防止有些编辑器使用原子写入 */);
-      watching = true;
+      watching.set(true);
 
       watchThread = new Thread(() -> {
-        while (watching && !Thread.currentThread().isInterrupted()) {
+        while (watching.get() && !Thread.currentThread().isInterrupted()) {
           try {
             WatchKey key = watchService.poll(autoreloadInvertal, java.util.concurrent.TimeUnit.MILLISECONDS);
             if (key == null)
@@ -1273,7 +1367,7 @@ public class SConfig extends StreackLibNewable {
 
   /** 停止自动重载 */
   private void stopAutoReload() {
-    watching = false;
+    watching.set(false);
     if (watchThread != null)
       watchThread.interrupt();
     try {
@@ -1305,7 +1399,7 @@ public class SConfig extends StreackLibNewable {
 
   /** @return 是否正在自动重载 */
   public boolean isAutoReloading() {
-    return watching;
+    return watching.get();
   }
 
   /**
@@ -1317,7 +1411,7 @@ public class SConfig extends StreackLibNewable {
    */
   public SConfig setAutoReloadInterval(@Nullable Long ms) {
     autoreloadInvertal = (ms == null) ? 1000 : ms;
-    if (watching) {
+    if (watching.get()) {
       stopAutoReload();
       startAutoReload();
     }
@@ -1568,8 +1662,9 @@ public class SConfig extends StreackLibNewable {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       LoaderOptions yamlOpt = new LoaderOptions();
+      new SafeConstructor(yamlOpt);
       yamlOpt.setProcessComments(true);
-      Yaml yaml = new Yaml(yamlOpt);
+      Yaml yaml = new Yaml(new SafeConstructor(yamlOpt));
       Map<String, Object> m = yaml.load(in);
       return m == null ? new HashMap<>() : m;
     };
@@ -1615,7 +1710,7 @@ public class SConfig extends StreackLibNewable {
 
       LoaderOptions loaderOpts = new LoaderOptions();
       loaderOpts.setProcessComments(true);
-      Yaml yaml = new Yaml(loaderOpts);
+      Yaml yaml = new Yaml(new SafeConstructor(loaderOpts));
       Node root = yaml.compose(new StringReader(text));
 
       if (root == null) return new HashMap<>();
@@ -2096,12 +2191,20 @@ public class SConfig extends StreackLibNewable {
       // 根据 load 时检测的压缩标志决定是否包装 GZIP
       OutputStream actualOut = out;
       if (compressed) {
-        actualOut = new GZIPOutputStream(out);
+        // 覆写 close()：调用 finish() 写入 GZIP trailer + def.end() 释放内存，
+        // 但跳过 out.close()，由外层 atomicWrite 的 try-with-resources 统一管理
+        actualOut = new GZIPOutputStream(out) {
+          @Override
+          public void close() throws IOException {
+            finish();
+            def.end();
+          }
+        };
       }
       NBTSerializer serializer = new NBTSerializer(useLE);
       serializer.toStream(namedTag, actualOut);
       if (compressed) {
-        actualOut.close(); // GZIPOutputStream 需要 close 来写入尾部
+        actualOut.close();
       }
     }
 

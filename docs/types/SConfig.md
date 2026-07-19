@@ -28,7 +28,7 @@ SConfig conf = new SConfig(File 文件对象, String "文件类型");
 SConfig conf2 = new SConfig(Map<String, Object> conf.getRawData(), String "文件类型", String "临时文件修饰");
 ```
 
-这样就获取了一个`SConf`对象。
+这样就获取了一个`SConfig`对象。
 
 > 如果你创建了一个**临时**配置文件，那么它不会占用磁盘 IO ，也不会产生临时文件，直到首次保存到文件。（惰性初始化）<br>
 > 所以即使大规模创建临时配置文件，也无需担心磁盘负荷。<br>
@@ -40,7 +40,7 @@ SConfig conf2 = new SConfig(Map<String, Object> conf.getRawData(), String "文�
 
 ```java
 // 启用自动重载
-conf.setAutoReload(trues);
+conf.setAutoReload(true);
 // 获取自动重载状态
 Boolen status = conf.isAutoReloading();
 // 禁用自动重载
@@ -99,6 +99,39 @@ conf.remove(String "key");
 T v = (T) conf.get(String "key", <T> fallback);
 // 查是否为空值
 boolean isUnset = conf.isExist(String "key");
+```
+
+### 无法深入退化与防止
+
+另外，考虑这种情况：当使用嵌套路径，但路径中某个节点并不是嵌套结构的，比如，
+
+```json
+{
+  "foo": "data"
+}
+```
+
+此时访问（尤其是写入） `foo.bar` 时，很明显无法触达，这时候 SConfig 会退化顶层写入，那么就变成了：
+
+```json
+{
+  "foo": "data",
+  "foo.bar": "data2"
+}
+```
+
+为了防止这种情况，自 0.6.0 版本起，SConfig 引入了新 API 来解决此问题：
+
+```java
+// 获取是否可触达
+Boolean reachable = conf.isReachable("user.score");
+// 可触达就意味着不会退化到顶层
+
+// 可触达才写入
+conf.isReachable(conf::putDouble, "user.score", 99.5);
+
+// 或者执行你自己的操作
+conf.isReachable("user.score", () -> doSomething());
 ```
 
 ### 严格类型

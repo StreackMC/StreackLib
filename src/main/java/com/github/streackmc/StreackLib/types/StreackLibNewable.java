@@ -1,5 +1,6 @@
 package com.github.streackmc.StreackLib.types;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.github.streackmc.StreackLib.self.logger;
@@ -23,7 +24,7 @@ public abstract class StreackLibNewable {
   public final long TIME_STAMP = System.currentTimeMillis();
 
   /**
-   * 获取一个全局唯一的ID
+   * @return 获取一个全局唯一的ID
    * @since 0.6.0
    */
   public static long getUniqueID() {
@@ -34,5 +35,13 @@ public abstract class StreackLibNewable {
       uniqueIDCounter.set(Long.MIN_VALUE);
       return uniqueIDCounter.getAndIncrement();
     }
+  }
+
+  /**
+   * @return 获取一个全局唯一的UUID
+   * @since 0.6.0
+   */
+  public static String getUUID() {
+    return UUID.randomUUID().toString();
   }
 }

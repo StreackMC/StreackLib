@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PushbackInputStream;
+import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.lang.reflect.Type;
@@ -45,6 +46,13 @@ import org.ini4j.Profile;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.comments.CommentLine;
+import org.yaml.snakeyaml.comments.CommentType;
+import org.yaml.snakeyaml.nodes.MappingNode;
+import org.yaml.snakeyaml.nodes.Node;
+import org.yaml.snakeyaml.nodes.NodeTuple;
+import org.yaml.snakeyaml.nodes.ScalarNode;
+import org.yaml.snakeyaml.nodes.SequenceNode;
 
 import com.github.streackmc.StreackLib.self.nbtHandler;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
@@ -116,10 +124,16 @@ public class SConfig extends StreackLibNewable {
      */
     public final static String YAML = "yaml";
     /**
-     * 支持注释。但是这可能会产生轻微性能影响，因此建议如无必要不要使用。
-     * @deprecated 未实现，启用无效。
+     * 支持 Block 注释。使用 SnakeYAML 2.0 原生注释 API 实现。
+     * @since 0.5.0
      */
     public final static String YAMLc = "yamlc";
+    /**
+     * 支持 Block 注释与<b>行内注释</b>。但是这可能会产生轻微性能影响，因此建议如无必要不要使用。
+     * @apiNote 行内注释可能会影响值的读取。本库的行为是 String 读取与写入将携带行内注释，而其他类型读取将静默忽略行内注释、写入则保留原样。
+     * @since 0.6.0
+     */
+    public final static String YAMLi = "yamli";
     public final static String TOML = "toml";
     /**
      * @apiNote 0.5.0版本（不含）前，本 INI 支持使用了 {@link org.ini4j.ini4j} ，其存在已知严重漏洞
@@ -375,10 +389,12 @@ public class SConfig extends StreackLibNewable {
         return new BackendYaml();
       case "yaml":
         return new BackendYaml();
-      // case "ymlc":
-      //   return new BackendYamlC();
-      // case "yamlc":
-      //   return new BackendYamlC();
+      case "ymlc":
+      case "yamlc":
+        return new BackendYamlC();
+      case "ymli":
+      case "yamli":
+        return new BackendYamlI();
       case "toml":
         return new BackendToml();
       case "ini":
@@ -1570,38 +1586,253 @@ public class SConfig extends StreackLibNewable {
     public String getType() { return TYPES.YAML; }
   }
 
-  private class BackendYamlC implements CommentableBackend {
+  /**
+   * 带注释支持的 YAML 后端抽象基类。
+   * 使用 SnakeYAML 2.0 的 compose() / serialize() API 实现注释的读写。
+   * load() 通过单次 compose() 遍历 Node 树完成类型转换与注释提取。
+   */
+  private abstract class AbstractBackendYamlComment implements CommentableBackend {
+    /** 路径 → Block 注释文本 */
+    protected final Map<String, String> comments = new LinkedHashMap<>();
+    /** 路径 → Inline 注释文本（仅 YamlI 使用） */
+    protected final Map<String, String> inlineComments = new LinkedHashMap<>();
+    /** 是否保留行内注释 */
+    private final boolean preserveInline;
+
+    AbstractBackendYamlComment(boolean preserveInline) {
+      this.preserveInline = preserveInline;
+    }
+
+    /* ============ load: compose → Map + 提取注释 ============ */
+
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      LoaderOptions yamlOpt = new LoaderOptions();
-      yamlOpt.setProcessComments(true);
-      Yaml yaml = new Yaml(yamlOpt);
-      Map<String, Object> m = yaml.load(in);
-      return m == null ? new HashMap<>() : m;
-    };
+      comments.clear();
+      inlineComments.clear();
+
+      String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+      if (text.isBlank()) return new HashMap<>();
+
+      LoaderOptions loaderOpts = new LoaderOptions();
+      loaderOpts.setProcessComments(true);
+      Yaml yaml = new Yaml(loaderOpts);
+      Node root = yaml.compose(new StringReader(text));
+
+      if (root == null) return new HashMap<>();
+      if (!(root instanceof MappingNode)) return new HashMap<>();
+
+      Map<String, Object> result = new LinkedHashMap<>();
+      traverseMapping((MappingNode) root, result, "");
+      return result;
+    }
+
+    /** 递归遍历 MappingNode，构建 Map 并提取注释 */
+    private void traverseMapping(MappingNode mapping, Map<String, Object> map, String prefix) {
+      for (NodeTuple tuple : mapping.getValue()) {
+        Node keyNode = tuple.getKeyNode();
+        Node valueNode = tuple.getValueNode();
+
+        String key = ((ScalarNode) keyNode).getValue();
+        String fullPath = prefix.isEmpty() ? key : prefix + "." + key;
+
+        // 提取 Block 注释（附加在 key 节点上）
+        extractBlockComments(keyNode, fullPath);
+
+        // 提取 Inline 注释（附加在 value 节点上，仅 YamlI）
+        if (preserveInline) {
+          extractInlineComments(valueNode, fullPath);
+        }
+
+        map.put(key, readNode(valueNode, fullPath));
+      }
+    }
+
+    /** 递归读取 Node 树，按 Tag 做类型转换 */
+    private Object readNode(Node node, String path) {
+      if (node instanceof ScalarNode) {
+        return resolveScalar((ScalarNode) node);
+      }
+      if (node instanceof MappingNode) {
+        Map<String, Object> subMap = new LinkedHashMap<>();
+        traverseMapping((MappingNode) node, subMap, path);
+        return subMap;
+      }
+      if (node instanceof SequenceNode) {
+        List<Object> list = new ArrayList<>();
+        SequenceNode seq = (SequenceNode) node;
+        for (int i = 0; i < seq.getValue().size(); i++) {
+          list.add(readNode(seq.getValue().get(i), path + "[" + i + "]"));
+        }
+        return list;
+      }
+      return null;
+    }
+
+    /** 根据 Tag 将 ScalarNode 的值转为对应 Java 类型 */
+    private Object resolveScalar(ScalarNode node) {
+      org.yaml.snakeyaml.nodes.Tag tag = node.getTag();
+      String val = node.getValue();
+      if (tag == org.yaml.snakeyaml.nodes.Tag.INT) {
+        try { return Integer.valueOf(val); } catch (NumberFormatException e) { return val; }
+      }
+      if (tag == org.yaml.snakeyaml.nodes.Tag.FLOAT) {
+        try { return Double.valueOf(val); } catch (NumberFormatException e) { return val; }
+      }
+      if (tag == org.yaml.snakeyaml.nodes.Tag.BOOL) {
+        if ("true".equals(val) || "false".equals(val)) return Boolean.valueOf(val);
+        return val;
+      }
+      if (tag == org.yaml.snakeyaml.nodes.Tag.NULL) return null;
+      return val; // Tag.STR 或其他
+    }
+
+    /** 提取 Node 上的 Block 注释 */
+    private void extractBlockComments(Node node, String path) {
+      List<CommentLine> block = node.getBlockComments();
+      if (block == null || block.isEmpty()) return;
+      StringBuilder sb = new StringBuilder();
+      for (CommentLine cl : block) {
+        if (cl.getCommentType() == CommentType.BLOCK || cl.getCommentType() == CommentType.BLANK_LINE) {
+          if (sb.length() > 0) sb.append("\n");
+          sb.append(cl.getValue());
+        }
+      }
+      if (sb.length() > 0) comments.put(path, sb.toString());
+    }
+
+    /** 提取 Node 上的 Inline 注释（仅 YamlI 调用） */
+    private void extractInlineComments(Node node, String path) {
+      List<CommentLine> inline = node.getInLineComments();
+      if (inline == null || inline.isEmpty()) return;
+      StringBuilder sb = new StringBuilder();
+      for (CommentLine cl : inline) {
+        if (sb.length() > 0) sb.append("\n");
+        sb.append(cl.getValue());
+      }
+      if (sb.length() > 0) inlineComments.put(path, sb.toString());
+    }
+
+    /* ============ flush: Map → Node 树 + 附加注释 ============ */
 
     @Override
     public void flush(OutputStream out) throws Exception {
       DumperOptions opts = new DumperOptions();
       opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
       opts.setPrettyFlow(true);
-      new Yaml(opts).dump(cache, getWriter(out));
-    };
+      opts.setProcessComments(true);
 
-    @Override
-    public String getType() { return TYPES.YAMLc; }
+      MappingNode root = mapToMappingNode(cache, "");
+      new Yaml(opts).serialize(root, getWriter(out));
+    }
+
+    /** 递归构建带注释的 MappingNode */
+    private MappingNode mapToMappingNode(Map<String, Object> data, String prefix) {
+      List<NodeTuple> tuples = new ArrayList<>();
+      for (Map.Entry<String, Object> entry : data.entrySet()) {
+        String fullPath = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+
+        ScalarNode keyNode = new ScalarNode(org.yaml.snakeyaml.nodes.Tag.STR, entry.getKey(), null, null, null);
+        // 附加 Block 注释
+        attachBlockComments(keyNode, fullPath);
+
+        Node valueNode = javaToNode(entry.getValue(), fullPath);
+
+        // 附加 Inline 注释到 value 节点（仅 YamlI）
+        if (preserveInline && valueNode instanceof ScalarNode) {
+          attachInlineComments((ScalarNode) valueNode, fullPath);
+        }
+
+        tuples.add(new NodeTuple(keyNode, valueNode));
+      }
+      return new MappingNode(org.yaml.snakeyaml.nodes.Tag.MAP, tuples, DumperOptions.FlowStyle.BLOCK);
+    }
+
+    /** 将 Java 值转为对应的 Node */
+    @SuppressWarnings("unchecked")
+    private Node javaToNode(Object value, String path) {
+      if (value == null) {
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.NULL, null, null, null, null);
+      }
+      if (value instanceof Map) {
+        return mapToMappingNode((Map<String, Object>) value, path);
+      }
+      if (value instanceof List) {
+        List<Object> list = (List<Object>) value;
+        List<Node> nodes = new ArrayList<>(list.size());
+        for (int i = 0; i < list.size(); i++) {
+          nodes.add(javaToNode(list.get(i), path + "[" + i + "]"));
+        }
+        return new SequenceNode(org.yaml.snakeyaml.nodes.Tag.SEQ, nodes, DumperOptions.FlowStyle.BLOCK);
+      }
+      // 数字类型
+      if (value instanceof Integer || value instanceof Long
+          || value instanceof Short || value instanceof Byte) {
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.INT, String.valueOf(value), null, null, null);
+      }
+      if (value instanceof Float || value instanceof Double) {
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.FLOAT, String.valueOf(value), null, null, null);
+      }
+      if (value instanceof Boolean) {
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.BOOL, String.valueOf(value), null, null, null);
+      }
+      // 默认按字符串处理
+      return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.STR, String.valueOf(value), null, null, null);
+    }
+
+    /** 为 Node 附加 Block 注释 */
+    private void attachBlockComments(ScalarNode node, String path) {
+      String text = comments.get(path);
+      if (text == null || text.isEmpty()) return;
+      List<CommentLine> lines = new ArrayList<>();
+      for (String line : text.split("\n")) {
+        lines.add(new CommentLine(null, null, line, CommentType.BLOCK));
+      }
+      node.setBlockComments(lines);
+    }
+
+    /** 为 Node 附加 Inline 注释 */
+    private void attachInlineComments(ScalarNode node, String path) {
+      String text = inlineComments.get(path);
+      if (text == null || text.isEmpty()) return;
+      List<CommentLine> lines = new ArrayList<>();
+      for (String line : text.split("\n")) {
+        lines.add(new CommentLine(null, null, line, CommentType.IN_LINE));
+      }
+      node.setInLineComments(lines);
+    }
+
+    /* ============ CommentableBackend 接口 ============ */
 
     @Override
     public String getComment(String path) {
-      // TODO Auto-generated method stub
-      throw new UnsupportedOperationException("Unimplemented method 'getComment'");
+      String c = comments.get(path);
+      return c == null ? "" : c;
     }
 
     @Override
-    public void setComment(String name, String value) {
-      // TODO Auto-generated method stub
-      throw new UnsupportedOperationException("Unimplemented method 'setComment'");
-    };
+    public void setComment(String path, String value) {
+      comments.put(path, value);
+      // 若路径在缓存中不存在，自动创建空值
+      if (!SConfig.this.isExist(path)) {
+        SConfig.this.putString(path, "");
+      }
+    }
+  }
+
+  /** Block 注释专用：不保留行内注释 */
+  private class BackendYamlC extends AbstractBackendYamlComment {
+    BackendYamlC() { super(false); }
+
+    @Override
+    public String getType() { return TYPES.YAMLc; }
+  }
+
+  /** Block + Inline 注释 */
+  private class BackendYamlI extends AbstractBackendYamlComment {
+    BackendYamlI() { super(true); }
+
+    @Override
+    public String getType() { return TYPES.YAMLi; }
   }
 
   private class BackendJSON implements Backend {
@@ -1773,6 +2004,7 @@ public class SConfig extends StreackLibNewable {
     /**
      * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
      */
+    @SuppressWarnings("unchecked")
     private static void putNestedRaw(Map<String, Object> root, String key, Object value) {
       int lastDot = getIndexOfNormalDot(key);
       if (lastDot == -1) {

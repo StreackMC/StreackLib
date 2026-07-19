@@ -251,6 +251,10 @@ public class SConfig extends StreackLibNewable {
   private volatile boolean writeModeLocked = false;
   /** 临时文件对象的标识符 */
   private String tempFileSuffix;
+  /** 配置文件使用的字符集 */
+  private final Charset charSet;
+
+  // --- 从文件读取配置文件 ---
 
   /**
    * 构造配置对象
@@ -258,9 +262,26 @@ public class SConfig extends StreackLibNewable {
    * @param file  配置文件
    * @param ctype 格式，支持列表见于 {@link TYPES}
    * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          参数含有 Null
+   * @since 0.2.0
    */
   public SConfig(File file, String ctype) {
-    this.confFile = file;
+    this(file, ctype, StandardCharsets.UTF_8);
+  }
+
+  /**
+   * 构造配置对象
+   * 
+   * @param file    配置文件
+   * @param ctype   格式，支持列表见于 {@link TYPES}
+   * @param charSet 使用的字符集
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          参数含有 Null
+   * @since 0.6.0
+   */
+  public SConfig(File file, String ctype, Charset charSet) {
+    this.confFile = Objects.requireNonNull(file, "file 不能为 Null");
+    this.charSet = Objects.requireNonNull(charSet, "charSet 不能为 Null");
     this.confHandler = this.parseType(ctype);
     reload();
   }
@@ -271,12 +292,25 @@ public class SConfig extends StreackLibNewable {
    * @param file  配置文件
    * @param ctype 格式，支持列表见于 {@link TYPES}
    * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          参数含有 Null
    * @since 0.4.4
    */
   public SConfig(Path file, String ctype) {
-    this.confFile = file.toFile();
-    this.confHandler = this.parseType(ctype);
-    reload();
+    this(file.toFile(), ctype);
+  }
+
+  /**
+   * 构造配置对象
+   * 
+   * @param file    配置文件
+   * @param ctype   格式，支持列表见于 {@link TYPES}
+   * @param charSet 使用的字符集
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          参数含有 Null
+   * @since 0.4.4
+   */
+  public SConfig(Path file, String ctype, Charset charSet) {
+    this(file.toFile(), ctype, charSet);
   }
 
   /**
@@ -285,13 +319,28 @@ public class SConfig extends StreackLibNewable {
    * @param path  配置文件路径
    * @param ctype 格式，支持列表见于 {@link TYPES}
    * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          首个参数是 Null
    * @since 0.4.4
    */
   public SConfig(String path, String ctype) {
-    this.confFile = new File(path);
-    this.confHandler = this.parseType(ctype);
-    reload();
+    this(new File(path), ctype);
   }
+
+  /**
+   * 构造配置对象
+   * 
+   * @param path  配置文件路径
+   * @param ctype 格式，支持列表见于 {@link TYPES}
+   * @param charSet 使用的字符集
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          首个参数是 Null
+   * @since 0.4.4
+   */
+  public SConfig(String path, String ctype, Charset charSet) {
+    this(new File(path), ctype, charSet);
+  }
+  
+    // --- 临时配置文件构造 ---
 
   /**
    * 构造临时配置对象。
@@ -304,29 +353,11 @@ public class SConfig extends StreackLibNewable {
    * @apiNote 默认使用 UTF-8 字符集，自定义字符集请用
    *          {@link #SConfig(String, String, String, Charset)}
    * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          部分参数含有 Null
    * @since 0.4.4
    */
   public SConfig(String rawData, String ctype, @Nullable String suffix) {
-    this.confHandler = this.parseType(ctype);
-    this.confFile = null;
-    this.setWriteMode(WRITE_MODE.MEMORY);
-    this.tempFileSuffix = suffix;
-
-    // 先根据String读取
-    try {
-      Map<String, Object> loaded;
-      try (InputStream in = new ByteArrayInputStream(rawData.getBytes(StandardCharsets.UTF_8))) {
-        loaded = confHandler.load(in);
-      }
-      cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
-    } catch (Exception e) {
-      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
-          .set("exception", e)
-          .set("msg", e.getLocalizedMessage())
-          .broadcast();
-      throw new RuntimeException("无法加载配置文件：" + e.getLocalizedMessage(), e);
-    } finally {
-    }
+    this(rawData, ctype, suffix, StandardCharsets.UTF_8);
   }
 
   /**
@@ -339,6 +370,7 @@ public class SConfig extends StreackLibNewable {
    * @param suffix  临时文件后缀，如 ".yml"，可为Null
    * @param charSet 使用的字符集
    * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          部分参数含有 Null
    * @see #SConfig(File, String)
    * @since 0.4.7
    */
@@ -347,7 +379,7 @@ public class SConfig extends StreackLibNewable {
     this.confFile = null;
     this.setWriteMode(WRITE_MODE.MEMORY);
     this.tempFileSuffix = suffix;
-
+    this.charSet = Objects.requireNonNull(charSet, "charSet 不能为 Null");
     // 先根据String读取
     try {
       Map<String, Object> loaded;
@@ -378,14 +410,35 @@ public class SConfig extends StreackLibNewable {
    * @since 0.4.7
    */
   public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix) {
+    this(rawData, ctype, suffix, StandardCharsets.UTF_8);
+  }
+
+  /**
+   * 构造临时配置对象
+   * <p>
+   * 此时默认使用 {@link WRITE_MODE#MEMORY} 模式。
+   * 
+   * @param rawData 配置文件内容原始来源，为Null时视作空数据。您或许需要使用 {@link #getRawData()} 从另外一个
+   *                SConfig 中获取数据。
+   * @param ctype   格式，支持列表见于 {@link TYPES}
+   * @param suffix  临时文件后缀，如 ".yml"，可为Null
+   * @param charSet 使用的字符集
+   * @throws UnsupportedOperationException 不支持的格式
+   * @throws NullPointerException          参数含有 Null
+   * @since 0.6.0
+   */
+  public SConfig(@Nullable Map<String, Object> rawData, String ctype, @Nullable String suffix, Charset charSet) {
     Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
     this.confHandler = this.parseType(ctype);
     this.confFile = null;
+    this.charSet = Objects.requireNonNull(charSet, "charSet 不能为 Null");
     this.setWriteMode(WRITE_MODE.MEMORY);
     this.tempFileSuffix = suffix;
     // 将 Map 直接作为数据来源
     this.cache = rD;
   }
+
+  // --- 工具方法 ---
 
   private Backend parseType(String ctype) {
     if (ctype == null)
@@ -1649,7 +1702,7 @@ public class SConfig extends StreackLibNewable {
 
   /** 从 OutputStream 解析一个 Writer */
   private Writer getWriter(OutputStream out) {
-    return new OutputStreamWriter(out, StandardCharsets.UTF_8);
+    return new OutputStreamWriter(out, charSet);
   }
 
   /*
@@ -1705,7 +1758,7 @@ public class SConfig extends StreackLibNewable {
       comments.clear();
       inlineComments.clear();
 
-      String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+      String text = new String(in.readAllBytes(), charSet);
       if (text.isBlank()) return new HashMap<>();
 
       LoaderOptions loaderOpts = new LoaderOptions();
@@ -1933,7 +1986,7 @@ public class SConfig extends StreackLibNewable {
   private class BackendJSON implements Backend {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      JsonElement el = JsonParser.parseReader(new InputStreamReader(in));
+      JsonElement el = JsonParser.parseReader(new InputStreamReader(in, charSet));
       if (el.isJsonObject()) {
         Type mapType = new TypeToken<Map<String, Object>>() {
         }.getType();
@@ -1970,7 +2023,7 @@ public class SConfig extends StreackLibNewable {
     public Map<String, Object> load(InputStream in) throws Exception {
       // 启用 lenient 模式，支持注释、尾随逗号等
       Gson gson = new GsonBuilder().setLenient().create();
-      try (InputStreamReader reader = new InputStreamReader(in)) {
+      try (InputStreamReader reader = new InputStreamReader(in, charSet)) {
         JsonElement el = gson.fromJson(reader, JsonElement.class);
         if (el.isJsonObject()) {
           Type mapType = new TypeToken<Map<String, Object>>() {
@@ -1996,7 +2049,7 @@ public class SConfig extends StreackLibNewable {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
       Toml toml = new Toml();
-      try (InputStreamReader r = new InputStreamReader(in)) {
+      try (InputStreamReader r = new InputStreamReader(in, charSet)) {
         toml.read(r);
       }
       return toml.toMap();
@@ -2054,7 +2107,7 @@ public class SConfig extends StreackLibNewable {
     public Map<String, Object> load(InputStream in) throws Exception {
       Properties props = new Properties();
       // 使用 UTF-8 读取，以支持非 ISO-8859-1 字符
-      try (InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+      try (InputStreamReader reader = new InputStreamReader(in, charSet)) {
         props.load(reader);
       }
       Map<String, Object> root = new LinkedHashMap<>();
@@ -2217,7 +2270,7 @@ public class SConfig extends StreackLibNewable {
     public Map<String, Object> load(InputStream in) throws Exception {
       // 读取文本内容
       StringBuilder sb = new StringBuilder();
-      try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+      try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, charSet))) {
         String line;
         while ((line = reader.readLine()) != null) {
           sb.append(line);

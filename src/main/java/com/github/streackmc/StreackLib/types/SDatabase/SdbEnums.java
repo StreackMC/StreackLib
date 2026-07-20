@@ -18,12 +18,28 @@ public class SdbEnums {
   
   /** 操作类型 */
   public enum ACTION_TYPE {
-    /** 作为查询 */
+    /** 查询 */
     SELECT,
-    /** 作为静态值 */
-    VALUE,
-    /** 作为静态值，且设置了回退值 */
-    VALUE_WITH_FALLBACK;
+    /** 修改 */
+    UPDATE,
+    /** 有则更新，无则插入 */
+    MERGE,
+    /** 删除 */
+    DELETE,
+    /** 建表 */
+    CREATE,
+    /** 修改结构 */
+    ALTER,
+    /** 删除表或库，<b>连表带数据全部消失</b>，<b>无法恢复</b> */
+    DROP,
+    /** 删除表中全部数据，<b>无法恢复</b> */
+    TRUNCATE,
+    /** 设置回滚的保存点 */
+    SAVEPOINT,
+    /** 回滚事务（撤销未提交的修改） */
+    ROLLBACK,
+    /** 提交事务（使修改永久生效） */
+    COMMIT,
   }
 
   /** 查询类型 */

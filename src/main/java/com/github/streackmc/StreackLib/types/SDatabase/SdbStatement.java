@@ -31,7 +31,7 @@ import com.github.streackmc.StreackLib.types.StreackLibNewable;
  * <h3>「从表查找」</h3>
  * 在部分断言中，「从表查找」指的是将输入参数作为表中列名，并将行的该列的内容作为参数进行断言。大部分断言中 v1 都会从表查找，而 v2 v3 等则不会，这是因为大部分情况下使用 SQL 比较定值不太理想（除非是<code>OR '1' = '1'</code>这种注入攻击）。
  * <p>
- * 默认情况下，查找的表是使用本断言的操作上下文所指定的表，但是可以使用 <code>table:column</code> 指定完整表名，或者使用 <code>alias.column</code> 指定操作上下文中定义的表别名。
+ * 默认情况下，查找的表是使用本断言的操作上下文所指定的表，但是可以使用 <code>table.column</code> 指定完整表名，或者使用 <code>alias.column</code> 指定操作上下文中定义的表别名。
  * 
  * @since 0.6.0
  * @author kdxiaoyi
@@ -135,67 +135,38 @@ public class SdbStatement extends StreackLibNewable {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    appendSQL(sb, null, null);
+    appendSQL(sb, null);
     return sb.length() == 0 ? "()" : sb.toString();
   }
 
   /**
-   * 将断言转为 SQL 指令；指定操作主表，裸列名自动加主表前缀。
+   * 将断言转为 SQL 指令；支持透传别名映射至子断言。
+   * <p>
+   * <code>table.column</code> 输出 <code>`table`.`column`</code>（表或别名由外层 FROM 定义）<br>
+   * 裸列名输出 <code>`column`</code>
    * 
    * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
-   * @param mainTable 操作主表名，为 null 时裸列名输出 <code>?</code>
-   * @since 0.6.0
-   */
-  public String toString(String mainTable) {
-    StringBuilder sb = new StringBuilder();
-    appendSQL(sb, mainTable, null);
-    return sb.length() == 0 ? "()" : sb.toString();
-  }
-
-  /**
-   * 将断言转为 SQL 指令；支持别名解析，无主表时裸列名输出 <code>?</code>。
-   * 
-   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
-   * @param alias 别名映射：key=别名, value=真实表名；为 null 时别名不做解析
+   * @param alias 别名映射，当前仅透传至子断言，由 {@link #toSql(SdbActionContext)} 使用
    * @since 0.6.0
    */
   public String toString(Map<String, String> alias) {
     StringBuilder sb = new StringBuilder();
-    appendSQL(sb, null, alias);
+    appendSQL(sb, alias);
     return sb.length() == 0 ? "()" : sb.toString();
   }
 
   /**
-   * 将断言转为 SQL 指令；完整指定操作主表与别名映射。
-   * <p>
-   * 裸列名 → 加 <code>mainTable</code> 前缀<br>
-   * <code>alias.column</code> → 通过 <code>alias</code> 映射为目标表<br>
-   * <code>table:column</code> → 直接使用指定表
-   * 
-   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
-   * @param mainTable 操作主表名
-   * @param alias     别名映射：key=别名, value=真实表名
-   * @since 0.6.0
-   */
-  public String toString(String mainTable, Map<String, String> alias) {
-    StringBuilder sb = new StringBuilder();
-    appendSQL(sb, mainTable, alias);
-    return sb.length() == 0 ? "()" : sb.toString();
-  }
-
-  /**
-   * 将断言转为 SQL 指令；从操作上下文中提取主表名与别名映射。
+   * 将断言转为 SQL 指令；从操作上下文中提取别名映射。
    * 
    * @param ctx 数据库操作上下文
    * @since 0.6.0
    */
   public String toString(SdbActionContext ctx) {
-    if (ctx == null) return toString();
-    return toString(ctx.table, ctx.alias);
+    return toString(ctx == null ? null : ctx.alias);
   }
 
   /** 递归生成 SQL */
-  private void appendSQL(StringBuilder sb, String mainTable, Map<String, String> alias) {
+  private void appendSQL(StringBuilder sb, Map<String, String> alias) {
     boolean hasCond = !conditions.isEmpty();
     boolean hasAnd  = !andStatements.isEmpty();
     boolean hasOr   = !orStatements.isEmpty();
@@ -205,7 +176,7 @@ public class SdbStatement extends StreackLibNewable {
     // 叶条件转 SQL
     for (int i = 0; i < conditions.size(); i++) {
       if (i > 0) sb.append(" AND ");
-      appendConditionSQL(sb, conditions.get(i), mainTable, alias);
+      appendConditionSQL(sb, conditions.get(i), alias);
     }
 
     // AND 子断言
@@ -217,7 +188,7 @@ public class SdbStatement extends StreackLibNewable {
         first = false;
         if (!e.getValue()) sb.append("NOT ");
         sb.append('(');
-        e.getKey().appendSQL(sb, mainTable, alias);
+        e.getKey().appendSQL(sb, alias);
         sb.append(')');
       }
     }
@@ -232,7 +203,7 @@ public class SdbStatement extends StreackLibNewable {
         first = false;
         if (!e.getValue()) sb.append("NOT ");
         sb.append('(');
-        e.getKey().appendSQL(sb, mainTable, alias);
+        e.getKey().appendSQL(sb, alias);
         sb.append(')');
       }
       sb.append(')');
@@ -246,34 +217,34 @@ public class SdbStatement extends StreackLibNewable {
   }
 
   /** 单条条件转 SQL */
-  private void appendConditionSQL(StringBuilder sb, Condition c, String mainTable, Map<String, String> alias) {
-    String col = lookupCol(c.v1, mainTable, alias);
+  private void appendConditionSQL(StringBuilder sb, Condition c, Map<String, String> alias) {
+    String col = lookupCol(c.v1, alias);
     switch (c.type) {
       case IS_NULL:      sb.append(col).append(" IS NULL"); break;
       case IS_NOT_NULL:  sb.append(col).append(" IS NOT NULL"); break;
-      case EQUAL:        sb.append(col).append(" = ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case UNEQUAL:      sb.append(col).append(" <> ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case LARGER:       sb.append(col).append(" > ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case SMALLER:      sb.append(col).append(" < ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case LARGER_OR_EQUAL: sb.append(col).append(" >= ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case SMALLER_OR_EQUAL: sb.append(col).append(" <= ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case LIKE:         sb.append(col).append(" LIKE ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case NOT_LIKE:     sb.append(col).append(" NOT LIKE ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case REGEX:        sb.append(col).append(" REGEXP ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
-      case NOT_REGEX:    sb.append(col).append(" NOT REGEXP ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case EQUAL:        sb.append(col).append(" = ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case UNEQUAL:      sb.append(col).append(" <> ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case LARGER:       sb.append(col).append(" > ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case SMALLER:      sb.append(col).append(" < ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case LARGER_OR_EQUAL: sb.append(col).append(" >= ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case SMALLER_OR_EQUAL: sb.append(col).append(" <= ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case LIKE:         sb.append(col).append(" LIKE ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case NOT_LIKE:     sb.append(col).append(" NOT LIKE ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case REGEX:        sb.append(col).append(" REGEXP ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
+      case NOT_REGEX:    sb.append(col).append(" NOT REGEXP ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
       case BETWEEN:
         sb.append(col).append(" BETWEEN ")
-          .append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)).append(" AND ").append(literal(c.v3)); break;
+          .append(lookupVal(c.v2, c.v2Lookup, alias)).append(" AND ").append(literal(c.v3)); break;
       case NOT_BETWEEN:
         sb.append(col).append(" NOT BETWEEN ")
-          .append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)).append(" AND ").append(literal(c.v3)); break;
+          .append(lookupVal(c.v2, c.v2Lookup, alias)).append(" AND ").append(literal(c.v3)); break;
       case IN: case NOT_IN:
         sb.append(col).append(c.type == CondType.IN ? " IN (" : " NOT IN (");
         if (c.inValues != null) {
           boolean f = true;
           for (Map.Entry<String, Boolean> iv : c.inValues.entrySet()) {
             if (!f) sb.append(", "); f = false;
-            sb.append(lookupVal(iv.getKey(), iv.getValue(), mainTable, alias));
+            sb.append(lookupVal(iv.getKey(), iv.getValue(), alias));
           }
         }
         sb.append(')');
@@ -282,39 +253,25 @@ public class SdbStatement extends StreackLibNewable {
   }
 
   /**
-   * 将列名格式化为 SQL 标识符（反引号包裹），支持三种语法：
+   * 将列名格式化为 SQL 标识符（反引号包裹）：
    * <ul>
-   *   <li><code>column</code> → 自动加主表前缀：<code>`mainTable`.`column`</code>；无主表时输出 <code>?</code></li>
-   *   <li><code>table:column</code> → 显式指定表：<code>`table`.`column`</code></li>
-   *   <li><code>alias.column</code> → 别名解析：查找 alias map 换成真实表名；无映射时保留原别名</li>
+   *   <li><code>column</code> → <code>`column`</code>（裸列名，表由外层 FROM 定义）</li>
+   *   <li><code>table.column</code> → <code>`table`.`column`</code>（表或别名均由 SQL 引擎从 FROM 解析）</li>
    * </ul>
+   * @param alias 别名映射，当前仅透传至子断言供 {@link #toSql(SdbActionContext)} 使用
    */
-  private static String lookupCol(String col, String mainTable, Map<String, String> alias) {
+  private static String lookupCol(String col, Map<String, String> alias) {
     if (col == null || col.isEmpty()) return "";
-    // table:column 语法（显式指定表）
-    int colon = col.indexOf(':');
-    if (colon > 0) {
-      String tbl = col.substring(0, colon);
-      String colName = col.substring(colon + 1);
-      return q(tbl) + "." + q(colName);
-    }
-    // alias.column 语法（别名解析）
     int dot = col.indexOf('.');
     if (dot > 0) {
-      String maybeAlias = col.substring(0, dot);
-      String colName = col.substring(dot + 1);
-      String resolved = (alias != null) ? alias.getOrDefault(maybeAlias, maybeAlias) : maybeAlias;
-      return q(resolved) + "." + q(colName);
+      return q(col.substring(0, dot)) + "." + q(col.substring(dot + 1));
     }
-    // 裸列名 → 加主表前缀；无主表时输出占位符 ?
-    if (mainTable != null && !mainTable.isEmpty())
-      return q(mainTable) + "." + q(col);
-    return "?";
+    return q(col);
   }
 
   /** 将值格式化为 SQL 字面量或列引用 */
-  private static String lookupVal(String val, boolean fromTable, String mainTable, Map<String, String> alias) {
-    return fromTable ? lookupCol(val, mainTable, alias) : literal(val);
+  private static String lookupVal(String val, boolean fromTable, Map<String, String> alias) {
+    return fromTable ? lookupCol(val, alias) : literal(val);
   }
 
   /** SQL 字符串字面量（转义单引号和反斜杠） */

@@ -142,6 +142,6 @@ public final class StreackLib {
    * @since 0.4.4
   */
   public static Long getUniqueID() {
-    return StreackLibNewable.getUniqueID();
+    return StreackLibNewable.getUniqueLongID();
   }
 }

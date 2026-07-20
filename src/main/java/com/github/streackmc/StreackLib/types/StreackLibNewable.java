@@ -18,7 +18,7 @@ public abstract class StreackLibNewable {
   }
 
   /** 当前实例的唯一ID */
-  public final long INSTANCE_ID = getUniqueID();
+  public final long INSTANCE_ID = getUniqueLongID();
 
   /** 当前实例初始化的时间节点 */
   public final long TIME_STAMP = System.currentTimeMillis();
@@ -27,11 +27,12 @@ public abstract class StreackLibNewable {
    * @return 获取一个全局唯一的ID
    * @since 0.6.0
    */
-  public static long getUniqueID() {
+  public static long getUniqueLongID() {
     try {
       return uniqueIDCounter.getAndUpdate(Math::incrementExact);
     } catch (ArithmeticException e) {
-      logger.warn("唯一 ID 计数器溢出（已超过 %s），将回绕到 %s", Long.MAX_VALUE, Long.MIN_VALUE);
+      // 我觉得更需要反思下怎么用完的
+      logger.error("唯一 ID 计数器溢出（已超过 %s），将回绕到 %s", Long.MAX_VALUE, Long.MIN_VALUE);
       uniqueIDCounter.set(Long.MIN_VALUE);
       return uniqueIDCounter.getAndIncrement();
     }

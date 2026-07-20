@@ -7,7 +7,7 @@ import com.github.streackmc.StreackLib.StreackLib;
  * 
  * @since 0.6.0
  */
-public class StreackLibNewableRuntimeException extends Exception {
+public class StreackLibNewableRuntimeException extends RuntimeException {
   /** 当前唯一异常实例 ID */
   public final Long INSTANCE_ID = StreackLib.getUniqueID();
 

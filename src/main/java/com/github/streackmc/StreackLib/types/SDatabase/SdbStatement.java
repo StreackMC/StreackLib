@@ -1,0 +1,738 @@
+package com.github.streackmc.StreackLib.types.SDatabase;
+
+import java.lang.ref.WeakReference;
+import java.sql.PreparedStatement;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+
+import com.github.streackmc.StreackLib.errors.CircularReferenceException;
+import com.github.streackmc.StreackLib.types.StreackLibNewable;
+
+/**
+ * <h2>SdbStatement</h2>
+ * 对数据库操作进行断言。断言可以作为条件限制数据库操作。
+ * <p>
+ * 除了如 {@link #or()} 这类少数的，如果同一个断言被多次指定逻辑，那么实际上这些逻辑会自动被视作使用 {@link #and()} 并列的隐式断言。
+ * <p>
+ * 空断言始终为 true。断言可以作为其他断言的条件，但如果尝试重复(循环)断言，则会抛出 {@link CircularReferenceException}。
+ * 
+ * <h3>不可回滚性</h3>
+ * 为了保证 API 简单度，<b>条件/其他断言被加入断言后不可撤销或修改</b>。这意味着如果断言包含的条件发生变更，你应始终新建一个断言而非继续使用原断言，除了以下这些情况：
+ * <ul>
+ * <li>在 {@link #and()} 或 {@link #or()} 方法中重新指定：会切换该断言的需求状态</li>
+ * <li>新增了其它条件</li>
+ * </ul>
+ * 尽管如此，由于线程安全性原因，<b>极其不推荐在一个断言被使用时修改这个断言</b>。推荐使用 {@link #copy()} 或 {@link #copyAll()} 复制一个副本。
+ * 
+ * <h3>「从表查找」</h3>
+ * 在部分断言中，「从表查找」指的是将输入参数作为表中列名，并将行的该列的内容作为参数进行断言。大部分断言中 v1 都会从表查找，而 v2 v3 等则不会，这是因为大部分情况下使用 SQL 比较定值不太理想（除非是<code>OR '1' = '1'</code>这种注入攻击）。
+ * <p>
+ * 默认情况下，查找的表是使用本断言的操作上下文所指定的表，但是可以使用 <code>table:column</code> 指定完整表名，或者使用 <code>alias.column</code> 指定操作上下文中定义的表别名。
+ * 
+ * @since 0.6.0
+ * @author kdxiaoyi
+ * @author Deepseek
+ */
+public class SdbStatement extends StreackLibNewable {
+
+  /** 开始一个断言 */
+  public SdbStatement() {
+  }
+
+  // ===--- 工具 ---===
+
+  /**
+   * 判断断言是否已被包含在另外一个断言中，这可以避免循环断言。
+   * 
+   * @since 0.6.0
+   * @param parent 父断言：已经存在的
+   * @param child  子断言：要加入父断言作为子断言的
+   * @apiNote 使用 BFS 遍历，时间复杂度为<code>O(断言树中断言数量 + 父引用边数)</code>，空间复杂度为<code>O(断言树中断言数量)</code>——在轻量断言树中的性能影响可忽略不计。
+   */
+  public static boolean detectCircular(SdbStatement parent, SdbStatement child) {
+    // 先判断输入是否合法
+    if (child == null || parent == null)
+      return false;
+    if (parent == child)
+      return true;
+    // BFS 遍历父级链
+    ArrayDeque<SdbStatement> queue = new ArrayDeque<>();
+    HashSet<SdbStatement> visited = new HashSet<>();
+    queue.addLast(parent);
+    visited.add(parent);
+    while (!queue.isEmpty()) {
+      SdbStatement current = queue.removeFirst();
+      // 清理已 GC 的弱引用
+      current.parentStatements.removeIf(i -> i.get() == null);
+      for (WeakReference<SdbStatement> ref : current.parentStatements) {
+        SdbStatement ancestor = ref.get();
+        if (ancestor == null)
+          continue;
+        if (ancestor == child)
+          return true;
+        if (visited.add(ancestor)/* 返回 true 说明尚未遍历，加入队列 */) {
+          queue.addLast(ancestor);
+        }
+      }
+    }
+    // 检查通过
+    return false;
+  }
+
+  /**
+   * 获取此断言的镜像，有助于线程安全。
+   * @since 0.6.0
+   * @see {@link #copyAll()} 深拷贝版本
+   */
+  public SdbStatement copy() {
+    SdbStatement newer = new SdbStatement();
+    newer.reverted = this.reverted;
+    newer.conditions.addAll(this.conditions);
+    newer.andStatements.putAll(this.andStatements);
+    newer.orStatements.putAll(this.orStatements);
+    // 新断言不会有任何父级，解除引用
+    return newer;
+  }
+
+  /**
+   * 获取此断言的镜像，且包含的全部子断言的镜像，有助于线程安全。
+   * @since 0.6.0
+   * @see {@link #copy()} 浅拷贝版本
+   */
+  public SdbStatement copyAll() {
+    SdbStatement newer = new SdbStatement();
+    newer.reverted = this.reverted;
+    for (Condition c : this.conditions)
+      newer.conditions.add(c.clone());
+    for (Map.Entry<SdbStatement, Boolean> e : this.andStatements.entrySet())
+      newer.andStatements.put(e.getKey().copyAll(), e.getValue());
+    for (Map.Entry<SdbStatement, Boolean> e : this.orStatements.entrySet())
+      newer.orStatements.put(e.getKey().copyAll(), e.getValue());
+    return newer;
+  }
+
+  // ===--- 断言接口 ---===
+
+  /**
+   * 将本断言转为SQL
+   * 
+   * @since 0.6.0
+   */
+  public PreparedStatement toSql(SdbActionContext ctx) {
+    return null;
+  }
+
+  /**
+   * 将断言转为 SQL 指令；无上下文时裸列名输出 <code>?</code>。
+   * 
+   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @since 0.6.0
+   */
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    appendSQL(sb, null, null);
+    return sb.length() == 0 ? "()" : sb.toString();
+  }
+
+  /**
+   * 将断言转为 SQL 指令；指定操作主表，裸列名自动加主表前缀。
+   * 
+   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @param mainTable 操作主表名，为 null 时裸列名输出 <code>?</code>
+   * @since 0.6.0
+   */
+  public String toString(String mainTable) {
+    StringBuilder sb = new StringBuilder();
+    appendSQL(sb, mainTable, null);
+    return sb.length() == 0 ? "()" : sb.toString();
+  }
+
+  /**
+   * 将断言转为 SQL 指令；支持别名解析，无主表时裸列名输出 <code>?</code>。
+   * 
+   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @param alias 别名映射：key=别名, value=真实表名；为 null 时别名不做解析
+   * @since 0.6.0
+   */
+  public String toString(Map<String, String> alias) {
+    StringBuilder sb = new StringBuilder();
+    appendSQL(sb, null, alias);
+    return sb.length() == 0 ? "()" : sb.toString();
+  }
+
+  /**
+   * 将断言转为 SQL 指令；完整指定操作主表与别名映射。
+   * <p>
+   * 裸列名 → 加 <code>mainTable</code> 前缀<br>
+   * <code>alias.column</code> → 通过 <code>alias</code> 映射为目标表<br>
+   * <code>table:column</code> → 直接使用指定表
+   * 
+   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @param mainTable 操作主表名
+   * @param alias     别名映射：key=别名, value=真实表名
+   * @since 0.6.0
+   */
+  public String toString(String mainTable, Map<String, String> alias) {
+    StringBuilder sb = new StringBuilder();
+    appendSQL(sb, mainTable, alias);
+    return sb.length() == 0 ? "()" : sb.toString();
+  }
+
+  /**
+   * 将断言转为 SQL 指令；从操作上下文中提取主表名与别名映射。
+   * 
+   * @param ctx 数据库操作上下文
+   * @since 0.6.0
+   */
+  public String toString(SdbActionContext ctx) {
+    if (ctx == null) return toString();
+    return toString(ctx.table, ctx.alias);
+  }
+
+  /** 递归生成 SQL */
+  private void appendSQL(StringBuilder sb, String mainTable, Map<String, String> alias) {
+    boolean hasCond = !conditions.isEmpty();
+    boolean hasAnd  = !andStatements.isEmpty();
+    boolean hasOr   = !orStatements.isEmpty();
+
+    if (!hasCond && !hasAnd && !hasOr) { sb.append("1=1"); return; }
+
+    // 叶条件转 SQL
+    for (int i = 0; i < conditions.size(); i++) {
+      if (i > 0) sb.append(" AND ");
+      appendConditionSQL(sb, conditions.get(i), mainTable, alias);
+    }
+
+    // AND 子断言
+    if (hasAnd) {
+      if (hasCond) sb.append(" AND ");
+      boolean first = true;
+      for (Map.Entry<SdbStatement, Boolean> e : andStatements.entrySet()) {
+        if (!first) sb.append(" AND ");
+        first = false;
+        if (!e.getValue()) sb.append("NOT ");
+        sb.append('(');
+        e.getKey().appendSQL(sb, mainTable, alias);
+        sb.append(')');
+      }
+    }
+
+    // OR 子断言
+    if (hasOr) {
+      if (hasCond || hasAnd) sb.append(" AND ");
+      sb.append('(');
+      boolean first = true;
+      for (Map.Entry<SdbStatement, Boolean> e : orStatements.entrySet()) {
+        if (!first) sb.append(" OR ");
+        first = false;
+        if (!e.getValue()) sb.append("NOT ");
+        sb.append('(');
+        e.getKey().appendSQL(sb, mainTable, alias);
+        sb.append(')');
+      }
+      sb.append(')');
+    }
+
+    if (reverted) {
+      String expr = sb.toString();
+      sb.setLength(0);
+      sb.append("NOT (").append(expr).append(')');
+    }
+  }
+
+  /** 单条条件转 SQL */
+  private void appendConditionSQL(StringBuilder sb, Condition c, String mainTable, Map<String, String> alias) {
+    String col = lookupCol(c.v1, mainTable, alias);
+    switch (c.type) {
+      case IS_NULL:      sb.append(col).append(" IS NULL"); break;
+      case IS_NOT_NULL:  sb.append(col).append(" IS NOT NULL"); break;
+      case EQUAL:        sb.append(col).append(" = ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case UNEQUAL:      sb.append(col).append(" <> ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case LARGER:       sb.append(col).append(" > ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case SMALLER:      sb.append(col).append(" < ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case LARGER_OR_EQUAL: sb.append(col).append(" >= ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case SMALLER_OR_EQUAL: sb.append(col).append(" <= ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case LIKE:         sb.append(col).append(" LIKE ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case NOT_LIKE:     sb.append(col).append(" NOT LIKE ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case REGEX:        sb.append(col).append(" REGEXP ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case NOT_REGEX:    sb.append(col).append(" NOT REGEXP ").append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)); break;
+      case BETWEEN:
+        sb.append(col).append(" BETWEEN ")
+          .append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)).append(" AND ").append(literal(c.v3)); break;
+      case NOT_BETWEEN:
+        sb.append(col).append(" NOT BETWEEN ")
+          .append(lookupVal(c.v2, c.v2Lookup, mainTable, alias)).append(" AND ").append(literal(c.v3)); break;
+      case IN: case NOT_IN:
+        sb.append(col).append(c.type == CondType.IN ? " IN (" : " NOT IN (");
+        if (c.inValues != null) {
+          boolean f = true;
+          for (Map.Entry<String, Boolean> iv : c.inValues.entrySet()) {
+            if (!f) sb.append(", "); f = false;
+            sb.append(lookupVal(iv.getKey(), iv.getValue(), mainTable, alias));
+          }
+        }
+        sb.append(')');
+        break;
+    }
+  }
+
+  /**
+   * 将列名格式化为 SQL 标识符（反引号包裹），支持三种语法：
+   * <ul>
+   *   <li><code>column</code> → 自动加主表前缀：<code>`mainTable`.`column`</code>；无主表时输出 <code>?</code></li>
+   *   <li><code>table:column</code> → 显式指定表：<code>`table`.`column`</code></li>
+   *   <li><code>alias.column</code> → 别名解析：查找 alias map 换成真实表名；无映射时保留原别名</li>
+   * </ul>
+   */
+  private static String lookupCol(String col, String mainTable, Map<String, String> alias) {
+    if (col == null || col.isEmpty()) return "";
+    // table:column 语法（显式指定表）
+    int colon = col.indexOf(':');
+    if (colon > 0) {
+      String tbl = col.substring(0, colon);
+      String colName = col.substring(colon + 1);
+      return q(tbl) + "." + q(colName);
+    }
+    // alias.column 语法（别名解析）
+    int dot = col.indexOf('.');
+    if (dot > 0) {
+      String maybeAlias = col.substring(0, dot);
+      String colName = col.substring(dot + 1);
+      String resolved = (alias != null) ? alias.getOrDefault(maybeAlias, maybeAlias) : maybeAlias;
+      return q(resolved) + "." + q(colName);
+    }
+    // 裸列名 → 加主表前缀；无主表时输出占位符 ?
+    if (mainTable != null && !mainTable.isEmpty())
+      return q(mainTable) + "." + q(col);
+    return "?";
+  }
+
+  /** 将值格式化为 SQL 字面量或列引用 */
+  private static String lookupVal(String val, boolean fromTable, String mainTable, Map<String, String> alias) {
+    return fromTable ? lookupCol(val, mainTable, alias) : literal(val);
+  }
+
+  /** SQL 字符串字面量（转义单引号和反斜杠） */
+  private static String literal(String val) {
+    if (val == null) return "NULL";
+    return "'" + val.replace("\\", "\\\\").replace("'", "''") + "'";
+  }
+
+  /** 反引号包裹标识符并转义内部反引号 */
+  private static String q(String id) {
+    return "`" + id.replace("`", "``") + "`";
+  }
+
+  // ===--- 逻辑控制 ---===
+
+  /** AND 断言列表；value 为 false 时需求 key 为假 */
+  private HashMap<SdbStatement, Boolean> andStatements = new HashMap<SdbStatement, Boolean>();
+  /** 父断言列表，仅用作防止循环引用 */
+  private ArrayList<WeakReference<SdbStatement>> parentStatements = new ArrayList<WeakReference<SdbStatement>>();
+  /** OR 断言列表；value 为 false 时需求 key 为假 */
+  private HashMap<SdbStatement, Boolean> orStatements = new HashMap<SdbStatement, Boolean>();
+  /** 为 true 时本断言的结果反转 */
+  public volatile boolean reverted = false;
+
+  /** 条件类型枚举 */
+  private enum CondType {
+    LIKE, NOT_LIKE, REGEX, NOT_REGEX,
+    BETWEEN, NOT_BETWEEN, IN, NOT_IN,
+    IS_NULL, IS_NOT_NULL,
+    EQUAL, UNEQUAL,
+    LARGER, SMALLER, LARGER_OR_EQUAL, SMALLER_OR_EQUAL
+  }
+
+  /** 单条条件 */
+  private static class Condition implements Cloneable {
+    final CondType type;
+    final String v1, v2, v3;
+    final boolean v2Lookup;
+    final Map<String, Boolean> inValues;
+
+    Condition(CondType type, String v1, String v2, String v3, boolean v2Lookup, Map<String, Boolean> inValues) {
+      this.type = type; this.v1 = v1; this.v2 = v2; this.v3 = v3;
+      this.v2Lookup = v2Lookup;
+      this.inValues = inValues == null ? null : new HashMap<>(inValues);
+    }
+
+    @Override
+    public Condition clone() {
+      return new Condition(type, v1, v2, v3, v2Lookup, inValues);
+    }
+  }
+
+  /** 本断言的条件列表，这些条件都是 AND 关系 */
+  private ArrayList<Condition> conditions = new ArrayList<>();
+
+  /** 声明本断言已被作为其它断言的子断言 */
+  protected void setParent(SdbStatement p) {
+    parentStatements.add(new WeakReference<SdbStatement>(p));
+  }
+
+  /**
+   * ……并且参数需为真
+   * 
+   * @since 0.6.0
+   * @throws NullPointerException       参数为 Null
+   * @throws CircularReferenceException 检测到循环引用
+   */
+  public SdbStatement and(SdbStatement another) {
+    Objects.requireNonNull(another, "请求的断言为 Null");
+    if (detectCircular(this, another)) throw new CircularReferenceException("请求的断言已被父级引用");
+    andStatements.put(another, true);
+    another.setParent(this);
+    return this;
+  }
+
+  /**
+   * ……并且参数需为假
+   * 
+   * @since 0.6.0
+   * @throws NullPointerException       参数为 Null
+   * @throws CircularReferenceException 检测到循环引用
+   */
+  public SdbStatement andNot(SdbStatement another) {
+    Objects.requireNonNull(another, "请求的断言为 Null");
+    if (detectCircular(this, another)) throw new CircularReferenceException("请求的断言已被父级引用");
+    andStatements.put(another, false);
+    another.setParent(this);
+    return this;
+  }
+
+  /**
+   * ……或者参数为真
+   * 
+   * @since 0.6.0
+   * @throws NullPointerException       参数为 Null
+   * @throws CircularReferenceException 检测到循环引用
+   */
+  public SdbStatement or(SdbStatement another) {
+    Objects.requireNonNull(another, "请求的断言为 Null");
+    if (detectCircular(this, another)) throw new CircularReferenceException("请求的断言已被父级引用");
+    orStatements.put(another, true);
+    another.setParent(this);
+    return this;
+  }
+
+  /**
+   * ……或者参数为假
+   * 
+   * @since 0.6.0
+   * @throws NullPointerException       参数为 Null
+   * @throws CircularReferenceException 检测到循环引用
+   */
+  public SdbStatement orNot(SdbStatement another) {
+    Objects.requireNonNull(another, "请求的断言为 Null");
+    if (detectCircular(this, another)) throw new CircularReferenceException("请求的断言已被父级引用");
+    orStatements.put(another, false);
+    another.setParent(this);
+    return this;
+  }
+
+  /**
+   * 设置是否要「反转本断言的结果」
+   * 
+   * @since 0.6.0
+   * @param reverted 为 true 反转
+   * @see {@link #reverted}
+   */
+  public SdbStatement revert(boolean reverted) {
+    this.reverted = reverted;
+    return this;
+  }
+
+  /**
+   * 反转「反转本断言的结果」的状态
+   * 
+   * @since 0.6.0
+   * @see {@link #reverted}
+   */
+  public SdbStatement revert() {
+    this.reverted = !this.reverted;
+    return this;
+  }
+
+  // ===--- 匹配与范围 ---===
+
+  /**
+   * 要求 v1 匹配 v2 这个简易模糊匹配器。
+   * 
+   * @see {@link #regex()} 正则表达式匹配
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2：使用 <code>_</code> 匹配任意<b>单个</b>字符；使用 <code>%</code>
+   *           匹配<b>任意数量</b>字符。
+   */
+  public SdbStatement like(String v1, String v2) {
+    conditions.add(new Condition(CondType.LIKE, v1, v2, null, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 <b>不</b>匹配 v2 这个简易模糊匹配器。
+   * 
+   * @see {@link #regex()} 正则表达式匹配
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2：使用 <code>_</code> 匹配任意<b>单个</b>字符；使用 <code>%</code>
+   *           匹配<b>任意数量</b>字符。
+   */
+  public SdbStatement notLike(String v1, String v2) {
+    conditions.add(new Condition(CondType.NOT_LIKE, v1, v2, null, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 匹配 v2 这个正则表达式。
+   * 
+   * @see {@link #like()} 简单模糊匹配
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2：一个正则表达式。
+   */
+  public SdbStatement regex(String v1, String v2) {
+    conditions.add(new Condition(CondType.REGEX, v1, v2, null, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 <b>不</b>匹配 v2 这个正则表达式。
+   * 
+   * @see {@link #like()} 简单模糊匹配
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2：一个正则表达式。
+   */
+  public SdbStatement notRegex(String v1, String v2) {
+    conditions.add(new Condition(CondType.NOT_REGEX, v1, v2, null, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 在 v2 到 v3 指定的范围里面，可以是数值或者时间。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2
+   * @param v3 参数3
+   */
+  public SdbStatement between(String v1, String v2, String v3) {
+    conditions.add(new Condition(CondType.BETWEEN, v1, v2, v3, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 <b>不</b>在 v2 到 v3 指定的范围里面，可以是数值或者时间。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2
+   * @param v3 参数3
+   */
+  public SdbStatement notBetween(String v1, String v2, String v3) {
+    conditions.add(new Condition(CondType.NOT_BETWEEN, v1, v2, v3, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 在 v2 中可以找到
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2：key表示要匹配的值，value表示是否要从表查找，默认 false。
+   */
+  public SdbStatement in(String v1, Map<String, Boolean> v2) {
+    conditions.add(new Condition(CondType.IN, v1, null, null, false, v2));
+    return this;
+  }
+
+  /**
+   * 要求 v1 在 v2 中无法找到
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2：key表示要匹配的值，value表示是否要从表查找，默认 false。
+   */
+  public SdbStatement notIn(String v1, Map<String, Boolean> v2) {
+    conditions.add(new Condition(CondType.NOT_IN, v1, null, null, false, v2));
+    return this;
+  }
+
+  // ===--- 比较运算 ---===
+
+  /**
+   * 要求 v1 是 Null。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   */
+  public SdbStatement isNull(String v1) {
+    conditions.add(new Condition(CondType.IS_NULL, v1, null, null, false, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 不是 Null。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   */
+  public SdbStatement isNotNull(String v1) {
+    conditions.add(new Condition(CondType.IS_NOT_NULL, v1, null, null, false, null));
+    return this;
+  }
+
+  /**
+   * 要求两个参数相等。
+   * 
+   * @see {@link #isNull()} {@link #isNotNull()} <b> Null 不能使用本方法匹配，请改用这些。</b>
+   * @since 0.6.0
+   * @param v1   参数1
+   * @param v2lp 参数2是否要从表查找，默认 false
+   * @param v2   参数2
+   */
+  public SdbStatement equal(String v1, String v2, boolean v2lp) {
+    conditions.add(new Condition(CondType.EQUAL, v1, v2, null, v2lp, null));
+    return this;
+  }
+
+  /**
+   * 要求两个参数相等。
+   * 
+   * @see {@link #isNull()} {@link #isNotNull()} <b> Null 不能使用本方法匹配，请改用这些。</b>
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2，不会从表中查找。
+   */
+  public SdbStatement equal(String v1, String v2) {
+    return equal(v1, v2, false);
+  }
+
+  /**
+   * 要求两个参数不相等。
+   * 
+   * @see {@link #isNull()} {@link #isNonNull()} <b> Null 不能使用本方法匹配，请改用这些。</b>
+   * @since 0.6.0
+   * @param v1   参数1
+   * @param v2lp 参数2是否要从表查找，默认 false
+   * @param v2   参数2
+   */
+  public SdbStatement unequal(String v1, String v2, boolean v2lp) {
+    conditions.add(new Condition(CondType.UNEQUAL, v1, v2, null, v2lp, null));
+    return this;
+  }
+
+  /**
+   * 要求两个参数不相等。
+   * 
+   * @since 0.6.0
+   * @see {@link #isNull()} {@link #isNonNull()} <b> Null 不能使用本方法匹配，请改用这些。</b>
+   * @param v1 参数1
+   * @param v2 参数2，不会从表中查找。
+   */
+  public SdbStatement unequal(String v1, String v2) {
+    return unequal(v1, v2, false);
+  }
+
+  /**
+   * 要求 v1 大于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1   参数1
+   * @param v2lp 参数2是否要从表查找，默认 false
+   * @param v2   参数2
+   */
+  public SdbStatement larger(String v1, String v2, boolean v2lp) {
+    conditions.add(new Condition(CondType.LARGER, v1, v2, null, v2lp, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 大于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2，不会从表中查找。
+   */
+  public SdbStatement larger(String v1, String v2) {
+    return larger(v1, v2, false);
+  }
+
+  /**
+   * 要求v1 小于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1   参数1
+   * @param v2lp 参数2是否要从表查找，默认 false
+   * @param v2   参数2
+   */
+  public SdbStatement smaller(String v1, String v2, boolean v2lp) {
+    conditions.add(new Condition(CondType.SMALLER, v1, v2, null, v2lp, null));
+    return this;
+  }
+
+  /**
+   * 要求v1 小于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2，不会从表中查找。
+   */
+  public SdbStatement smaller(String v1, String v2) {
+    return smaller(v1, v2, false);
+  }
+
+  /**
+   * 要求 v1 大于等于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1   参数1
+   * @param v2lp 参数2是否要从表查找，默认 false
+   * @param v2   参数2
+   */
+  public SdbStatement largerOrEqual(String v1, String v2, boolean v2lp) {
+    conditions.add(new Condition(CondType.LARGER_OR_EQUAL, v1, v2, null, v2lp, null));
+    return this;
+  }
+
+  /**
+   * 要求 v1 大于等于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2，不会从表中查找。
+   */
+  public SdbStatement largerOrEqual(String v1, String v2) {
+    return largerOrEqual(v1, v2, false);
+  }
+
+  /**
+   * 要求v1 小于等于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1   参数1
+   * @param v2lp 参数2是否要从表查找，默认 false
+   * @param v2   参数2
+   */
+  public SdbStatement smallerOrEqual(String v1, String v2, boolean v2lp) {
+    conditions.add(new Condition(CondType.SMALLER_OR_EQUAL, v1, v2, null, v2lp, null));
+    return this;
+  }
+
+  /**
+   * 要求v1 小于等于 v2。
+   * 
+   * @since 0.6.0
+   * @param v1 参数1
+   * @param v2 参数2，不会从表中查找。
+   */
+  public SdbStatement smallerOrEqual(String v1, String v2) {
+    return smallerOrEqual(v1, v2, false);
+  }
+}

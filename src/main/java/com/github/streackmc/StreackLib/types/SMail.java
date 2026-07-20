@@ -198,7 +198,7 @@ public class SMail extends StreackLibNewable {
   // ======================== 邮件的参数处理
 
   /** SMail 邮件构造器 */
-  public static class Builder extends StreackLibNewable {
+  public static class Builder {
     /** 原始档案名 */
     private final String profileRaw;
     /** 邮件参数 */

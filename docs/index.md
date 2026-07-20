@@ -66,7 +66,6 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 此外，从 0.6.0 版本起，可实例化的类的继承关系作出了调整：
 * 除部分需要继承其它类和 Exception ，其他可以实例化的类都继承了 `StreackLibNewable` 类；
 * 本库新增的 Exception 都继承了 `StreackLibNewableException` 或 `StreackLibNewableRuntimeException` 类；
-* 部分类内部的子类也具有上述的 `INSTANCE_ID` 与 `TIME_STAMP` 两个属性，并继承 `StreackLibNewable` 类。
 
 ### 工具类文档
 

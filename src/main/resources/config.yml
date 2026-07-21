@@ -11,7 +11,42 @@
 # 本配置节下第一个配置节的名称是“档案名称”，其他应用调用时要传入档案名。每个档案如何设置见下。
 databases:
   profile_splite:
-    
+    # 大小写不敏感的工作模式；当前为 SQLite
+    mode: 'sqlite'
+    # 目标文件
+    file: 'sqlite.db'
+    # 表前缀，有的时候可以防止表冲突
+    table_prefix: 'app1_'
+  profile_splite_2:
+    mode: 'sqlite'
+    # 可以共用一个文件（不推荐）
+    file: 'sqlite.db'
+    # 这样就算两个应用使用了相同表名也不会干扰
+    table_prefix: 'app2_'
+    # 请不要在投入生产环境后随意修改这个 prefix ，否则可能导致数据丢失
+  profile_sldb:
+    # 大小写不敏感的工作模式；当前为 Key-Value Database
+    # 与 SQLite 类似，也是文件驱动数据库，但却是 NonSQL，因此不支持 SQL 语法
+    mode: 'sldb'
+    # 目标文件；可以共用一个文件（不推荐）
+    file: 'database.sldb'
+    # 表前缀
+    table_prefix: 'app2_'
+  profile_mysql:
+    # 大小写不敏感的工作模式；当前为 MySQL
+    mode: 'mysql'
+    # 服务器地址
+    host: '127.0.0.1'
+    # 端口
+    port: 3306
+    # 用户名；为了安全，试图使用 root 登录会强制失败
+    user: noroot
+    # 密码
+    password: a_safe_and_strong_passwd
+    # 数据库
+    database: 'streacklib'
+    # 表前缀
+    table_prefix: 'app_'
 
 ## Email
 # 本配置节下第一个配置节的名称是“档案名称”，其他应用调用时要传入档案名。每个档案如何设置见下。

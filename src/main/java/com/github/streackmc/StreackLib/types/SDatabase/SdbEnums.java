@@ -19,27 +19,36 @@ public class SdbEnums {
   /** 操作类型 */
   public enum ACTION_TYPE {
     /** 查询 */
-    SELECT,
+    SELECT("SELECT"),
     /** 修改 */
-    UPDATE,
+    UPDATE("UPDATE"),
     /** 有则更新，无则插入 */
-    MERGE,
+    MERGE("MERGE"),
     /** 删除 */
-    DELETE,
+    DELETE("DELETE"),
     /** 建表 */
-    CREATE,
+    CREATE("CREATE"),
     /** 修改结构 */
-    ALTER,
+    ALTER("ALTER"),
     /** 删除表或库，<b>连表带数据全部消失</b>，<b>无法恢复</b> */
-    DROP,
+    DROP("DROP"),
     /** 删除表中全部数据，<b>无法恢复</b> */
-    TRUNCATE,
+    TRUNCATE("TRUNCATE"),
     /** 设置回滚的保存点 */
-    SAVEPOINT,
+    SAVEPOINT("SAVEPOINT"),
     /** 回滚事务（撤销未提交的修改） */
-    ROLLBACK,
+    ROLLBACK("ROLLBACK"),
     /** 提交事务（使修改永久生效） */
-    COMMIT,
+    COMMIT("COMMIT"),
+    /** 从其它数据来源创建临时表以供使用 */
+    WITH("WITH");
+
+    /** 操作名称 */
+    public final String name;
+    /** 获取操作名称 */
+    @Override
+    public String toString() { return this.name; }
+    ACTION_TYPE(String name) { this.name = name; }
   }
 
   /** 查询类型 */

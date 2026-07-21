@@ -18,6 +18,8 @@ import com.github.streackmc.StreackLib.types.StreackLibNewable;
  * <p>
  * 除了如 {@link #or()} 这类少数的，如果同一个断言被多次指定逻辑，那么实际上这些逻辑会自动被视作使用 {@link #and()} 并列的隐式断言。
  * <p>
+ * 对于 {@link #or()} ，它实际上会将全部非 OR 断言作为一个断言，与其他 OR 断言合并判断，也就是 OR 的优先级高于其他的；因此为了语义清晰，建议不要混用 OR 和其他条件。
+ * <p>
  * 空断言始终为 true。断言可以作为其他断言的条件，但如果尝试重复(循环)断言，则会抛出 {@link CircularReferenceException}。
  * 
  * <h3>不可回滚性</h3>

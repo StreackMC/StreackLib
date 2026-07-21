@@ -330,7 +330,13 @@ public class SdbActionContext extends StreackLibNewable {
     // 操作命令
     switch (ctx.type) {
       case SELECT:
-        sb.append("SELECT * FROM ");
+        sb.append("SELECT ");
+        String[] cols = ctx.filter.selectWhat();
+        for (int i = 0; i < cols.length; i++) {
+          if (i > 0) sb.append(", ");
+          sb.append(cols[i]);
+        }
+        sb.append(" FROM ");
         if (tbl != null) sb.append(tbl);
         break;
       case UPDATE:

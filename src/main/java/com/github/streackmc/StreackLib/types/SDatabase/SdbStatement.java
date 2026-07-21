@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -693,5 +694,37 @@ public class SdbStatement extends StreackLibNewable {
    */
   public SdbStatement smallerOrEqual(String v1, String v2) {
     return smallerOrEqual(v1, v2, false);
+  }
+
+  // ===--- 其它 ---===
+
+  private volatile List<String> selectColumns;
+
+  /**
+   * 设置 SELECT 能选择的列。如果 SELECT 操作上下文没有本限制，它会选中 * 。
+   * <p>
+   * <b>要想生效，该条件必须在操作上下文的直接断言内。</b>
+   * 
+   * @apiNote 本条件不参与其他断言的判断
+   * @apiNote 仅对 {@link SdbEnums.ACTION_TYPE#SELECT} 的操作上下文有效。通常情况下
+   *          {@link #toString()} 等方法不会导出本设置。
+   * @param columnHead 要选择的列名
+   * @throws NullPointerException 参数为 Null
+   * @since 0.6.0
+   */
+  public SdbStatement selectThat(String columnHead) {
+    if (this.selectColumns == null)
+      this.selectColumns = new ArrayList<>();
+    this.selectColumns.add(Objects.requireNonNull(columnHead, "要选择的列不能是 Null"));
+    return this;
+  }
+
+  /**
+   * @return 获取 SELECT 能选择的列，以列表形式传递
+   * @since 0.6.0
+   */
+  public String[] selectWhat() {
+    return (selectColumns == null || selectColumns.isEmpty()) ? new String[] { "*" }
+        : selectColumns.toArray(new String[0]);
   }
 }

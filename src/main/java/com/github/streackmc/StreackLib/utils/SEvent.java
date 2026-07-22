@@ -73,9 +73,10 @@ final public class SEvent extends StreackLibNewable {
   /**
    * 获取事件构造时的时间戳。
    *
-   * @deprecated 自 0.6.0 版本起，由于继承关系调整，现在可以使用 {@link TIME_STAMP} 直接获取了。本 API 仅做兼容性保留，未来可能移除。
+   * @deprecated 自 0.6.0 版本起，由于继承关系调整，现在可以使用 {@link #TIME_STAMP} 直接获取了。本 API 仅做兼容性保留，未来可能移除。
    * @return 毫秒级时间戳（System.currentTimeMillis()）
    */
+  @Deprecated
   public long getTimestamp() {
     return this.TIME_STAMP;
   }

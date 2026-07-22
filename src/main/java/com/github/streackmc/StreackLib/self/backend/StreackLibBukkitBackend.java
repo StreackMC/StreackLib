@@ -115,6 +115,7 @@ public class StreackLibBukkitBackend extends StreackLibDefaultBackend {
     }
     // 1. 判断是否为 IP 地址 (IPv4 或 IPv6)
     if (isIpAddress(target)) {
+      @SuppressWarnings({ "rawtypes"/* 无论是Ban什么都有那几个属性，而且下文不获取UUID */, "deprecation"/* 兼容Spigot */ })
       BanEntry banEntry = Bukkit.getServer().getBanList(BanList.Type.IP).getBanEntry(target);
       if (banEntry != null) {
         fillBanData(data, banEntry);
@@ -123,6 +124,7 @@ public class StreackLibBukkitBackend extends StreackLibDefaultBackend {
     }
     // 2. 处理玩家名或 UUID 传入
     String playerName = target;
+    @SuppressWarnings({ "rawtypes", "deprecation" })// 见上
     BanEntry banEntry = Bukkit.getServer().getBanList(BanList.Type.NAME).getBanEntry(playerName);
     if (banEntry != null) {
       fillBanData(data, banEntry);
@@ -132,8 +134,9 @@ public class StreackLibBukkitBackend extends StreackLibDefaultBackend {
 
   /**
    * 将 BanEntry 中的信息填入 SConfig 对象
+   * @param <T>
    */
-  private void fillBanData(SConfig data, BanEntry banEntry) {
+  private <T> void fillBanData(SConfig data, @SuppressWarnings("rawtypes") BanEntry banEntry) {
     data.putBoolean("banned", true);
     data.putString("reason", banEntry.getReason() == null ? "" : banEntry.getReason());
     data.putString("op", banEntry.getSource() == null ? "" : banEntry.getSource());

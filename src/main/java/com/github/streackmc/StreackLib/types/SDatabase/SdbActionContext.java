@@ -406,7 +406,6 @@ public class SdbActionContext extends StreackLibNewable {
   }
 
   /** 根据操作类型构建单条 SQL */
-  @SuppressWarnings("deprecation")
   private static String buildSQL(SdbActionContext ctx) {
     // === 校验 ===
     // WITH 子句声明了但未提供来源

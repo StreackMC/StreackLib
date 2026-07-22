@@ -25,10 +25,8 @@ final class SdbUtils {
   /**
    * SQL 字符串字面量（转义单引号和反斜杠）。
    *
-   * @deprecated 当前版本使用字符串拼接生成 SQL，仅做基础转义，
-   *             不能完全防御 SQL 注入。计划在 0.7.0 迁移至 PreparedStatement。
+   * @apiNote 当前版本使用字符串拼接生成 SQL，仅做基础转义，不能完全防御 SQL 注入。
    */
-  @Deprecated
   static String literal(String val) {
     if (val == null) return "NULL";
     return "'" + val.replace("\\", "\\\\").replace("'", "''") + "'";

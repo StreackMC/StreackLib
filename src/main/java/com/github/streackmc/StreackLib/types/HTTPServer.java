@@ -121,10 +121,12 @@ public class HTTPServer extends NanoHTTPD {
                 .build(),
             new ThreadPoolExecutor.AbortPolicy());
 
+        @SuppressWarnings("unused")// the external will use
         public void exec(Runnable code) {
           exec.execute(code);
         }
 
+        @SuppressWarnings("unused")// the external will use
         public void close() {
           exec.shutdownNow();
         }

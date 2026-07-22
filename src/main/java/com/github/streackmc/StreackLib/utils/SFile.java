@@ -671,6 +671,7 @@ public final class SFile {
    * @return 文件名列表
    * @throws IOException 如果路径不存在或不是目录
    */
+  @SuppressWarnings("null")
   public static List<String> lsStr(String path) throws IOException {
     List<File> files = lsInternal(path);
     return files.stream()
@@ -686,6 +687,7 @@ public final class SFile {
    * @return 文件名列表
    * @throws IOException 如果路径不存在或不是目录
    */
+  @SuppressWarnings("null")
   public static List<String> lsStr(File dir) throws IOException {
     List<File> files = lsInternal(dir.getPath());
     return files.stream()

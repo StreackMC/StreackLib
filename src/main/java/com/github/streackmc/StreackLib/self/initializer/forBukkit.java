@@ -22,6 +22,7 @@ public class forBukkit extends JavaPlugin {
 
   StreackLibBukkitBackend backend;
 
+  @SuppressWarnings({ "removal", "deprecation" })// 兼容Spigot
   @Override
   public void onEnable() {
     // 展示启动信息

@@ -53,7 +53,7 @@ class SdbManager {
             throw new BackendCreationException(e);
           }
         });
-        REFS.merge(profileId, 1, Integer::sum);
+        REFS.merge(profileId, 1, (a, b) -> a + b);
         return backend;
       } catch (BackendCreationException e) {
         throw e.getCause() instanceof Exception ? (Exception) e.getCause() : new Exception(e.getCause());

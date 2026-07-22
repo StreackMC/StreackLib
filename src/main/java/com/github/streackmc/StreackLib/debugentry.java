@@ -18,6 +18,12 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.streackmc.StreackLib.self.manager;
 import com.github.streackmc.StreackLib.types.SConfig;
+import com.github.streackmc.StreackLib.types.SDatabase.SdbAction;
+import com.github.streackmc.StreackLib.types.SDatabase.SdbActionContext;
+import com.github.streackmc.StreackLib.types.SDatabase.SdbDataEntry;
+import com.github.streackmc.StreackLib.types.SDatabase.SdbDatabase;
+import com.github.streackmc.StreackLib.types.SDatabase.SdbEnums;
+import com.github.streackmc.StreackLib.types.SDatabase.SdbStatement;
 import com.github.streackmc.StreackLib.types.SMail;
 import com.github.streackmc.StreackLib.utils.MCColor;
 import com.github.streackmc.StreackLib.utils.SEventCentral;
@@ -97,6 +103,13 @@ public class debugentry {
       test_SMail();
     } catch (Exception e) {
       err("[!] Caught Error @[debugentry.test/SMail] :" + e.getLocalizedMessage());
+      e.printStackTrace();
+    }
+    info("========== SDatabase ==========");
+    try {
+      test_SDatabase();
+    } catch (Exception e) {
+      err("[!] Caught Error @[ebugentry.test/SDatabase] :" + e.getLocalizedMessage());
       e.printStackTrace();
     }
     info(">>>>>>>>>> TEST DONE <<<<<<<<<<");
@@ -614,6 +627,143 @@ public class debugentry {
     }
 
     info("SMail 测试完成");
+  }
+
+  private static void test_SDatabase() throws Exception {
+    // ---------- 设置测试用数据库 Profile ----------
+    info("--- SDatabase[配置] ---");
+    File sqliteDir = new File("./target/debugCI-tmp/SDatabase");
+    sqliteDir.mkdirs();
+    File sqliteFile = new File(sqliteDir, "test.db");
+    if (sqliteFile.exists()) sqliteFile.delete(); // 每次测试从空库开始
+
+    Map<String, Object> sqliteProfile = new LinkedHashMap<>();
+    sqliteProfile.put("mode", "sqlite");
+    sqliteProfile.put("file", sqliteFile.getAbsolutePath());
+    StreackLib.ENV.conf.putSection("databases.sdbtest", sqliteProfile);
+
+    Map<String, Object> mysqlProfile = new LinkedHashMap<>();
+    mysqlProfile.put("mode", "mysql");
+    mysqlProfile.put("host", "127.0.0.1");
+    mysqlProfile.put("port", 3306);
+    mysqlProfile.put("database", "test");
+    mysqlProfile.put("user", "test");
+    mysqlProfile.put("password", "a");
+    StreackLib.ENV.conf.putSection("databases.sdbtest_mysql", mysqlProfile);
+
+    info("SQLite 数据库路径: " + sqliteFile.getAbsolutePath());
+    info("MySQL 数据库: 127.0.0.1:3306/test (user=test)");
+
+    // ---------- SQLite 测试 ----------
+    test_SDatabase_SQLite();
+
+    // ---------- MySQL 测试 ----------
+    test_SDatabase_MySQL();
+
+    info("SDatabase 测试完成");
+  }
+
+  private static void test_SDatabase_SQLite() throws Exception {
+    info("--- SDatabase[SQLite] ---");
+    SdbDatabase db = new SdbDatabase("sdbtest");
+    info("已连接 SQLite");
+
+    // 新建表
+    db.newTable("players");
+    info("已创建表: players");
+
+    // 添加列（使用原始 SQL）
+    db.act("ALTER TABLE players ADD COLUMN name TEXT");
+    db.act("ALTER TABLE players ADD COLUMN score INTEGER DEFAULT 0");
+    info("已添加列: name, score");
+
+    // 插入数据（事务控制）
+    try (SdbAction action = db.act()) {
+      action.apply("INSERT INTO players (name, score) VALUES ('Alice', 100)");
+      action.apply("INSERT INTO players (name, score) VALUES ('Bob', 200)");
+      action.apply("INSERT INTO players (name, score) VALUES ('Charlie', 150)");
+      action.commit();
+    }
+    info("已插入 3 行: Alice(100), Bob(200), Charlie(150)");
+
+    // 查询 —— 语法糖
+    SdbDataEntry result = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
+        ctx.table("players")
+           .filter(new SdbStatement().larger("score", "120")));
+    info("查询 score>120: InfluencedLines=" + result.InfluencedLines);
+    for (SConfig row : result.ResultLines) {
+      info("  结果行: name=" + row.getString("name") + ", score=" + row.getInt("score"));
+    }
+
+    // 更新
+    db.act("UPDATE players SET score=250 WHERE name='Alice'");
+    SdbDataEntry updated = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
+        ctx.table("players").filter(new SdbStatement().equal("name", "Alice")));
+    info("更新 Alice.score=250 → 查询结果: name="
+        + updated.ResultLines.get(0).getString("name")
+        + ", score=" + updated.ResultLines.get(0).getInt("score"));
+
+    // 删除
+    db.act("DELETE FROM players WHERE name='Charlie'");
+    SdbDataEntry allAfterDel = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
+        ctx.table("players"));
+    info("删除 Charlie 后总行数: " + allAfterDel.InfluencedLines);
+
+    // 重命名表
+    db.moveTable("players", "users");
+    info("已将 players 重命名为 users");
+
+    // 删除表
+    db.moveTable("users", null);
+    info("已删除表 users");
+
+    info("SDatabase SQLite 测试通过");
+  }
+
+  private static void test_SDatabase_MySQL() throws Exception {
+    info("--- SDatabase[MySQL] ---");
+
+    SdbDatabase db;
+    try {
+      db = new SdbDatabase("sdbtest_mysql");
+      info("已连接 MySQL");
+    } catch (Exception e) {
+      warn("MySQL 连接失败，跳过 MySQL 测试: " + e.getLocalizedMessage());
+      return;
+    }
+
+    // 新建表
+    try { db.act("DROP TABLE IF EXISTS test_users"); } catch (Exception ignored) {}
+    db.newTable("test_users");
+    db.act("ALTER TABLE test_users ADD COLUMN name VARCHAR(50)");
+    db.act("ALTER TABLE test_users ADD COLUMN age INT DEFAULT 0");
+    db.act("ALTER TABLE test_users ADD COLUMN active BOOLEAN DEFAULT TRUE");
+    info("已创建表: test_users (id, name, age, active)");
+
+    // 事务插入
+    try (SdbAction action = db.act()) {
+      action.apply("INSERT INTO test_users (name, age, active) VALUES ('MySQL-User1', 25, TRUE)");
+      action.apply("INSERT INTO test_users (name, age, active) VALUES ('MySQL-User2', 30, FALSE)");
+      action.commit();
+    }
+    info("已插入 2 行");
+
+    // 断言树查询
+    SdbDataEntry result = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
+        ctx.table("test_users")
+           .filter(new SdbStatement().equal("active", "1"))
+           .limit(10));
+    info("查询 active=1: InfluencedLines=" + result.InfluencedLines);
+    for (SConfig row : result.ResultLines) {
+      info("  结果行: name=" + row.getString("name")
+          + ", age=" + row.getInt("age")
+          + ", active=" + row.getBoolean("active"));
+    }
+
+    // 清理
+    db.act("DROP TABLE IF EXISTS test_users");
+    info("已清理 test_users");
+    info("SDatabase MySQL 测试通过");
   }
 
   /**

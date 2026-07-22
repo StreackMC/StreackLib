@@ -104,8 +104,12 @@ class SdbManager {
         String host     = profileConf.getString("host", "localhost");
         int    port     = profileConf.getInt("port", 3306);
         String database = profileConf.getString("database", "");
-        String user     = profileConf.getString("user", "root");
+        String user     = profileConf.getString("user", "");
         String password = profileConf.getString("password", "");
+        if (user.isEmpty() || "root".equalsIgnoreCase(user)) {
+          throw new IllegalArgumentException(
+              "MySQL 不允许使用 root 登录。请创建一个专用数据库用户并在 config.yml 中配置");
+        }
         return new MysqlBackend(host, port, database, user, password);
       }
       default:

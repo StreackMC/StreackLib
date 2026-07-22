@@ -39,7 +39,7 @@ databases:
 | `host` | — | 数据库主机 | `localhost` |
 | `port` | — | 数据库端口 | `3306` |
 | `database` | — | 数据库名 | `""` |
-| `user` | — | 用户名 | `root` |
+| `user` | — | 用户名（**不能使用 `root`**） | `""` |
 | `password` | — | 密码 | `""` |
 
 ## 连接并操作

@@ -23,3 +23,5 @@
 - SConfig：66.4KB，项目最大源文件，支持 7+ 种配置格式
 - HTTPServer：基于自定义 NanoHTTPd fork
 - SMail：支持 SMTP 和 DKIM SELFSIGN 两种模式
+- SLDB 已移除（设计与 SQL 架构不兼容）
+- SdbManager 全静态化，不再实例化使用

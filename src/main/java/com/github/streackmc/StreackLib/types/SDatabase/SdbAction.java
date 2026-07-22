@@ -1,11 +1,13 @@
 package com.github.streackmc.StreackLib.types.SDatabase;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 import com.github.streackmc.StreackLib.types.SConfig;
@@ -143,7 +145,8 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
   // Internal
   // ==========================================
 
-  /** 将 ResultSet 转为 {@code List<SConfig>} — 每个 SConfig 为一行，key=列名 */
+  /** 将 ResultSet 转为 {@code List<SConfig>} — 每个 SConfig 为一行，key=列名，value 按 JDBC 类型映射到 SConfig 类型化 putter */
+  @SuppressWarnings("deprecation")// 当类型未知时使用 SConfig 的原始方法。
   private static List<SConfig> readResultSet(ResultSet rs) throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     int colCount = meta.getColumnCount();
@@ -153,7 +156,34 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
       for (int i = 1; i <= colCount; i++) {
         String colName = meta.getColumnName(i);
         Object value   = rs.getObject(i);
-        row.put(colName, value != null ? value : "");
+        if (value == null) continue; // NULL → getter 返回默认值
+
+        if (value instanceof String s) {
+          row.putString(colName, s);
+        } else if (value instanceof Integer n) {
+          row.putInt(colName, n);
+        } else if (value instanceof Long n) {
+          row.putLong(colName, n);
+        } else if (value instanceof Double n) {
+          row.putDouble(colName, n);
+        } else if (value instanceof Float n) {
+          row.putFloat(colName, n);
+        } else if (value instanceof BigDecimal n) {
+          row.putBigDecimal(colName, n);
+        } else if (value instanceof Boolean b) {
+          row.putBoolean(colName, b);
+        } else if (value instanceof java.sql.Timestamp ts) {
+          row.putLocalDateTime(colName, ts.toLocalDateTime());
+        } else if (value instanceof java.sql.Date d) {
+          row.putLocalDate(colName, d.toLocalDate());
+        } else if (value instanceof java.sql.Time t) {
+          row.putLocalTime(colName, t.toLocalTime());
+        } else if (value instanceof byte[] bytes) {
+          row.putString(colName, Base64.getEncoder().encodeToString(bytes));
+        } else {
+          // 未知类型，使用原始方法。
+          row.put(colName, value);
+        }
       }
       rows.add(row);
     }

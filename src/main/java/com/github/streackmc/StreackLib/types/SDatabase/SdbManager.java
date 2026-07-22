@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.streackmc.StreackLib.StreackLib;
-import com.github.streackmc.StreackLib.errors.StreackLibNewableRuntimeException;
+import com.github.streackmc.StreackLib.errors.raw.StreackLibNewableRuntimeException;
 import com.github.streackmc.StreackLib.types.SConfig;
 
 /**

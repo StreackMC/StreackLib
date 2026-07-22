@@ -1,5 +1,7 @@
 package com.github.streackmc.StreackLib.errors;
 
+import com.github.streackmc.StreackLib.errors.raw.StreackLibNewableRuntimeException;
+
 /**
  * 没有任何含义的Exception，抛出它不会有任何意义，捕获它也没有任何意义。
  * 仅用于“跳出” try...catch 块

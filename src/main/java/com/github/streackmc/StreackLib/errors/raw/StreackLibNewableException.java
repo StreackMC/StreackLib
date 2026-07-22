@@ -1,4 +1,6 @@
-package com.github.streackmc.StreackLib.errors;
+package com.github.streackmc.StreackLib.errors.raw;
+
+import org.apache.logging.log4j.util.InternalApi;
 
 import com.github.streackmc.StreackLib.StreackLib;
 
@@ -7,6 +9,7 @@ import com.github.streackmc.StreackLib.StreackLib;
  * 
  * @since 0.6.0
  */
+@InternalApi
 public class StreackLibNewableException extends Exception {
   /** 当前 Exception 的唯一 ID */
   public final Long INSTANCE_ID = StreackLib.getUniqueID();

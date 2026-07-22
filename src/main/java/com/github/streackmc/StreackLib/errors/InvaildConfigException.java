@@ -1,5 +1,7 @@
 package com.github.streackmc.StreackLib.errors;
 
+import com.github.streackmc.StreackLib.errors.raw.StreackLibNewableException;
+
 /** 配置项无效 */
 public class InvaildConfigException extends StreackLibNewableException {
   public InvaildConfigException() {

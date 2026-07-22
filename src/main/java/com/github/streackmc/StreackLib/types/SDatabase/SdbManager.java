@@ -44,16 +44,25 @@ class SdbManager {
    */
   Backend acquire(SConfig profileConf, String profileId) throws Exception {
     synchronized (POOL_LOCK) {
-      Backend backend = POOLS.computeIfAbsent(profileId, id -> {
-        try {
-          return createBackend(profileConf);
-        } catch (Exception e) {
-          throw new RuntimeException(e);
-        }
-      });
-      REFS.merge(profileId, 1, Integer::sum);
-      return backend;
+      try {
+        Backend backend = POOLS.computeIfAbsent(profileId, id -> {
+          try {
+            return createBackend(profileConf);
+          } catch (Exception e) {
+            throw new BackendCreationException(e);
+          }
+        });
+        REFS.merge(profileId, 1, Integer::sum);
+        return backend;
+      } catch (BackendCreationException e) {
+        throw e.getCause() instanceof Exception ? (Exception) e.getCause() : new Exception(e.getCause());
+      }
     }
+  }
+
+  /** 内部异常，用于在 computeIfAbsent 的 lambda 中安全传递受检异常 */
+  private static class BackendCreationException extends RuntimeException {
+    BackendCreationException(Throwable cause) { super(cause); }
   }
 
   /**

@@ -137,7 +137,7 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
       try { connection.setAutoCommit(true); } catch (SQLException ignored) {}
     } finally {
       try { connection.close(); } catch (SQLException ignored) {}
-      manager.release(profileId);
+      try { manager.release(profileId); } catch (RuntimeException ignored) {}
     }
   }
 

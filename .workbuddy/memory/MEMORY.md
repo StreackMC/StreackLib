@@ -19,7 +19,7 @@
 - 所有修改必须用 Git 跟踪
 
 ## 模块状态备注
-- SDatabase（0.6.0 新增）：SdbManager 连接池和 SdbActionContext.execute() 尚未实现
+- SDatabase（0.6.0 新增）：后端已完整实现（Backend接口、SqliteBackend/MysqlBackend、SdbManager引用计数连接池、SdbAction事务手柄）
 - SConfig：66.4KB，项目最大源文件，支持 7+ 种配置格式
 - HTTPServer：基于自定义 NanoHTTPd fork
 - SMail：支持 SMTP 和 DKIM SELFSIGN 两种模式

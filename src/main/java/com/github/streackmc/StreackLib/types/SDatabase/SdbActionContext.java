@@ -13,20 +13,21 @@ import com.github.streackmc.StreackLib.types.StreackLibNewable;
  * <h2>SdbActionContext</h2>
  * 数据库操作上下文，用于链式构建并执行一次数据库操作。
  * <p>
- * 通过 {@link SdbDatabase#act(SdbEnums.ACTION_TYPE)} 创建，然后链式设置参数：
+ * 通过 {@link SdbDatabase#act(SdbEnums.ACTION_TYPE, java.util.function.Consumer)} 创建，然后链式设置参数：
  * <pre><code>
- * db.act(SdbEnums.ACTION_TYPE.SELECT)
- *   .table("users")
- *   .alias("u", "users")
- *   .filter(new SdbStatement().equal("name", "abc"))
- *   .limit(10)
- *   .execute();
+ * SdbDataEntry result = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
+ *     ctx.table("users")
+ *        .alias("u", "users")
+ *        .filter(new SdbStatement().equal("name", "abc"))
+ *        .limit(10));
  * </code></pre>
  * 
  * <h3>上下文</h3>
  * 一个（串）上下文是由一个数据库开始的，之后的每一个操作上下文都可以接下一个操作上下文，此时前者称作后者的上文，反过来后者是前者的下文。
  * <p>
- * 串联成一串上下文后，可以在任何一个上下文节点执行 {@link #execute()} 或 {@link #toSqlString()} ，这会从数据库开始，流式拼接直到该节点（含）途中全部操作上下文执行的命令。
+ * 串联成一串上下文后，可以在任何一个上下文节点通过
+ * {@link SdbDatabase#act(SdbEnums.ACTION_TYPE, java.util.function.Consumer)}
+ * 或 {@link #toSqlString()} 来生成 SQL，这会从数据库开始，流式拼接直到该节点（含）途中全部操作上下文执行的命令。
  * <p>
  * 之所以称作「上下文」，是因为本链式上下文的全部操作都可以从最初的上下文（也就是发起操作的数据库）继承必要数据而无需重复声明。
  * <p>
@@ -257,23 +258,6 @@ public class SdbActionContext extends StreackLibNewable {
       if (cur == this) break;
     }
     return sqlBatch;
-  }
-
-  /**
-   * 执行操作链。
-   * <p>
-   * 从链首开始正序遍历至当前节点，生成 SQL 并提交连接池执行（暂未实现）。
-   * 
-   * @return 当前操作的结果（暂未实现）
-   * @throws IllegalStateException 操作链中有非法配置
-   * @since 0.6.0
-   */
-  public SdbDataEntry execute() {
-    // 先验证再执行（变量保留给连接池接入后用）
-    @SuppressWarnings("unused")
-    java.util.List<String> sqlBatch = toSqlString();
-    // TODO: 接入连接池执行 sqlBatch
-    return null;
   }
 
   /** 根据操作类型构建单条 SQL */

@@ -63,7 +63,7 @@ public class SdbEnums {
 
   /** 数据库类型 */
   public enum DB_TYPE {
-    SQLITE("db"), MYSQL(null), SLDB("sldb");
+    SQLITE("db"), MYSQL(null);
 
     /** 文件拓展名 */
     public final String FILE_EXTENSION_NAME;
@@ -81,11 +81,6 @@ public class SdbEnums {
         case "sqlite":
         case "sqllite":
           return SQLITE;
-        case "sldb":
-        case "streacklibdb":
-        case "streacklibdatabase":
-        case "sldatabase":
-          return SLDB;
 
         default:
           return null;

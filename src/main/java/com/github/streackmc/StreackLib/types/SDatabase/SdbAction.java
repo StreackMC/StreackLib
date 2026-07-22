@@ -39,14 +39,12 @@ import com.github.streackmc.StreackLib.types.StreackLibNewable;
 public class SdbAction extends StreackLibNewable implements AutoCloseable {
 
   private final Connection connection;
-  private final SdbManager manager;
   private final String    profileId;
   private boolean committed  = false;
   private boolean rolledBack = false;
 
-  SdbAction(Connection conn, SdbManager manager, String profileId) throws SQLException {
+  SdbAction(Connection conn, String profileId) throws SQLException {
     this.connection = conn;
-    this.manager    = manager;
     this.profileId  = profileId;
     conn.setAutoCommit(false);
   }
@@ -137,7 +135,7 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
       try { connection.setAutoCommit(true); } catch (SQLException ignored) {}
     } finally {
       try { connection.close(); } catch (SQLException ignored) {}
-      try { manager.release(profileId); } catch (RuntimeException ignored) {}
+      try { SdbManager.release(profileId); } catch (RuntimeException ignored) {}
     }
   }
 

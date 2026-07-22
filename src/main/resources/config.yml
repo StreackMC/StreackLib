@@ -24,14 +24,6 @@ databases:
     # 这样就算两个应用使用了相同表名也不会干扰
     table_prefix: 'app2_'
     # 请不要在投入生产环境后随意修改这个 prefix ，否则可能导致数据丢失
-  profile_sldb:
-    # 大小写不敏感的工作模式；当前为 Key-Value Database
-    # 与 SQLite 类似，也是文件驱动数据库，但却是 NonSQL，因此不支持 SQL 语法
-    mode: 'sldb'
-    # 目标文件；可以共用一个文件（不推荐）
-    file: 'database.sldb'
-    # 表前缀
-    table_prefix: 'app2_'
   profile_mysql:
     # 大小写不敏感的工作模式；当前为 MySQL
     mode: 'mysql'

@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.github.streackmc.StreackLib.StreackLib;
+import com.github.streackmc.StreackLib.errors.StreackLibNewableRuntimeException;
 import com.github.streackmc.StreackLib.types.SConfig;
 
 /**
@@ -42,7 +43,7 @@ class SdbManager {
    * @return 目标 Backend
    * @throws Exception 创建连接池失败时抛出
    */
-  Backend acquire(SConfig profileConf, String profileId) throws Exception {
+  static Backend acquire(SConfig profileConf, String profileId) throws Exception {
     synchronized (POOL_LOCK) {
       try {
         Backend backend = POOLS.computeIfAbsent(profileId, id -> {
@@ -61,7 +62,7 @@ class SdbManager {
   }
 
   /** 内部异常，用于在 computeIfAbsent 的 lambda 中安全传递受检异常 */
-  private static class BackendCreationException extends RuntimeException {
+  private static class BackendCreationException extends StreackLibNewableRuntimeException {
     BackendCreationException(Throwable cause) { super(cause); }
   }
 
@@ -70,7 +71,7 @@ class SdbManager {
    *
    * @param profileId 唯一标识
    */
-  void release(String profileId) {
+  static void release(String profileId) {
     synchronized (POOL_LOCK) {
       Integer count = REFS.get(profileId);
       if (count == null) return;
@@ -90,7 +91,7 @@ class SdbManager {
   // 工厂
   // ==========================================
 
-  private Backend createBackend(SConfig profileConf) throws Exception {
+  static private Backend createBackend(SConfig profileConf) throws Exception {
     String mode = profileConf.getString("mode", "").toLowerCase();
     switch (mode) {
       case "sqlite":

@@ -48,7 +48,6 @@ public class SdbDatabase extends StreackLibNewable {
   // ==========================================
 
   private final SConfig    profileConf;
-  private final SdbManager manager;
   private final String     profileId;
 
   // ==========================================
@@ -66,7 +65,6 @@ public class SdbDatabase extends StreackLibNewable {
     this.profileId   = name;
     this.profileConf = StreackLib.ENV.conf.getSection(
         "databases." + name, SConfig.TYPES.JSON, null);
-    this.manager     = new SdbManager();
 
     String mode = profileConf.getString("mode", "").toLowerCase();
     if (mode.isEmpty()) {
@@ -94,8 +92,7 @@ public class SdbDatabase extends StreackLibNewable {
    */
   public SdbAction act() throws Exception {
     return new SdbAction(
-        manager.acquire(profileConf, profileId).borrowConnection(),
-        manager,
+        SdbManager.acquire(profileConf, profileId).borrowConnection(),
         profileId);
   }
 

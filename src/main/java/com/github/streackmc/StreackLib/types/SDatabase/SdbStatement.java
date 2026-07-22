@@ -121,12 +121,16 @@ public class SdbStatement extends StreackLibNewable {
   // ===--- 断言接口 ---===
 
   /**
-   * 将本断言转为SQL
-   * 
+   * 将断言树转为{@link java.sql.PreparedStatement}。
+   *
+   * @throws UnsupportedOperationException 当前版本未实现参数化查询。
+   *         计划在 0.7.0 迁移至 PreparedStatement 以彻底消除 SQL 注入风险。
+   *         临时使用 {@link #toString()} 方法进行字符串拼接查询。
    * @since 0.6.0
    */
   public PreparedStatement toSql(SdbActionContext ctx) {
-    return null;
+    throw new UnsupportedOperationException(
+        "PreparedStatement 路径尚未实现，计划在 0.7.0 提供。请使用 toString() 方法");
   }
 
   /**
@@ -237,10 +241,10 @@ public class SdbStatement extends StreackLibNewable {
       case NOT_REGEX:    sb.append(col).append(" NOT REGEXP ").append(lookupVal(c.v2, c.v2Lookup, alias)); break;
       case BETWEEN:
         sb.append(col).append(" BETWEEN ")
-          .append(lookupVal(c.v2, c.v2Lookup, alias)).append(" AND ").append(literal(c.v3)); break;
+          .append(lookupVal(c.v2, c.v2Lookup, alias)).append(" AND ").append(SdbUtils.literal(c.v3)); break;
       case NOT_BETWEEN:
         sb.append(col).append(" NOT BETWEEN ")
-          .append(lookupVal(c.v2, c.v2Lookup, alias)).append(" AND ").append(literal(c.v3)); break;
+          .append(lookupVal(c.v2, c.v2Lookup, alias)).append(" AND ").append(SdbUtils.literal(c.v3)); break;
       case IN: case NOT_IN:
         sb.append(col).append(c.type == CondType.IN ? " IN (" : " NOT IN (");
         if (c.inValues != null) {
@@ -267,25 +271,14 @@ public class SdbStatement extends StreackLibNewable {
     if (col == null || col.isEmpty()) return "";
     int dot = col.indexOf('.');
     if (dot > 0) {
-      return q(col.substring(0, dot)) + "." + q(col.substring(dot + 1));
+      return SdbUtils.q(col.substring(0, dot)) + "." + SdbUtils.q(col.substring(dot + 1));
     }
-    return q(col);
+    return SdbUtils.q(col);
   }
 
   /** 将值格式化为 SQL 字面量或列引用 */
   private static String lookupVal(String val, boolean fromTable, Map<String, String> alias) {
-    return fromTable ? lookupCol(val, alias) : literal(val);
-  }
-
-  /** SQL 字符串字面量（转义单引号和反斜杠） */
-  private static String literal(String val) {
-    if (val == null) return "NULL";
-    return "'" + val.replace("\\", "\\\\").replace("'", "''") + "'";
-  }
-
-  /** 反引号包裹标识符并转义内部反引号 */
-  private static String q(String id) {
-    return "`" + id.replace("`", "``") + "`";
+    return fromTable ? lookupCol(val, alias) : SdbUtils.literal(val);
   }
 
   // ===--- 逻辑控制 ---===

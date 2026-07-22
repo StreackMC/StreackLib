@@ -200,9 +200,9 @@ public class SdbDatabase extends StreackLibNewable {
   public SdbDatabase moveTable(@Nonnull String existed, @Nullable String newname) {
     try {
       if (newname == null || newname.isBlank()) {
-        act("DROP TABLE IF EXISTS " + q(existed));
+        act("DROP TABLE IF EXISTS " + SdbUtils.q(existed));
       } else {
-        act("ALTER TABLE " + q(existed) + " RENAME TO " + q(newname));
+        act("ALTER TABLE " + SdbUtils.q(existed) + " RENAME TO " + SdbUtils.q(newname));
       }
     } catch (SQLException e) {
       throw new RuntimeException("moveTable failed for '" + existed + "' → '" + newname + "'", e);
@@ -229,21 +229,11 @@ public class SdbDatabase extends StreackLibNewable {
         ? "id INT AUTO_INCREMENT PRIMARY KEY"
         : "id INTEGER PRIMARY KEY AUTOINCREMENT";
     try {
-      act("CREATE TABLE IF NOT EXISTS " + q(name) + " (" + idCol + ")");
+      act("CREATE TABLE IF NOT EXISTS " + SdbUtils.q(name) + " (" + idCol + ")");
     } catch (SQLException e) {
       throw new RuntimeException("newTable failed for '" + name + "'", e);
     }
     return this;
-  }
-
-  // ==========================================
-  // Internal
-  // ==========================================
-
-  /** 反引号转义标识符 */
-  private static String q(String identifier) {
-    if (identifier == null || identifier.isEmpty()) return "";
-    return "`" + identifier.replace("`", "``") + "`";
   }
 }
 
@@ -374,7 +364,7 @@ class SqliteBackend implements Backend {
 
   private record CloseInterceptor(Connection delegate) implements InvocationHandler {
     @Override
-    public Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
+    public synchronized Object invoke(Object proxy, java.lang.reflect.Method method, Object[] args) throws Throwable {
       if ("close".equals(method.getName()) && (args == null || args.length == 0)) {
         return null; // 拦截 close()
       }

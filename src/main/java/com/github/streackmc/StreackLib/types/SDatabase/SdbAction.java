@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
+import com.github.streackmc.StreackLib.self.logger;
 import com.github.streackmc.StreackLib.types.SConfig;
 import com.github.streackmc.StreackLib.types.StreackLibNewable;
 
@@ -137,7 +138,9 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
       try { connection.setAutoCommit(true); } catch (SQLException ignored) {}
     } finally {
       try { connection.close(); } catch (SQLException ignored) {}
-      try { SdbManager.release(profileId); } catch (RuntimeException ignored) {}
+      try { SdbManager.release(profileId); } catch (RuntimeException e) {
+        logger.warn("SdbAction.close: 释放 Profile '" + profileId + "' 引用计数时异常", e);
+      }
     }
   }
 

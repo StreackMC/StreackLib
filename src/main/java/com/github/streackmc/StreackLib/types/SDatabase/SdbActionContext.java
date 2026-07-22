@@ -276,7 +276,7 @@ public class SdbActionContext extends StreackLibNewable {
       if (tbl == null)
         throw new IllegalStateException("WITH 节点未指定 CTE 别名（通过 table() 设置）");
       StringBuilder sb = new StringBuilder("WITH ");
-      sb.append(q(tbl)).append(" AS (");
+      sb.append(SdbUtils.q(tbl)).append(" AS (");
       if (ctx.with != null && !ctx.with.isEmpty()) {
         boolean f = true;
         for (SdbActionContext src : ctx.with.values()) {
@@ -307,7 +307,7 @@ public class SdbActionContext extends StreackLibNewable {
       boolean f = true;
       for (Map.Entry<String, SdbActionContext> e : ctx.with.entrySet()) {
         if (!f) sb.append(", "); f = false;
-        sb.append(q(e.getKey())).append(" AS (").append(buildSQL(e.getValue())).append(')');
+        sb.append(SdbUtils.q(e.getKey())).append(" AS (").append(buildSQL(e.getValue())).append(')');
       }
       sb.append(' ');
     }
@@ -321,44 +321,49 @@ public class SdbActionContext extends StreackLibNewable {
           if ("*".equals(cols[i])) {
             sb.append('*');
           } else {
-            sb.append(q(cols[i]));
+            sb.append(SdbUtils.q(cols[i]));
           }
         }
         sb.append(" FROM ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case UPDATE:
-        sb.append("UPDATE ");
-        if (tbl != null) sb.append(q(tbl));
-        sb.append(" SET ?"); // TODO: 接入 param
-        break;
+        throw new UnsupportedOperationException(
+            "UPDATE 的 SET 子句参数映射尚未实现。"
+            + "请使用 db.act(\"UPDATE ... SET ... WHERE ...\") 原始 SQL 替代");
       case DELETE:
         sb.append("DELETE FROM ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case CREATE:
         sb.append("CREATE TABLE ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case ALTER:
         sb.append("ALTER TABLE ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case DROP:
         sb.append("DROP TABLE ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case TRUNCATE:
         sb.append("TRUNCATE TABLE ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case MERGE:
         sb.append("MERGE INTO ");
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
+      case COMMIT:
+      case ROLLBACK:
+      case SAVEPOINT:
+        throw new UnsupportedOperationException(
+            ctx.type + " 不可通过 SdbActionContext 执行。"
+            + "事务控制请使用 SdbAction.commit() / SdbAction.rollback()");
       default:
         sb.append(ctx.type).append(' ');
-        if (tbl != null) sb.append(q(tbl));
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
     }
     // WHERE 条件
@@ -370,15 +375,6 @@ public class SdbActionContext extends StreackLibNewable {
       sb.append(" LIMIT ").append(ctx.limit);
     }
     return sb.toString();
-  }
-
-  /**
-   * 反引号包裹 SQL 标识符并转义内部反引号。
-   * 与 {@link SdbStatement#q(String)} 保持一致的转义策略。
-   */
-  private static String q(String identifier) {
-    if (identifier == null || identifier.isEmpty()) return "";
-    return "`" + identifier.replace("`", "``") + "`";
   }
 
   /** 向上查找表名：优先用自身的，否则继承上文的 */

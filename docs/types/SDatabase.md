@@ -1,8 +1,6 @@
 # SDatabase
 
-> 本模块于 0.6.0 引入。
-
-`SdbDatabase` 提供了一套面向 SQL 数据库的链式操作 API。通过断言树和操作上下文，将 SQL 的"增删改查"抽象为和 JavaScript 对象操作类似的调用方式。
+自 0.6.0 版本加入的`SdbDatabase` 提供了一套面向 SQL 数据库的链式操作 API。通过断言树和操作上下文，将 SQL 的"增删改查"抽象为一种简洁的调用方式。
 
 > 本文由 AI 生成，可能不准确。
 
@@ -43,6 +41,8 @@ databases:
 | `password` | — | 密码 | `""` |
 
 ## 连接并操作
+
+先引入：
 
 ```java
 import com.github.streackmc.StreackLib.types.SDatabase.*;
@@ -148,7 +148,7 @@ activeUsers.or(premium);
 activeUsers.revert();
 ```
 
-> **注意**：断言一旦创建，条件不可移除或修改。对于需要变形的场景，请使用 `copy()` 或 `copyAll()` 复制副本。
+> **注意**：断言一旦创建，条件不可移除或修改。对于需要变式的场景，请使用 `copy()` 或 `copyAll()` 复制副本。
 
 ### 限定查询列
 
@@ -161,7 +161,7 @@ SdbStatement stmt = new SdbStatement()
 
 不设置时默认 `SELECT *`。
 
-## 读取结果 —— `SdbDataEntry`
+## 读取结果`SdbDataEntry`
 
 操作返回 `SdbDataEntry` 对象，包含两个字段：
 
@@ -220,6 +220,7 @@ head.next(tail); // tail 继承 users 表名，无需重复指定
 仅 MySQL 可用（需 >= 8.0 版本），对 `SELECT`/`UPDATE`/`DELETE`/`MERGE` 操作可使用 `WITH` 创建临时表：
 
 ```java
+// WITH 子表数据来源
 SdbActionContext source = new SdbActionContext(SELECT, db)
     .table("users")
     .filter(new SdbStatement().equal("active", "1"));
@@ -233,7 +234,7 @@ db.act(SELECT, ctx ->
 ## 内部架构
 
 ```
-用户代码 ──► SdbDatabase.act() ──► SdbAction (事务手柄，AutoCloseable)
+用户代码 ──► SdbDatabase.act() ──► SdbAction (事务会话，AutoCloseable)
                                         │ apply(ctx)
                                         ▼
               SdbManager (全局静态)   SdbActionContext (纯数据，生成 SQL)
@@ -256,9 +257,3 @@ db.act(SELECT, ctx ->
 ## 设计限制与注意
 
 > **关于 SQL 注入**：断言树中用户输入的字面值通过单引号/反斜杠转义嵌入 SQL；表名/列名使用反引号转义。但执行层目前使用 `Statement`（而非 `PreparedStatement`），对于高安全风险的场景建议直接使用 `act(rawSql)` 搭配自建 `PreparedStatement`。
-
-> **弃用 API**：`SdbActionContext` 不再提供 `execute()` 方法。SQL 执行职责已移入 `SdbAction.apply()`。
-
-> **不支持 SLDB**：0.6.0 后续版本曾规划一种基于 SConfig 的无 SQL 存储格式（SLDB），因其与 SQL 导向的 Backend 架构无法兼容已移除。文件存储可直接使用 `SConfig`。
-
-> **事务类型**：`SdbEnums.ACTION_TYPE` 中 `COMMIT` / `ROLLBACK` / `SAVEPOINT` 尚未实现。事务控制请使用 `SdbAction.commit()` / `SdbAction.rollback()`。

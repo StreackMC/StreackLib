@@ -85,7 +85,7 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
   }
 
   /**
-   * 执行原始 SQL 字符串（由调用者负责防范注入）。
+   * 执行原始 SQL 字符串。<b>谨防 SQL 注入</b>
    *
    * @param rawSql 原始 SQL 命令
    * @return 执行结果

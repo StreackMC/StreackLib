@@ -74,11 +74,11 @@ public class SdbDatabase extends StreackLibNewable {
   }
 
   // ==========================================
-  // act() —— 事务手柄
+  // act() —— 事务会话
   // ==========================================
 
   /**
-   * 打开一个事务手柄。调用者<b>必须</b>使用 try-with-resources 或在 finally 中关闭。
+   * 打开一个事务会话。调用者<b>必须</b>使用 try-with-resources 或在 finally 中关闭。
    *
    * <pre><code>
    * try (SdbAction action = db.act()) {
@@ -87,7 +87,7 @@ public class SdbDatabase extends StreackLibNewable {
    * }
    * </code></pre>
    *
-   * @return 事务手柄
+   * @return 事务会话
    * @throws Exception 无法获取数据库连接
    */
   public SdbAction act() throws Exception {
@@ -97,7 +97,7 @@ public class SdbDatabase extends StreackLibNewable {
   }
 
   /**
-   * 语法糖：创建上下文、执行、自动关闭事务（auto-commit）。
+   * 执行一个上下文
    *
    * <pre><code>
    * SdbDataEntry r = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
@@ -121,7 +121,26 @@ public class SdbDatabase extends StreackLibNewable {
   }
 
   /**
-   * 直接执行原始 SQL。
+   * 执行一个上下文
+   *
+   * @param type 操作类型
+   * @param ctx  操作上下文
+   * @return 操作结果
+   * @throws IllegalStateException 传入操作上下文的数据库不是本数据库
+   * @throws Exception             数据库错误
+   */
+  public SdbDataEntry act(SdbEnums.ACTION_TYPE type, SdbActionContext ctx) throws Exception {
+    try (SdbAction action = act()) {
+      if (ctx.database != this)
+        throw new IllegalStateException("传入操作上下文的数据库不是本数据库");
+      SdbDataEntry result = action.apply(ctx);
+      action.commit();
+      return result;
+    }
+  }
+
+  /**
+   * 直接执行原始 SQL
    *
    * <pre><code>
    * SdbDataEntry r = db.act("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY)");

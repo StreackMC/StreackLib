@@ -1,6 +1,7 @@
 package com.github.streackmc.StreackLib.types.SDatabase;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.function.Consumer;
 
 import javax.annotation.Nonnull;
@@ -88,16 +89,23 @@ public class SdbDatabase extends StreackLibNewable {
    * </code></pre>
    *
    * @return 事务会话
-   * @throws Exception 无法获取数据库连接
+   * @throws SQLException            无法获取数据库连接
+   * @throws IllegalArgumentException Profile 配置错误（如 MySQL 使用 root）
    */
-  public SdbAction act() throws Exception {
-    return new SdbAction(
-        SdbManager.acquire(profileConf, profileId).borrowConnection(),
-        profileId);
+  public SdbAction act() throws SQLException {
+    try {
+      return new SdbAction(
+          SdbManager.acquire(profileConf, profileId).borrowConnection(),
+          profileId);
+    } catch (SQLException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to acquire database connection for profile '" + profileId + "'", e);
+    }
   }
 
   /**
-   * 执行一个上下文
+   * 语法糖：创建上下文、执行、自动提交并关闭事务。适用于单条语句场景。
    *
    * <pre><code>
    * SdbDataEntry r = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
@@ -107,40 +115,49 @@ public class SdbDatabase extends StreackLibNewable {
    * @param type    操作类型
    * @param builder 用于填充上下文的 Consumer
    * @return 操作结果
-   * @throws Exception 数据库错误
+   * @throws SQLException       SQL 执行错误
+   * @throws IllegalStateException 操作上下文校验失败
    */
   public SdbDataEntry act(SdbEnums.ACTION_TYPE type,
-                          Consumer<SdbActionContext> builder) throws Exception {
+                          Consumer<SdbActionContext> builder) throws SQLException {
     try (SdbAction action = act()) {
       SdbActionContext ctx = new SdbActionContext(type, this);
       builder.accept(ctx);
       SdbDataEntry result = action.apply(ctx);
       action.commit();
       return result;
+    } catch (SQLException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException("Unexpected error during database operation", e);
     }
   }
 
   /**
-   * 执行一个上下文
+   * 使用已构建的操作上下文执行。
    *
    * @param type 操作类型
    * @param ctx  操作上下文
    * @return 操作结果
-   * @throws IllegalStateException 传入操作上下文的数据库不是本数据库
-   * @throws Exception             数据库错误
+   * @throws SQLException          SQL 执行错误
+   * @throws IllegalStateException 传入操作上下文的数据库不是本数据库，或上下文配置非法
    */
-  public SdbDataEntry act(SdbEnums.ACTION_TYPE type, SdbActionContext ctx) throws Exception {
+  public SdbDataEntry act(SdbEnums.ACTION_TYPE type, SdbActionContext ctx) throws SQLException {
     try (SdbAction action = act()) {
       if (ctx.database != this)
         throw new IllegalStateException("传入操作上下文的数据库不是本数据库");
       SdbDataEntry result = action.apply(ctx);
       action.commit();
       return result;
+    } catch (SQLException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException("Unexpected error during database operation", e);
     }
   }
 
   /**
-   * 直接执行原始 SQL
+   * 直接执行原始 SQL 并自动提交。
    *
    * <pre><code>
    * SdbDataEntry r = db.act("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY)");
@@ -148,13 +165,17 @@ public class SdbDatabase extends StreackLibNewable {
    *
    * @param rawSql 原始 SQL 命令（调用者负责防范注入）
    * @return 操作结果
-   * @throws Exception 数据库错误
+   * @throws SQLException SQL 执行错误
    */
-  public SdbDataEntry act(String rawSql) throws Exception {
+  public SdbDataEntry act(String rawSql) throws SQLException {
     try (SdbAction action = act()) {
       SdbDataEntry result = action.apply(rawSql);
       action.commit();
       return result;
+    } catch (SQLException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new RuntimeException("Unexpected error during database operation", e);
     }
   }
 

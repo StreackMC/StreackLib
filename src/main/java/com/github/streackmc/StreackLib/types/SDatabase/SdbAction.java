@@ -108,7 +108,7 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
   // 事务控制
   // ==========================================
 
-  /** 提交事务，持久化所有已执行的修改 */
+  /** 提交事务，持久化所有已执行的修改。提交后可继续在同一会话中开始新事务。 */
   public void commit() throws SQLException {
     connection.commit();
     committed = true;

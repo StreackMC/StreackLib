@@ -184,24 +184,62 @@ public class SdbDatabase extends StreackLibNewable {
   // ==========================================
 
   /**
-   * 移动或删除一个表。
+   * 重命名或删除一个表。
+   * <p>
+   * 当 {@code newname} 非空时调用 {@code ALTER TABLE ... RENAME TO}（MySQL / SQLite 通用）；
+   * 当 {@code newname} 为空或 Null 时调用 {@code DROP TABLE IF EXISTS}。
    *
-   * @param existed 已存在的表
-   * @param newname 新表名。为空或 Null 则删除
+   * @param existed 已存在的表名
+   * @param newname 新表名，为空或 Null 则<b>删除</b>该表（不可恢复）
+   * @throws RuntimeException 当数据库操作失败时包装抛出
    */
   public SdbDatabase moveTable(@Nonnull String existed, @Nullable String newname) {
-    // TODO: implement
+    try {
+      if (newname == null || newname.isBlank()) {
+        act("DROP TABLE IF EXISTS " + q(existed));
+      } else {
+        act("ALTER TABLE " + q(existed) + " RENAME TO " + q(newname));
+      }
+    } catch (SQLException e) {
+      throw new RuntimeException("moveTable failed for '" + existed + "' → '" + newname + "'", e);
+    }
     return this;
   }
 
   /**
-   * 新建一个表。
+   * 创建一张新表（含自增主键 {@code id}）。
+   * <p>
+   * 根据 Profile 配置的数据库类型生成不同的建表语句：
+   * <ul>
+   *   <li><b>SQLite</b>：{@code id INTEGER PRIMARY KEY AUTOINCREMENT}</li>
+   *   <li><b>MySQL</b>：{@code id INT AUTO_INCREMENT PRIMARY KEY}</li>
+   * </ul>
+   * 如需自定义列定义，使用 {@link #act(String)} 直接执行 DDL。
    *
    * @param name 新表名
+   * @throws RuntimeException 当数据库操作失败时包装抛出
    */
-  public SdbDatabase moveTable(@Nonnull String name) {
-    // TODO: implement
+  public SdbDatabase newTable(@Nonnull String name) {
+    String mode  = profileConf.getString("mode", "").toLowerCase();
+    String idCol = mode.equals("mysql")
+        ? "id INT AUTO_INCREMENT PRIMARY KEY"
+        : "id INTEGER PRIMARY KEY AUTOINCREMENT";
+    try {
+      act("CREATE TABLE IF NOT EXISTS " + q(name) + " (" + idCol + ")");
+    } catch (SQLException e) {
+      throw new RuntimeException("newTable failed for '" + name + "'", e);
+    }
     return this;
+  }
+
+  // ==========================================
+  // Internal
+  // ==========================================
+
+  /** 反引号转义标识符 */
+  private static String q(String identifier) {
+    if (identifier == null || identifier.isEmpty()) return "";
+    return "`" + identifier.replace("`", "``") + "`";
   }
 }
 

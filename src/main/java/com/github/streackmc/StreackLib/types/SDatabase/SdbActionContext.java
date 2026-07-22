@@ -232,6 +232,7 @@ public class SdbActionContext extends StreackLibNewable {
    * 从链首开始正序遍历至当前节点，每条操作为一条独立的 SQL 命令。
    * WITH 节点会与它的下一节点合并为一条命令。
    * 
+   * @apiNote 对 SQL 注入只有基本检测能力
    * @since 0.6.0
    */
   public java.util.List<String> toSqlString() {
@@ -240,17 +241,15 @@ public class SdbActionContext extends StreackLibNewable {
 
     java.util.ArrayList<String> sqlBatch = new java.util.ArrayList<>();
     for (SdbActionContext cur = head; cur != null; cur = cur.child) {
-      // WITH 节点：与下一节点合并为一条 SQL
       if (cur.type == SdbEnums.ACTION_TYPE.WITH) {
         if (cur.child == null)
           throw new IllegalStateException("WITH 节点后缺少主查询");
-        // 拼装：WITH alias AS (...) 主查询
         StringBuilder merged = new StringBuilder();
-        merged.append(buildSQL(cur));          // WITH tmp AS (SELECT ...)
+        merged.append(buildSQL(cur));
         merged.append(' ');
-        merged.append(buildSQL(cur.child));     // SELECT users WHERE ...
+        merged.append(buildSQL(cur.child));
         sqlBatch.add(merged.toString());
-        cur = cur.child; // 跳过已合并的子节点
+        cur = cur.child;
         if (cur == this) break;
         continue;
       }
@@ -258,6 +257,152 @@ public class SdbActionContext extends StreackLibNewable {
       if (cur == this) break;
     }
     return sqlBatch;
+  }
+
+  // ==================== 参数化构建 ====================
+
+  /** 参数化 SQL 的构建结果 */
+  public static record PreparedSQL(String sql, java.util.List<Object> params) {}
+
+  /**
+   * 参数化构建从链首到当前节点的完整 SQL（使用 ? 占位符）。
+   * <p>
+   * 与 {@link #toSqlString()} 逻辑相同，但值用 ? 替代，收集到 {@link PreparedSQL#params} 中。
+   * 
+   * @since 0.6.0
+   */
+  public PreparedSQL toPrepared() {
+    SdbActionContext head = this;
+    while (head.parent != null) head = head.parent;
+
+    java.util.List<Object> allParams = new java.util.ArrayList<>();
+    StringBuilder sb = new StringBuilder();
+
+    for (SdbActionContext cur = head; cur != null; cur = cur.child) {
+      if (cur.type == SdbEnums.ACTION_TYPE.WITH) {
+        if (cur.child == null)
+          throw new IllegalStateException("WITH 节点后缺少主查询");
+        // WITH 子句
+        PreparedSQL withSQL = buildPreparedSQL(cur);
+        sb.append(withSQL.sql());
+        allParams.addAll(withSQL.params());
+        // 主查询
+        PreparedSQL mainSQL = buildPreparedSQL(cur.child);
+        sb.append(' ').append(mainSQL.sql());
+        allParams.addAll(mainSQL.params());
+        cur = cur.child;
+        if (cur == this) break;
+        continue;
+      }
+      PreparedSQL nodeSQL = buildPreparedSQL(cur);
+      sb.append(nodeSQL.sql());
+      allParams.addAll(nodeSQL.params());
+      if (cur == this) break;
+      sb.append("; ");
+    }
+    return new PreparedSQL(sb.toString(), allParams);
+  }
+
+  /** 构建单节点的参数化 SQL */
+  private static PreparedSQL buildPreparedSQL(SdbActionContext ctx) {
+    // === 校验 ===
+    if (ctx.with != null && ctx.with.isEmpty())
+      throw new IllegalStateException(ctx.type + " 的 WITH 子句未指定数据来源");
+
+    String tbl = resolveTable(ctx);
+
+    // WITH 节点：WITH alias AS (source)
+    if (ctx.type == SdbEnums.ACTION_TYPE.WITH) {
+      if (tbl == null) throw new IllegalStateException("WITH 节点未指定 CTE 别名");
+      StringBuilder sb = new StringBuilder("WITH `").append(tbl).append("` AS (");
+      java.util.List<Object> params = new java.util.ArrayList<>();
+      if (ctx.with != null) {
+        boolean f = true;
+        for (SdbActionContext src : ctx.with.values()) {
+          if (!f) sb.append(", "); f = false;
+          PreparedSQL srcSQL = buildPreparedSQL(src);
+          sb.append(srcSQL.sql()); params.addAll(srcSQL.params());
+        }
+      }
+      sb.append(')');
+      return new PreparedSQL(sb.toString(), params);
+    }
+
+    // 需要表名的操作
+    switch (ctx.type) {
+      case SELECT: case UPDATE: case DELETE:
+      case CREATE: case ALTER: case DROP: case TRUNCATE:
+      case MERGE:
+        if (tbl == null) throw new IllegalStateException(ctx.type + " 操作未指定目标表");
+        break;
+      default: break;
+    }
+
+    StringBuilder sb = new StringBuilder();
+    java.util.List<Object> params = new java.util.ArrayList<>();
+
+    // WITH 子句
+    if (ctx.with != null && !ctx.with.isEmpty()) {
+      sb.append("WITH ");
+      boolean f = true;
+      for (Map.Entry<String, SdbActionContext> e : ctx.with.entrySet()) {
+        if (!f) sb.append(", "); f = false;
+        sb.append('`').append(e.getKey()).append("` AS (");
+        PreparedSQL srcSQL = buildPreparedSQL(e.getValue());
+        sb.append(srcSQL.sql()); params.addAll(srcSQL.params());
+        sb.append(')');
+      }
+      sb.append(' ');
+    }
+
+    // 操作命令
+    switch (ctx.type) {
+      case SELECT:
+        sb.append("SELECT ");
+        String[] cols = ctx.filter.selectWhat();
+        for (int i = 0; i < cols.length; i++) {
+          if (i > 0) sb.append(", "); sb.append(cols[i]);
+        }
+        sb.append(" FROM "); if (tbl != null) sb.append(tbl);
+        break;
+      case UPDATE:
+        sb.append("UPDATE "); if (tbl != null) sb.append(tbl);
+        sb.append(" SET ?");
+        break;
+      case DELETE:
+        sb.append("DELETE FROM "); if (tbl != null) sb.append(tbl);
+        break;
+      case CREATE:
+        sb.append("CREATE TABLE "); if (tbl != null) sb.append(tbl);
+        break;
+      case ALTER:
+        sb.append("ALTER TABLE "); if (tbl != null) sb.append(tbl);
+        break;
+      case DROP:
+        sb.append("DROP TABLE "); if (tbl != null) sb.append(tbl);
+        break;
+      case TRUNCATE:
+        sb.append("TRUNCATE TABLE "); if (tbl != null) sb.append(tbl);
+        break;
+      case MERGE:
+        sb.append("MERGE INTO "); if (tbl != null) sb.append(tbl);
+        break;
+      default:
+        sb.append(ctx.type).append(' '); if (tbl != null) sb.append(tbl);
+        break;
+    }
+
+    // WHERE 条件（参数化）
+    String where = ctx.filter.toString(ctx.alias);
+    if (!"()".equals(where)) {
+      // 使用参数化版本
+      sb.append(" WHERE ");
+      SdbActionContext.PreparedSQL wherePrep = ctx.filter.toPrepared(ctx.alias);
+      sb.append(wherePrep.sql());
+      params.addAll(wherePrep.params());
+    }
+    if (ctx.limit > 0) sb.append(" LIMIT ").append(ctx.limit);
+    return new PreparedSQL(sb.toString(), params);
   }
 
   /** 根据操作类型构建单条 SQL */

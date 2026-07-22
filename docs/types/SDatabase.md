@@ -256,7 +256,8 @@ db.act(SELECT, ctx ->
 
 ## 设计限制与注意
 
-> **关于 SQL 注入**：断言树中用户输入的字面值通过单引号/反斜杠转义嵌入 SQL；表名/列名使用反引号转义。但执行层目前使用 `Statement`（而非 `PreparedStatement`），对于高安全风险的场景建议直接使用 `act(rawSql)` 搭配自建 `PreparedStatement`。
+> **关于 SQL 注入**：通过本库的完整工具链（Profile 连接数据库—操作上下文—断言）执行的 SQL 操作全部使用 PreparedStatement 防止 SQL 注入攻击。<br>
+> 执行原始 SQL 、`toString()` 导出 SQL 命令等方法都没有完善的 SQL 注入检测
 
 > **异常类型**：所有 `SdbDatabase.act()` 方法签名声明 `throws SQLException`——SQL 执行错误直接透传，调用者可精确 catch。连接池创建等底层异常被包装为 `RuntimeException`（这些属于配置错误，应在启动时解决）。
 

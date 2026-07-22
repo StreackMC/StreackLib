@@ -136,7 +136,7 @@ public class SdbStatement extends StreackLibNewable {
   /**
    * 将断言转为 SQL 指令；无上下文时裸列名输出 <code>?</code>。
    * 
-   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @apiNote 当前版本仅做了简单转义，不能完全阻止 SQL 注入
    * @since 0.6.0
    */
   @Override
@@ -152,7 +152,7 @@ public class SdbStatement extends StreackLibNewable {
    * <code>table.column</code> 输出 <code>`table`.`column`</code>（表或别名由外层 FROM 定义）<br>
    * 裸列名输出 <code>`column`</code>
    * 
-   * @deprecated 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @apiNote 当前版本仅做了简单转义，不能完全阻止 SQL 注入
    * @param alias 别名映射，当前仅透传至子断言，由 {@link #toSql(SdbActionContext)} 使用
    * @since 0.6.0
    */
@@ -257,6 +257,106 @@ public class SdbStatement extends StreackLibNewable {
         sb.append(')');
         break;
     }
+  }
+
+  // ==================== 参数化构建（PreparedStatement） ====================
+
+  /** 参数化构建 WHERE（? 占位符 + 参数收集），递归调用自身和子断言 */
+  private void buildPreparedSQL(StringBuilder sb, List<Object> params, Map<String, String> alias) {
+    boolean hasCond = !conditions.isEmpty();
+    boolean hasAnd  = !andStatements.isEmpty();
+    boolean hasOr   = !orStatements.isEmpty();
+    if (!hasCond && !hasAnd && !hasOr) { sb.append("1=1"); return; }
+
+    for (int i = 0; i < conditions.size(); i++) {
+      if (i > 0) sb.append(" AND ");
+      buildPreparedConditionSQL(sb, params, conditions.get(i), alias);
+    }
+    if (hasAnd) {
+      if (hasCond) sb.append(" AND ");
+      boolean first = true;
+      for (Map.Entry<SdbStatement, Boolean> e : andStatements.entrySet()) {
+        if (!first) sb.append(" AND "); first = false;
+        if (!e.getValue()) sb.append("NOT ");
+        sb.append('('); e.getKey().buildPreparedSQL(sb, params, alias); sb.append(')');
+      }
+    }
+    if (hasOr) {
+      if (hasCond || hasAnd) sb.append(" AND ");
+      sb.append('(');
+      boolean first = true;
+      for (Map.Entry<SdbStatement, Boolean> e : orStatements.entrySet()) {
+        if (!first) sb.append(" OR "); first = false;
+        if (!e.getValue()) sb.append("NOT ");
+        sb.append('('); e.getKey().buildPreparedSQL(sb, params, alias); sb.append(')');
+      }
+      sb.append(')');
+    }
+    if (reverted) {
+      String expr = sb.toString(); sb.setLength(0);
+      sb.append("NOT (").append(expr).append(')');
+    }
+  }
+
+  /** 单条条件参数化构建（值用 ? 占位符，值收集到 params） */
+  private void buildPreparedConditionSQL(StringBuilder sb, List<Object> params, Condition c, Map<String, String> alias) {
+    String col = lookupCol(c.v1, alias);
+    switch (c.type) {
+      case IS_NULL:      sb.append(col).append(" IS NULL"); break;
+      case IS_NOT_NULL:  sb.append(col).append(" IS NOT NULL"); break;
+      case EQUAL:        paramOp(sb, params, col, " = ",    c.v2, c.v2Lookup, alias); break;
+      case UNEQUAL:      paramOp(sb, params, col, " <> ",   c.v2, c.v2Lookup, alias); break;
+      case LARGER:       paramOp(sb, params, col, " > ",    c.v2, c.v2Lookup, alias); break;
+      case SMALLER:      paramOp(sb, params, col, " < ",    c.v2, c.v2Lookup, alias); break;
+      case LARGER_OR_EQUAL: paramOp(sb, params, col, " >= ", c.v2, c.v2Lookup, alias); break;
+      case SMALLER_OR_EQUAL: paramOp(sb, params, col, " <= ", c.v2, c.v2Lookup, alias); break;
+      case LIKE:         paramOp(sb, params, col, " LIKE ",       c.v2, c.v2Lookup, alias); break;
+      case NOT_LIKE:     paramOp(sb, params, col, " NOT LIKE ",   c.v2, c.v2Lookup, alias); break;
+      case REGEX:        paramOp(sb, params, col, " REGEXP ",     c.v2, c.v2Lookup, alias); break;
+      case NOT_REGEX:    paramOp(sb, params, col, " NOT REGEXP ", c.v2, c.v2Lookup, alias); break;
+      case BETWEEN:
+        sb.append(col).append(" BETWEEN ");
+        if (c.v2Lookup) { sb.append(lookupCol(c.v2, alias)); }
+        else { sb.append("?"); params.add(c.v2); }
+        sb.append(" AND ?"); params.add(c.v3);
+        break;
+      case NOT_BETWEEN:
+        sb.append(col).append(" NOT BETWEEN ");
+        if (c.v2Lookup) { sb.append(lookupCol(c.v2, alias)); }
+        else { sb.append("?"); params.add(c.v2); }
+        sb.append(" AND ?"); params.add(c.v3);
+        break;
+      case IN: case NOT_IN:
+        sb.append(col).append(c.type == CondType.IN ? " IN (" : " NOT IN (");
+        if (c.inValues != null) {
+          boolean f = true;
+          for (Map.Entry<String, Boolean> iv : c.inValues.entrySet()) {
+            if (!f) sb.append(", "); f = false;
+            if (iv.getValue()) { sb.append(lookupCol(iv.getKey(), alias)); }
+            else { sb.append("?"); params.add(iv.getKey()); }
+          }
+        }
+        sb.append(')');
+        break;
+    }
+  }
+
+  /** 辅助：从表查找用 lookupCol，否则用 ? 占位符并收集值 */
+  private static void paramOp(StringBuilder sb, List<Object> params, String col, String op, String val, boolean fromTable, Map<String, String> alias) {
+    sb.append(col).append(op);
+    if (fromTable) { sb.append(lookupCol(val, alias)); }
+    else { sb.append("?"); params.add(val); }
+  }
+
+  /**
+   * 参数化构建 WHERE 子句（使用 ? 占位符，避免 SQL 注入）。
+   * @since 0.6.0
+   */
+  public SdbActionContext.PreparedSQL toPrepared(Map<String, String> alias) {
+    List<Object> params = new ArrayList<>();
+    StringBuilder sb = new StringBuilder();
+    buildPreparedSQL(sb, params, alias);
+    return new SdbActionContext.PreparedSQL(sb.toString(), params);
   }
 
   /**

@@ -64,22 +64,25 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
    * @throws SQLException SQL 执行错误
    */
   public SdbDataEntry apply(SdbActionContext ctx) throws SQLException {
-    List<String> sqlBatch = ctx.toSqlString();
-    int      totalAffected = 0;
+    SdbActionContext.PreparedSQL prepared = ctx.toPrepared();
+    int totalAffected = 0;
     List<SConfig> lastRows = List.of();
 
-    for (String sql : sqlBatch) {
-      try (Statement stmt = connection.createStatement()) {
-        boolean hasResultSet = stmt.execute(sql);
-        if (hasResultSet) {
-          try (ResultSet rs = stmt.getResultSet()) {
-            lastRows = readResultSet(rs);
-            totalAffected += lastRows.size();
-          }
-        } else {
-          int affected = stmt.getUpdateCount();
-          if (affected >= 0) totalAffected += affected;
+    // 参数化执行
+    try (java.sql.PreparedStatement pstmt = connection.prepareStatement(prepared.sql())) {
+      List<Object> params = prepared.params();
+      for (int i = 0; i < params.size(); i++) {
+        pstmt.setObject(i + 1, params.get(i));
+      }
+      boolean hasResultSet = pstmt.execute();
+      if (hasResultSet) {
+        try (ResultSet rs = pstmt.getResultSet()) {
+          lastRows = readResultSet(rs);
+          totalAffected += lastRows.size();
         }
+      } else {
+        int affected = pstmt.getUpdateCount();
+        if (affected >= 0) totalAffected += affected;
       }
     }
     return new SdbDataEntry(totalAffected, lastRows);

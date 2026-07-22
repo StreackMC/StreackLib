@@ -74,6 +74,7 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * [SEvent](./class/SEventCentral.md#事件数据对象-sevent)
 * [SMail](./types/SMail.md)
 * [SConfig](./types/SConfig.md)
+* [SDatabase](./types/SDatabase.md)
 * [IgnoredException](./types/IgnoredException.md)
 * [HTTPServer](./types/HTTPServer.md)
 

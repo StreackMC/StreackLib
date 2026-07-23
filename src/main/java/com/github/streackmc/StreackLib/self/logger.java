@@ -3,6 +3,7 @@ package com.github.streackmc.StreackLib.self;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Arrays;
+import java.util.IllegalFormatException;
 
 import org.apache.logging.log4j.util.InternalApi;
 import org.jetbrains.annotations.NotNull;
@@ -172,7 +173,12 @@ public final class logger {
 
   /** 简单格式化：用 String.format，兼容 %s 等占位符 */
   private static String format(String msg, Object... arg) {
-    return arg.length == 0 ? msg : String.format((msg == null) ? "" : msg, arg);
+    try {
+      return arg.length == 0 ? msg : String.format((msg == null) ? "" : msg, arg);
+    } catch (IllegalFormatException e) {
+      warn("无法格式化日志文本: msg={}, args={}", msg, Arrays.toString(arg), e);
+      return msg == null ? "" : msg;
+    }
   }
 
   /** 解析传入参数，返回最终消息与可选 Throwable */

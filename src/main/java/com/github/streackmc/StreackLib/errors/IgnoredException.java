@@ -6,6 +6,7 @@ import com.github.streackmc.StreackLib.errors.raw.StreackLibNewableRuntimeExcept
  * 没有任何含义的Exception，抛出它不会有任何意义，捕获它也没有任何意义。
  * 仅用于“跳出” try...catch 块
  * 
+ * @apiNote 抛出异常是一个非常重的行为，不推荐使用本方法。
  * @author kdxiaoyi
  * @since 0.4.5
  */

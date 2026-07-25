@@ -43,7 +43,9 @@ import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.zip.GZIPOutputStream;
 
 import javax.annotation.Nullable;
@@ -184,17 +186,24 @@ public class SConfig extends StreackLibNewable {
     public final static String SNBT = "snbt";
   }
 
-  /** SConfig会通过 {@link SEventCentral} 触发的事件命名 */
+  /**
+   * SConfig会通过 {@link SEventCentral} 触发的事件命名。
+   * 这些事件也有私有接口。
+   */
   public final static class EVENTS {
     /**
      * 配置文件发生改变
+     * 
      * @apiNote 仅由自动重载触发
+     * @see {@link #onAutoReloaded()}
      */
     public final static String CHANGED = "streacklib.sconf:changed";
     /**
      * 配置文件格式错误
+     * 
      * @param exception {Exception} 原始错误数据
-     * @param msg {String} 错误信息
+     * @param msg       {String} 错误信息
+     * @see {@link #onLoadFailure()}
      */
     public final static String WRONG_FORMAT = "streacklib.sconf:wrong_format";
   }
@@ -226,11 +235,16 @@ public class SConfig extends StreackLibNewable {
    * 初始化与变量
    * ========================================== */
 
+  // data
   /** 读写锁 */
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   /** 已加载的数据 */
   private volatile Map<String, Object> cache = new ConcurrentHashMap<>();
   
+  // callback
+  private volatile Consumer<SConfig> onAutoReloadedFunc;
+  private volatile BiConsumer<SConfig, Exception> onLoadFailureFunc;
+
   // autoreload
   /** 最后修改时间戳 */
   private volatile long lastModified = 0;
@@ -397,6 +411,7 @@ public class SConfig extends StreackLibNewable {
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
+      if (this.onLoadFailureFunc != null) this.onLoadFailureFunc.accept(this, e);
       throw new RuntimeException("无法加载配置文件：" + e.getLocalizedMessage(), e);
     } finally {
     }
@@ -1457,6 +1472,7 @@ public class SConfig extends StreackLibNewable {
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
+      if (this.onLoadFailureFunc != null) this.onLoadFailureFunc.accept(this, e);
       throw new RuntimeException("无法加载配置文件：" + e.getLocalizedMessage(), e);
     } finally {
       lock.writeLock().unlock();
@@ -1526,6 +1542,7 @@ public class SConfig extends StreackLibNewable {
                 && getFile(false).lastModified() != lastModified) {
                 reload();
                 SEventCentral.broadcastEvent(EVENTS.CHANGED, this).broadcast();
+                if (this.onAutoReloadedFunc != null) this.onAutoReloadedFunc.accept(this);
               }
             }
             key.reset();
@@ -1551,7 +1568,7 @@ public class SConfig extends StreackLibNewable {
             continue;
           }
         }
-      }, "conf-reload-" + confFile.getName());
+      }, "streacklib-sconfig-reload-" + confFile.getName());
       watchThread.setDaemon(true);
       watchThread.start();
     } catch (IllegalArgumentException se) {
@@ -1644,6 +1661,15 @@ public class SConfig extends StreackLibNewable {
    */
   public long getAutoReloadBreak() {
     return autoreloadBreak;
+  }
+
+  /**
+   * 设置自动重载发生时的回调函数
+   * @since 0.6.0
+   */
+  public SConfig onAutoReloaded(Consumer<SConfig> func) {
+    this.onAutoReloadedFunc = func;
+    return this;
   }
 
   /* ==========================================
@@ -1786,6 +1812,16 @@ public class SConfig extends StreackLibNewable {
    * 工具方法
    * ==========================================
    */
+
+  /**
+   * 设置加载失败时的回调函数
+   * 
+   * @since 0.6.0
+   */
+  public SConfig onLoadFailure(BiConsumer<SConfig, Exception> func) {
+    this.onLoadFailureFunc = func;
+    return this;
+  }
 
   /**
    * @return 当前配置文件对象。本方法不会返回 Null 。

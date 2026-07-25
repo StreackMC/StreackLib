@@ -82,6 +82,11 @@
       <artifactId>NanoHTTPd-with-ProxyProtocol</artifactId>
       <version>master-SNAPSHOT</version>
     </dependency>
+    <dependency>
+      <groupId>org.shredzone.acme4j</groupId>
+      <artifactId>acme4j-client</artifactId>
+      <version>3.5.1</version>
+    </dependency>
 
     <!-- Mail -->
     <dependency>

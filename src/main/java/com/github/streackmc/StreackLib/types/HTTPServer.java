@@ -2,6 +2,7 @@ package com.github.streackmc.StreackLib.types;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Type;
@@ -14,8 +15,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.KeyPair;
 import java.security.KeyStore;
+import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +34,11 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocketFactory;
 
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.nanohttpd.protocols.http.IHTTPSession;
@@ -120,27 +128,33 @@ public class HTTPServer extends NanoHTTPD {
     public final boolean enabled;
     public final String  keyPath;
     public final String  passwd;
-    public final String  type;        // JKS / PKCS12
+    public final String  type;        // JKS / PKCS12 / PEM
     public final boolean autosignEnabled;
     public final String  acmeDomain;
     public final String  acmeEmail;
-    public final int     acmeIntervalDays;
+    public final int     acmeRenewDays;   // 距到期 ≤ 此天数时触发续签
+    public final int     acmeCheckDays;   // 每隔多少天检查一次
 
     SslConfig(SConfig conf) {
       this.enabled    = conf.getBoolean("http-server.ssl.enabled", false);
       this.keyPath    = conf.getString ("http-server.ssl.key-path", "key.p12");
       this.passwd     = conf.getString ("http-server.ssl.passwd", "");
-      String rawType  = conf.getString ("http-server.ssl.type", "PKCS12").toUpperCase();
-      this.type       = rawType.equals("PEM") ? "PKCS12" : rawType;
+      this.type       = conf.getString ("http-server.ssl.type", "PEM").toUpperCase();
       this.autosignEnabled = conf.getBoolean("http-server.ssl.autosign.enabled", false);
       this.acmeDomain      = conf.getString ("http-server.ssl.autosign.domain", "");
       this.acmeEmail       = conf.getString ("http-server.ssl.autosign.email", "");
-      this.acmeIntervalDays = conf.getInt   ("http-server.ssl.autosign.interval", 30);
+
+      // 向后兼容旧配置项 interval
+      int interval  = conf.getInt("http-server.ssl.autosign.interval", -1);
+      int renewRaw  = conf.getInt("http-server.ssl.autosign.renew-threshold", -1);
+      int checkRaw  = conf.getInt("http-server.ssl.autosign.check-interval", -1);
+      this.acmeRenewDays = renewRaw >= 0 ? renewRaw : (interval >= 0 ? interval : 30);
+      this.acmeCheckDays = checkRaw >= 0 ? checkRaw : (interval >= 0 ? interval : 1);
     }
 
     boolean isEnabled()      { return enabled; }
     boolean isAutosign()     { return enabled && autosignEnabled && !acmeDomain.isBlank(); }
-    String  keyStoreType()   { return type; }
+    boolean isPem()          { return "PEM".equals(type); }
     char[]  password()       { return passwd.toCharArray(); }
   }
 
@@ -425,16 +439,53 @@ public class HTTPServer extends NanoHTTPD {
     return new File(StreackLib.ENV.dataPath, path);
   }
 
-  /** 从 KeyStore 文件创建 SSLContext */
+  /** 从证书文件创建 SSLContext（支持 JKS/PKCS12/PEM） */
   private SSLContext createSSLContext(File keyFile) throws Exception {
-    KeyStore ks = KeyStore.getInstance(sslConfig.keyStoreType());
+    if (sslConfig.isPem()) {
+      return createSSLContextFromPEM(keyFile);
+    }
+    return createSSLContextFromKeyStore(keyFile);
+  }
+
+  private SSLContext createSSLContextFromKeyStore(File keyFile) throws Exception {
+    KeyStore ks = KeyStore.getInstance(sslConfig.type);
     try (FileInputStream fis = new FileInputStream(keyFile)) {
       ks.load(fis, sslConfig.password());
     }
+    KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+    kmf.init(ks, sslConfig.password());
+    SSLContext ctx = SSLContext.getInstance("TLS");
+    ctx.init(kmf.getKeyManagers(), null, null);
+    return ctx;
+  }
+
+  private SSLContext createSSLContextFromPEM(File pemFile) throws Exception {
+    PEMParser parser = new PEMParser(new FileReader(pemFile));
+    List<X509Certificate> certs = new ArrayList<>();
+    PrivateKey privateKey = null;
+
+    Object obj;
+    while ((obj = parser.readObject()) != null) {
+      if (obj instanceof X509CertificateHolder holder) {
+        certs.add(new JcaX509CertificateConverter().getCertificate(holder));
+      } else if (obj instanceof org.bouncycastle.openssl.PEMKeyPair keyPair) {
+        privateKey = new JcaPEMKeyConverter().getKeyPair(keyPair).getPrivate();
+      } else if (obj instanceof PrivateKeyInfo keyInfo) {
+        privateKey = new JcaPEMKeyConverter().getPrivateKey(keyInfo);
+      }
+    }
+    parser.close();
+
+    if (privateKey == null) throw new IOException("PEM 文件中未找到私钥");
+    if (certs.isEmpty())    throw new IOException("PEM 文件中未找到证书");
+
+    KeyStore ks = KeyStore.getInstance("PKCS12");
+    ks.load(null, null);
+    ks.setKeyEntry("streacklib", privateKey, sslConfig.password(),
+        certs.toArray(new Certificate[0]));
 
     KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
     kmf.init(ks, sslConfig.password());
-
     SSLContext ctx = SSLContext.getInstance("TLS");
     ctx.init(kmf.getKeyManagers(), null, null);
     return ctx;
@@ -557,7 +608,8 @@ public class HTTPServer extends NanoHTTPD {
 
   /** 定时检查证书到期并续签 */
   private void scheduleAcmeRenewal() {
-    long intervalDays = sslConfig.acmeIntervalDays;
+    long checkDays  = sslConfig.acmeCheckDays;
+    long renewDays  = sslConfig.acmeRenewDays;
     sslRenewScheduler.scheduleAtFixedRate(() -> {
       try {
         File keyFile = resolveKeyFile();
@@ -572,9 +624,9 @@ public class HTTPServer extends NanoHTTPD {
 
         long daysLeft = (x509.getNotAfter().getTime() - System.currentTimeMillis())
             / (24L * 3600 * 1000);
-        if (daysLeft > intervalDays) return; // 未到续签时间
+        if (daysLeft > renewDays) return; // 未到续签阈值
 
-        logger.info(getServerFullName() + "ACME: 证书距到期 " + daysLeft + " 天，开始续签…");
+        logger.info(getServerFullName() + "ACME: 证书距到期 " + daysLeft + " 天（阈值 " + renewDays + "），开始续签…");
         performAcmeChallenge();
 
         // 热重载 SSLContext
@@ -592,6 +644,6 @@ public class HTTPServer extends NanoHTTPD {
       } catch (Exception e) {
         logger.warning(getServerFullName() + "ACME: 续签检查失败: " + e.getMessage());
       }
-    }, 1, intervalDays, TimeUnit.DAYS);
+    }, 1, checkDays, TimeUnit.DAYS);
   }
 }

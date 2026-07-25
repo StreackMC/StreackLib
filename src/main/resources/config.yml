@@ -128,7 +128,7 @@ http-server:
     ## 证书类型
     # JKS / PKCS12 / PEM
     # 大小写不敏感
-    type: PKCS12
+    type: PEM
     ## 自动续签设置
     autosign:
       ## 是否启用
@@ -138,9 +138,12 @@ http-server:
       domain: foo.bar
       ## 邮箱
       email: contact@foo.bar
-      ## 到期告警天数
-      # 距离证书过期小于本值就会尝试自动签发
-      interval: 30
+      ## 续签阈值天数
+      # 距离证书过期小于本值就会触发自动续签
+      renew-threshold: 30
+      ## 检查间隔天数
+      # 每隔多少天检查一次证书到期状态
+      check-interval: 1
 
 ## 自动更新
 update-checker:

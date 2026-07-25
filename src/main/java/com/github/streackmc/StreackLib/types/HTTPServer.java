@@ -24,8 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -88,8 +86,8 @@ public class HTTPServer extends NanoHTTPD {
   private final ConcurrentHashMap<String, String> acmeChallengeMap = new ConcurrentHashMap<>();
   private NanoHTTPD acmeHttpServer;
   private SSLContext sslContext;
-  private final ScheduledExecutorService sslRenewScheduler = Executors.newSingleThreadScheduledExecutor(
-      r -> { Thread t = new Thread(r, "StreackLib.HTTPServer/SSL-Renew"); t.setDaemon(true); return t; });
+  private volatile long lastAcmeCheck = 0;       // 上次检查证书到期的时间戳
+  private volatile boolean acmeRenewInProgress;
 
   /** 函数式接口，方便 Lambda 注册 */
   @FunctionalInterface
@@ -199,11 +197,6 @@ public class HTTPServer extends NanoHTTPD {
           + (sslContext != null ? " [SSL]" : " [Plain]"));
       SEventCentral.broadcastEvent(EVENTS.STARTED, INSTANCE_ID)
           .set("address", this.listenAddress).broadcast();
-
-      // 启动 ACME 续签定时任务
-      if (sslConfig.isAutosign() && sslContext != null) {
-        scheduleAcmeRenewal();
-      }
     } catch (Exception e) {
       logger.severe("无法启动" + getServerFullName() + "：" + e.getLocalizedMessage());
       e.printStackTrace();
@@ -218,7 +211,6 @@ public class HTTPServer extends NanoHTTPD {
       SEventCentral.broadcastEvent(EVENTS.STOPPED, INSTANCE_ID)
           .set("address", this.listenAddress).broadcast();
     }
-    sslRenewScheduler.shutdownNow();
   }
 
   public boolean isStarted() { return isAlive(); }
@@ -352,6 +344,9 @@ public class HTTPServer extends NanoHTTPD {
       logger.debug(getServerFullName() + "ACME: 未知挑战 token=" + token);
       return Response.newFixedLengthResponse(Status.NOT_FOUND, MIME_PLAINTEXT, "404 Not Found");
     }
+
+    // 有流量时惰性检查证书到期（受 check-interval 节流）
+    maybeRenewCertificate();
 
     // 封禁检查
     Response potentialBanRsp = checkBan(ip, id, method);
@@ -601,30 +596,61 @@ public class HTTPServer extends NanoHTTPD {
     }
   }
 
-  /** 定时检查证书到期并续签 */
-  private void scheduleAcmeRenewal() {
-    long checkHours = sslConfig.acmeCheckHours;
-    long renewDays  = sslConfig.acmeRenewDays;
-    sslRenewScheduler.scheduleAtFixedRate(() -> {
+  /**
+   * 惰性证书续签检查——有流量进入时才运行，受 check-interval 节流。
+   * <p>
+   * 每次调用先检查距上次检查是否已过 check-interval 小时；未到则直接返回。
+   * 续签过程在后台线程异步执行，不阻塞当前请求。
+   * 重启后 lastAcmeCheck 归零，下一次请求立即可触发检查。
+   */
+  private void maybeRenewCertificate() {
+    if (!sslConfig.isAutosign() || sslContext == null) return;
+
+    long now = System.currentTimeMillis();
+    long checkMs = sslConfig.acmeCheckHours * 3600_000L;
+    if (now - lastAcmeCheck < checkMs) return; // 节流：距上次检查不足间隔
+
+    if (acmeRenewInProgress) return; // 已有续签任务在跑
+
+    // 快速同步检查证书到期时间
+    long renewDays = sslConfig.acmeRenewDays;
+    try {
+      File keyFile = resolveKeyFile();
+      if (!keyFile.exists()) return;
+
+      KeyStore ks = KeyStore.getInstance("PKCS12");
+      try (FileInputStream fis = new FileInputStream(keyFile)) {
+        ks.load(fis, sslConfig.password());
+      }
+      X509Certificate x509 = (X509Certificate) ks.getCertificate("streacklib");
+      if (x509 == null) return;
+
+      long daysLeft = (x509.getNotAfter().getTime() - now) / (24L * 3600 * 1000);
+      if (daysLeft > renewDays) {
+        // 证书还很新鲜，只更新时间戳，不触发续签
+        lastAcmeCheck = now;
+        return;
+      }
+
+      logger.info(getServerFullName() + "ACME: 证书距到期 " + daysLeft
+          + " 天（阈值 " + renewDays + "），启动后台续签…");
+    } catch (Exception e) {
+      // 读取证书失败，静默跳过，下次请求重试
+      return;
+    }
+
+    lastAcmeCheck = now;
+
+    // 异步执行续签（不阻塞请求线程）
+    new Thread(() -> {
+      synchronized (this) {
+        if (acmeRenewInProgress) return;
+        acmeRenewInProgress = true;
+      }
       try {
-        File keyFile = resolveKeyFile();
-        if (!keyFile.exists()) return;
-
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        try (FileInputStream fis = new FileInputStream(keyFile)) {
-          ks.load(fis, sslConfig.password());
-        }
-        X509Certificate x509 = (X509Certificate) ks.getCertificate("streacklib");
-        if (x509 == null) return;
-
-        long daysLeft = (x509.getNotAfter().getTime() - System.currentTimeMillis())
-            / (24L * 3600 * 1000);
-        if (daysLeft > renewDays) return; // 未到续签阈值
-
-        logger.info(getServerFullName() + "ACME: 证书距到期 " + daysLeft + " 天（阈值 " + renewDays + "），开始续签…");
         performAcmeChallenge();
-
         // 热重载 SSLContext
+        File keyFile = resolveKeyFile();
         if (keyFile.exists()) {
           SSLContext newCtx = createSSLContext(keyFile);
           SSLServerSocketFactory ssf = newCtx.getServerSocketFactory();
@@ -637,8 +663,10 @@ public class HTTPServer extends NanoHTTPD {
           logger.info(getServerFullName() + "ACME: 证书已续签并热重载");
         }
       } catch (Exception e) {
-        logger.warning(getServerFullName() + "ACME: 续签检查失败: " + e.getMessage());
+        logger.warning(getServerFullName() + "ACME: 后台续签失败: " + e.getMessage());
+      } finally {
+        acmeRenewInProgress = false;
       }
-    }, 1, checkHours, TimeUnit.HOURS);
+    }, "StreackLib.HTTPServer/ACME-Renew").start();
   }
 }

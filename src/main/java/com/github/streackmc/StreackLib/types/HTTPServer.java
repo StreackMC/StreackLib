@@ -133,7 +133,7 @@ public class HTTPServer extends NanoHTTPD {
     public final String  acmeDomain;
     public final String  acmeEmail;
     public final int     acmeRenewDays;   // 距到期 ≤ 此天数时触发续签
-    public final int     acmeCheckDays;   // 每隔多少天检查一次
+    public final int     acmeCheckHours;  // 每隔多少小时检查一次
 
     SslConfig(SConfig conf) {
       this.enabled    = conf.getBoolean("http-server.ssl.enabled", false);
@@ -143,13 +143,8 @@ public class HTTPServer extends NanoHTTPD {
       this.autosignEnabled = conf.getBoolean("http-server.ssl.autosign.enabled", false);
       this.acmeDomain      = conf.getString ("http-server.ssl.autosign.domain", "");
       this.acmeEmail       = conf.getString ("http-server.ssl.autosign.email", "");
-
-      // 向后兼容旧配置项 interval
-      int interval  = conf.getInt("http-server.ssl.autosign.interval", -1);
-      int renewRaw  = conf.getInt("http-server.ssl.autosign.renew-threshold", -1);
-      int checkRaw  = conf.getInt("http-server.ssl.autosign.check-interval", -1);
-      this.acmeRenewDays = renewRaw >= 0 ? renewRaw : (interval >= 0 ? interval : 30);
-      this.acmeCheckDays = checkRaw >= 0 ? checkRaw : (interval >= 0 ? interval : 1);
+      this.acmeRenewDays   = conf.getInt   ("http-server.ssl.autosign.renew-threshold", 30);
+      this.acmeCheckHours  = conf.getInt   ("http-server.ssl.autosign.check-interval", 6);
     }
 
     boolean isEnabled()      { return enabled; }
@@ -608,7 +603,7 @@ public class HTTPServer extends NanoHTTPD {
 
   /** 定时检查证书到期并续签 */
   private void scheduleAcmeRenewal() {
-    long checkDays  = sslConfig.acmeCheckDays;
+    long checkHours = sslConfig.acmeCheckHours;
     long renewDays  = sslConfig.acmeRenewDays;
     sslRenewScheduler.scheduleAtFixedRate(() -> {
       try {
@@ -644,6 +639,6 @@ public class HTTPServer extends NanoHTTPD {
       } catch (Exception e) {
         logger.warning(getServerFullName() + "ACME: 续签检查失败: " + e.getMessage());
       }
-    }, 1, checkDays, TimeUnit.DAYS);
+    }, 1, checkHours, TimeUnit.HOURS);
   }
 }

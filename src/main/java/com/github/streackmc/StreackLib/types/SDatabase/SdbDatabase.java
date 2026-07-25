@@ -53,7 +53,12 @@ public class SdbDatabase extends StreackLibNewable {
   // ==========================================
 
   private final SConfig    profileConf;
-  private final String     profileId;
+  final String     profileId;
+
+  /** 获取表前缀 */
+  public String tablePrefix() {
+    return profileConf.getString("table_prefix", "");
+  }
 
   // ==========================================
   // 构造

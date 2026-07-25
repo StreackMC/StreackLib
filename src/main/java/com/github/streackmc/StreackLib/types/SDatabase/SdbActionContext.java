@@ -521,14 +521,24 @@ public class SdbActionContext extends StreackLibNewable {
     return sb.toString();
   }
 
-  /** 向上查找表名：优先用自身的，否则继承上文的 */
+  /** 向上查找表名：优先用自身的，否则继承上文的，最后自动拼接表前缀 */
   private static String resolveTable(SdbActionContext ctx) {
-    if (ctx.table != null && !ctx.table.isBlank()) return ctx.table;
-    SdbActionContext p = ctx.parent;
-    while (p != null) {
-      if (p.table != null && !p.table.isBlank()) return p.table;
-      p = p.parent;
+    String raw = null;
+    if (ctx.table != null && !ctx.table.isBlank()) {
+      raw = ctx.table;
+    } else {
+      SdbActionContext p = ctx.parent;
+      while (p != null) {
+        if (p.table != null && !p.table.isBlank()) { raw = p.table; break; }
+        p = p.parent;
+      }
     }
-    return null;
+    if (raw == null) return null;
+    // 拼接表前缀
+    String prefix = ctx.database.tablePrefix();
+    if (!prefix.isEmpty() && !raw.startsWith(prefix)) {
+      return prefix + raw;
+    }
+    return raw;
   }
 }

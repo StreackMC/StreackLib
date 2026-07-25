@@ -209,7 +209,7 @@ public class debugentry {
       info("监听到测试事件，模式：临时。" + event.getTimestamp() + "\nCaller = " + event.getCaller());
     });
     info("正在触发事件……");
-    SEventCentral.broadcastEvent(STR, null).broadcast();
+    SEventCentral.broadcastEvent(STR, (Long) null).broadcast();
   }
 
   // ==========================================

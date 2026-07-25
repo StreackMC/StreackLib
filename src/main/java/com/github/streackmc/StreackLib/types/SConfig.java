@@ -393,7 +393,7 @@ public class SConfig extends StreackLibNewable {
       }
       cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
     } catch (Exception e) {
-      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
+      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, this)
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
@@ -1453,7 +1453,7 @@ public class SConfig extends StreackLibNewable {
     } catch (IllegalArgumentException eIA) {
       throw eIA;
     } catch (Exception e) {
-      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, INSTANCE_ID)
+      SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, this)
           .set("exception", e)
           .set("msg", e.getLocalizedMessage())
           .broadcast();
@@ -1525,7 +1525,7 @@ public class SConfig extends StreackLibNewable {
               if (changed.toAbsolutePath().equals(confPath)
                 && getFile(false).lastModified() != lastModified) {
                 reload();
-                SEventCentral.broadcastEvent(EVENTS.CHANGED, INSTANCE_ID).broadcast();
+                SEventCentral.broadcastEvent(EVENTS.CHANGED, this).broadcast();
               }
             }
             key.reset();

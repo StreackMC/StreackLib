@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 import com.github.streackmc.StreackLib.self.logger;
+import com.github.streackmc.StreackLib.types.StreackLibNewable;
 
 /**
  * 全局事件处理中心，负责事件的监听注册、移除与广播分发。
@@ -275,10 +276,26 @@ public final class SEventCentral {
    * 显式调用 {@link EventBuilder#broadcast()} 完成广播。
    *
    * @param name 事件名称，不能为 null
+   * @param sln  发起类
+   * @return 事件构建器，用于链式设置数据和执行广播
+   */
+  public static EventBuilder broadcastEvent(String name, @Nullable StreackLibNewable sln) {
+    Objects.requireNonNull(name, "事件名不能为 null");
+    return new SEventCentral.EventBuilder(name, (sln == null) ? null : sln.INSTANCE_ID);
+  }
+
+  /**
+   * 创建事件广播构建器，准备广播指定名称的事件。
+   * 
+   * <p>
+   * 注意：此方法返回 {@link EventBuilder}，需要通过链式调用设置数据后，
+   * 显式调用 {@link EventBuilder#broadcast()} 完成广播。
+   *
+   * @param name 事件名称，不能为 null
    * @return 事件构建器，用于链式设置数据和执行广播
    */
   public static EventBuilder broadcastEvent(String name) {
-    return broadcastEvent(name, null);
+    return broadcastEvent(name, (Long) null);
   }
 
   /**

@@ -220,6 +220,10 @@ public class SdbActionContext extends StreackLibNewable {
 
   /**
    * 返回本操作的 SQL 片段（不含链中其它操作）。
+   * <p>
+   * 仅用于<b>预览/调试</b>：生成的是字符串 SQL，其中条件<b>值</b>经 {@link SdbUtils#literal} 做基础转义（非参数化），
+   * 标识符经 {@link SdbUtils#q} 反引号转义。此字符串<b>不应回灌给执行器</b>。
+   * 真正执行请使用 {@link #toPrepared()}（值走 PreparedStatement 占位符）。
    * 
    * @since 0.6.0
    */
@@ -233,8 +237,12 @@ public class SdbActionContext extends StreackLibNewable {
    * <p>
    * 从链首开始正序遍历至当前节点，每条操作为一条独立的 SQL 命令。
    * WITH 节点会与它的下一节点合并为一条命令。
+   * <p>
+   * 仅用于<b>预览/调试</b>：返回字符串 SQL（条件值经 {@link SdbUtils#literal} 基础转义、标识符经
+   * {@link SdbUtils#q} 反引号转义），<b>不应回灌给执行器</b>。
+   * 真正执行请使用 {@link #toPrepared()}。
    * 
-   * @apiNote 对 SQL 注入只有基本检测能力
+   * @apiNote 本方法导出的字符串 SQL 对注入仅有基础转义，不提供参数化保护，禁止把其输出当作可安全执行的语句。
    * @since 0.6.0
    */
   public java.util.List<String> toSqlString() {
@@ -269,8 +277,14 @@ public class SdbActionContext extends StreackLibNewable {
   /**
    * 参数化构建从链首到当前节点的完整 SQL（使用 ? 占位符）。
    * <p>
-   * 与 {@link #toSqlString()} 逻辑相同，但值用 ? 替代，收集到 {@link PreparedSQL#params} 中。
+   * 与 {@link #toSqlString()} 逻辑相同，但<b>条件值用 {@code ?} 替代</b>，收集到 {@link PreparedSQL#params} 中，
+   * 由 {@link SdbAction#apply(SdbActionContext)} 经 {@code PreparedStatement.setObject} 绑定——无论值内容如何都作为纯数据，
+   * 不会被当作 SQL 执行（值注入已彻底防住）。
+   * <p>
+   * 标识符（表名、列名、CTE 名）则统一由 {@link SdbUtils#q} 反引号转义（JDBC 不支持标识符占位符，故为转义而非参数化）。
    * 
+   * @apiNote 本方法对应的是<b>实际执行路径</b>。但表名/列名若要动态来源于外部输入，调用者仍需自行白名单校验——
+   * 转义只是兜底畸形/保留字标识符，不能把不可信标识符变安全。
    * @since 0.6.0
    */
   public PreparedSQL toPrepared() {

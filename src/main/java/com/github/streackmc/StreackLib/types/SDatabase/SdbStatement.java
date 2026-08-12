@@ -123,20 +123,24 @@ public class SdbStatement extends StreackLibNewable {
   /**
    * 将断言树转为{@link java.sql.PreparedStatement}。
    *
-   * @throws UnsupportedOperationException 当前版本未实现参数化查询。
-   *         计划在 0.7.0 迁移至 PreparedStatement 以彻底消除 SQL 注入风险。
-   *         临时使用 {@link #toString()} 方法进行字符串拼接查询。
+   * @throws UnsupportedOperationException 本方法未实现。参数化查询已由 {@link #toPrepared(Map)} 提供，
+   *         其内部使用 {@code ?} 占位符 + 值绑定，彻底防止<b>值</b>注入；标识符（列名）则经
+   *         {@link #lookupCol} 反引号转义。请勿再使用本方法，也勿把 {@link #toString()} 的字符串结果回灌执行器。
    * @since 0.6.0
    */
   public PreparedStatement toSql(SdbActionContext ctx) {
     throw new UnsupportedOperationException(
-        "PreparedStatement 路径尚未实现，计划在 0.7.0 提供。请使用 toString() 方法");
+        "toSql 未实现，请改用 toPrepared(Map) 进行参数化构建，或使用 toString() 仅作预览");
   }
 
   /**
    * 将断言转为 SQL 指令；无上下文时裸列名输出 <code>?</code>。
+   * <p>
+   * 仅用于<b>预览/调试</b>：条件<b>值</b>经 {@link SdbUtils#literal} 做基础转义（字符串拼接，<b>非参数化</b>），
+   * 列名经 {@link #lookupCol} 反引号转义。此字符串<b>不应回灌给执行器</b>。
+   * 真正执行请使用 {@link #toPrepared(Map)}（值走 {@code ?} 占位符）。
    * 
-   * @apiNote 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @apiNote 本方法不是防注入的安全边界：值只是基础转义，调用者仍不可把不可信值经此路径导出后执行。
    * @since 0.6.0
    */
   @Override
@@ -151,8 +155,11 @@ public class SdbStatement extends StreackLibNewable {
    * <p>
    * <code>table.column</code> 输出 <code>`table`.`column`</code>（表或别名由外层 FROM 定义）<br>
    * 裸列名输出 <code>`column`</code>
+   * <p>
+   * 仅用于<b>预览/调试</b>：条件<b>值</b>经 {@link SdbUtils#literal} 基础转义（非参数化），列名经 {@link #lookupCol} 反引号转义。
+   * 真正执行请使用 {@link #toPrepared(Map)}。
    * 
-   * @apiNote 当前版本仅做了简单转义，不能完全阻止 SQL 注入
+   * @apiNote 本方法不是防注入的安全边界：值仅基础转义，不可把不可信值经此路径导出后执行。
    * @param alias 别名映射，当前仅透传至子断言，由 {@link #toSql(SdbActionContext)} 使用
    * @since 0.6.0
    */
@@ -350,6 +357,15 @@ public class SdbStatement extends StreackLibNewable {
 
   /**
    * 参数化构建 WHERE 子句（使用 ? 占位符，避免 SQL 注入）。
+   * <p>
+   * <b>值</b>（{@code equal/like/larger/...} 的定值参数、{@code between} 的端点、{@code in} 的非列查值）一律替换为
+   * {@code ?} 并收集到 {@link SdbActionContext.PreparedSQL#params}，由执行器经 {@code setObject} 绑定——
+   * 值注入已彻底防住。<b>列名</b>经 {@link #lookupCol} 反引号转义（标识符无法参数化，故为转义）。
+   * <p>
+   * 本方法对应的是<b>实际执行路径</b>。但如需把表名/列名动态来源于外部输入，调用者仍需自行白名单校验
+   * （转义只是兜底保留字/畸形标识符，不能把不可信标识符变安全）。
+   * 
+   * @apiNote 仅处理 WHERE 子树；表名、CTE 名、SELECT 投影列由上层 {@link SdbActionContext} 负责转义。
    * @since 0.6.0
    */
   public SdbActionContext.PreparedSQL toPrepared(Map<String, String> alias) {

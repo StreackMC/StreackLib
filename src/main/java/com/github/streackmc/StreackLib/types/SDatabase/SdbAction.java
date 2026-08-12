@@ -58,6 +58,10 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
 
   /**
    * 执行一个操作上下文。将其构建的 SQL 批次在<b>当前事务</b>内执行。
+   * <p>
+   * 走参数化路径：条件<b>值</b>经 {@code PreparedStatement.setObject} 绑定（防值注入）；表名/列名/CTE 名
+   * 由 {@link SdbActionContext} 经 {@link SdbUtils#q} 反引号转义。
+   * 仅当表名/列名要动态取自不可信输入时，才需要调用者额外白名单校验。
    *
    * @param ctx 操作上下文（链式构建后的最终节点）
    * @return 最后一条 SQL 的执行结果
@@ -89,9 +93,13 @@ public class SdbAction extends StreackLibNewable implements AutoCloseable {
   }
 
   /**
-   * 执行原始 SQL 字符串。<b>谨防 SQL 注入</b>
+   * 执行原始 SQL 字符串。
+   * <p>
+   * <b>本方法没有任何注入防护</b>：直接 {@code Statement.execute()}，既不转义也不参数化。
+   * 调用者必须保证 {@code rawSql} 中绝不拼接任何外部输入；如需使用外部值，请改用
+   * {@link #apply(SdbActionContext)} + 断言树（值走 {@code ?} 占位符）。动态表名/列名须先白名单校验。
    *
-   * @param rawSql 原始 SQL 命令
+   * @param rawSql 原始 SQL 命令（调用者全权负责防注入）
    * @return 执行结果
    * @throws SQLException SQL 执行错误
    */

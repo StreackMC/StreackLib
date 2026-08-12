@@ -187,7 +187,11 @@ public class SdbDatabase extends StreackLibNewable {
    * SdbDataEntry r = db.act("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY)");
    * </code></pre>
    *
-   * @param rawSql 原始 SQL 命令（调用者负责防范注入）
+   * <p><b>防注入责任在调用者</b>：本方法底层直接 {@code Statement.execute()}，既不转义也不参数化。
+   * 仅适用于固定写死的 SQL（如建表 DDL）。任何含外部输入的值都必须改用
+   * {@link #act(SdbEnums.ACTION_TYPE, java.util.function.Consumer)} + 断言树（值走 {@code ?} 占位符）。
+   *
+   * @param rawSql 原始 SQL 命令（调用者全权负责防注入）
    * @return 操作结果
    * @throws SQLException SQL 执行错误
    */

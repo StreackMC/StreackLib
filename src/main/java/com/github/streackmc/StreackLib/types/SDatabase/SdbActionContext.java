@@ -366,9 +366,9 @@ public class SdbActionContext extends StreackLibNewable {
         sb.append(" FROM "); if (tbl != null) sb.append(tbl);
         break;
       case UPDATE:
-        sb.append("UPDATE "); if (tbl != null) sb.append(tbl);
-        sb.append(" SET ?");
-        break;
+      case MERGE:
+        throw new UnsupportedOperationException(
+            ctx.type + " 操作尚未实现。请使用 db.act(\"UPDATE/MERGE ...\") 原始 SQL 替代");
       case DELETE:
         sb.append("DELETE FROM "); if (tbl != null) sb.append(tbl);
         break;
@@ -383,9 +383,6 @@ public class SdbActionContext extends StreackLibNewable {
         break;
       case TRUNCATE:
         sb.append("TRUNCATE TABLE "); if (tbl != null) sb.append(tbl);
-        break;
-      case MERGE:
-        sb.append("MERGE INTO "); if (tbl != null) sb.append(tbl);
         break;
       default:
         sb.append(ctx.type).append(' '); if (tbl != null) sb.append(tbl);

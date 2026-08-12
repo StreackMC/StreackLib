@@ -316,7 +316,7 @@ public class SdbActionContext extends StreackLibNewable {
     // WITH 节点：WITH alias AS (source)
     if (ctx.type == SdbEnums.ACTION_TYPE.WITH) {
       if (tbl == null) throw new IllegalStateException("WITH 节点未指定 CTE 别名");
-      StringBuilder sb = new StringBuilder("WITH `").append(tbl).append("` AS (");
+      StringBuilder sb = new StringBuilder("WITH ").append(SdbUtils.q(tbl)).append(" AS (");
       java.util.List<Object> params = new java.util.ArrayList<>();
       if (ctx.with != null) {
         boolean f = true;
@@ -350,7 +350,7 @@ public class SdbActionContext extends StreackLibNewable {
       boolean f = true;
       for (Map.Entry<String, SdbActionContext> e : ctx.with.entrySet()) {
         if (!f) sb.append(", "); f = false;
-        sb.append('`').append(e.getKey()).append("` AS (");
+        sb.append(SdbUtils.q(e.getKey())).append(" AS (");
         PreparedSQL srcSQL = buildPreparedSQL(e.getValue());
         sb.append(srcSQL.sql()); params.addAll(srcSQL.params());
         sb.append(')');
@@ -364,7 +364,12 @@ public class SdbActionContext extends StreackLibNewable {
         sb.append("SELECT ");
         String[] cols_select = ctx.filter.selectWhat();
         for (int i = 0; i < cols_select.length; i++) {
-          if (i > 0) sb.append(", "); sb.append(cols_select[i]);
+          if (i > 0) sb.append(", ");
+          if ("*".equals(cols_select[i])) {
+            sb.append('*');
+          } else {
+            sb.append(SdbUtils.q(cols_select[i]));
+          }
         }
         sb.append(" FROM ");
         if (tbl != null) sb.append(SdbUtils.q(tbl));
@@ -427,22 +432,22 @@ public class SdbActionContext extends StreackLibNewable {
         break;
       }
       case DELETE:
-        sb.append("DELETE FROM "); if (tbl != null) sb.append(tbl);
+        sb.append("DELETE FROM "); if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case CREATE:
-        sb.append("CREATE TABLE "); if (tbl != null) sb.append(tbl);
+        sb.append("CREATE TABLE "); if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case ALTER:
-        sb.append("ALTER TABLE "); if (tbl != null) sb.append(tbl);
+        sb.append("ALTER TABLE "); if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case DROP:
-        sb.append("DROP TABLE "); if (tbl != null) sb.append(tbl);
+        sb.append("DROP TABLE "); if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case TRUNCATE:
-        sb.append("TRUNCATE TABLE "); if (tbl != null) sb.append(tbl);
+        sb.append("TRUNCATE TABLE "); if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       default:
-        sb.append(ctx.type).append(' '); if (tbl != null) sb.append(tbl);
+        sb.append(ctx.type).append(' '); if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
     }
 

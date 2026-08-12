@@ -323,7 +323,8 @@ public class SdbActionContext extends StreackLibNewable {
         for (SdbActionContext src : ctx.with.values()) {
           if (!f) sb.append(", "); f = false;
           PreparedSQL srcSQL = buildPreparedSQL(src);
-          sb.append(srcSQL.sql()); params.addAll(srcSQL.params());
+          sb.append(srcSQL.sql());
+          params.addAll(srcSQL.params());
         }
       }
       sb.append(')');
@@ -365,7 +366,8 @@ public class SdbActionContext extends StreackLibNewable {
         for (int i = 0; i < cols_select.length; i++) {
           if (i > 0) sb.append(", "); sb.append(cols_select[i]);
         }
-        sb.append(" FROM "); if (tbl != null) sb.append(tbl);
+        sb.append(" FROM ");
+        if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
       case UPDATE: {
         Map<String, Object> data = ctx.param.getRawData();

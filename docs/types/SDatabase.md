@@ -205,10 +205,10 @@ for (SConfig row : entry.ResultLines) {
 多条操作可以串联成链——后续操作自动继承前文的表名等配置，直到被覆盖（遮蔽机制）：
 
 ```java
-SdbActionContext head = new SdbActionContext(SELECT, db)
+SdbActionContext head = db.act(SELECT)
     .table("users");
 
-SdbActionContext tail = new SdbActionContext(SELECT, db)
+SdbActionContext tail = db.act(SELECT)
     .filter(new SdbStatement().larger("score", "100"))
     .limit(5);
 
@@ -221,7 +221,7 @@ head.next(tail); // tail 继承 users 表名，无需重复指定
 
 ```java
 // WITH 子表数据来源
-SdbActionContext source = new SdbActionContext(SELECT, db)
+SdbActionContext source = db.act(SELECT)
     .table("users")
     .filter(new SdbStatement().equal("active", "1"));
 

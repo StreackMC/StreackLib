@@ -4,7 +4,7 @@
 
   <artifactId>StreackLib</artifactId>
   <groupId>com.github.streackmc</groupId>
-  <version>0.6.0</version>
+  <version>0.6.1</version>
   <packaging>jar</packaging>
   <description>为StreackMC Team旗下插件提供前置能力</description>
 

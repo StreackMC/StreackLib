@@ -88,7 +88,7 @@ public class SdbActionContext extends StreackLibNewable {
     return ctx;
   }
 
-  /** 由 {@link SdbDatabase#action(SdbEnums.ACTION_TYPE)} 创建 */
+  /** 由 {@link SdbDatabase#act(SdbEnums.ACTION_TYPE)} 创建 */
   SdbActionContext(SdbEnums.ACTION_TYPE type, SdbDatabase database) {
     this.type = type;
     this.database = database;

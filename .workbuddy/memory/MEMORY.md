@@ -1,7 +1,7 @@
 # StreackLib 项目记忆
 
 ## 项目概述
-- StreackLib 是 Minecraft 前置库，版本 0.6.0
+- StreackLib 是 Minecraft 前置库，版本 0.6.1（pom.xml 已确认；此前误记 0.6.0）
 - 目标：让 Java 像 JavaScript 一样易用
 - 构建：Java 21 + Maven，目标 Paper 1.21.8 / Spigot 1.21.5
 - groupId: `com.github.streackmc`
@@ -19,7 +19,8 @@
 - 所有修改必须用 Git 跟踪
 
 ## 模块状态备注
-- SDatabase（0.6.0 新增）：后端已完整实现（Backend接口、SqliteBackend/MysqlBackend、SdbManager引用计数连接池、SdbAction事务会话）
+- SDatabase（0.6.0 新增，0.6.1 审查）：后端已完整实现（Backend接口、SqliteBackend/MysqlBackend、SdbManager引用计数连接池、SdbAction事务会话）
+- ⚠️ SDatabase 已知缺陷（2026-08-12 审查）：① UPDATE/MERGE 操作上下文不可用（buildSQL 抛 UnsupportedOperationException / toPrepared 拼出非法 `SET ?`，须用原始 SQL）；② 操作链 `.next()` 无法经 `apply()` 执行（toPrepared 拼多语句，JDBC prepareStatement 不支持）；③ SELECT 投影列在参数化路径未加反引号，与字符串路径不一致（保留字列名会报 SQL 错）；④ `SdbActionContext` 构造器 package-private，文档「上下文链/WITH」示例 `new SdbActionContext(...)` 外部不可编译；⑤ 空 filter 恒为 `WHERE 1=1`（无害）；⑥ 文档 MySQL 示例误用 root（代码拒绝 root）
 - SConfig：66.4KB，项目最大源文件，支持 7+ 种配置格式
 - HTTPServer：基于自定义 NanoHTTPd fork
 - SMail：支持 SMTP 和 DKIM SELFSIGN 两种模式

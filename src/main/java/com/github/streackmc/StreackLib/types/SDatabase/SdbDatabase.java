@@ -171,6 +171,16 @@ public class SdbDatabase extends StreackLibNewable {
   }
 
   /**
+   * 构建一个操作上下文。
+   *
+   * @param type 操作类型
+   * @return 操作上下文
+   */
+  public SdbActionContext act(SdbEnums.ACTION_TYPE type) throws SQLException {
+    return new SdbActionContext(type, this);
+  }
+
+  /**
    * 直接执行原始 SQL 并自动提交。
    *
    * <pre><code>

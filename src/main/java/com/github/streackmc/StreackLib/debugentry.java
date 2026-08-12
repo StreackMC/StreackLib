@@ -645,6 +645,27 @@ public class debugentry {
         ctx.table("players").filter(new SdbStatement().equal("name", "Alice")));
     info("更新 Alice.score=250 → score=" + updated.ResultLines.get(0).getInt("score"));
 
+    // UPDATE via SdbActionContext
+    SConfig updateData = new SConfig("", "json", null);
+    updateData.putString("score", "999");
+    db.act(SdbEnums.ACTION_TYPE.UPDATE, ctx ->
+        ctx.table("players").param(updateData)
+           .filter(new SdbStatement().equal("name", "Bob")));
+    SdbDataEntry bobRow = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx ->
+        ctx.table("players").filter(new SdbStatement().equal("name", "Bob")));
+    info("UPDATE ctx: Bob.score → " + bobRow.ResultLines.get(0).getInt("score") + " (expected 999)");
+
+    // MERGE via SdbActionContext (SQLite: INSERT OR REPLACE)
+    SConfig mergeData = new SConfig("", "json", null);
+    mergeData.putString("name", "Diana");
+    mergeData.putString("score", "300");
+    db.act(SdbEnums.ACTION_TYPE.MERGE, ctx -> ctx.table("players").param(mergeData));
+    SdbDataEntry allAfterMerge = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx -> ctx.table("players"));
+    info("MERGE ctx: 插入 Diana(300), 总行数=" + allAfterMerge.InfluencedLines);
+    for (SConfig row : allAfterMerge.ResultLines) {
+      info("  行: name=" + row.getString("name") + ", score=" + row.getInt("score"));
+    }
+
     db.act("DELETE FROM players WHERE name='Charlie'");
     SdbDataEntry all = db.act(SdbEnums.ACTION_TYPE.SELECT, ctx -> ctx.table("players"));
     info("删除 Charlie 后总行数: " + all.InfluencedLines);

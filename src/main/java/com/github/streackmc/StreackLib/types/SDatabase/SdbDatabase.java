@@ -60,6 +60,11 @@ public class SdbDatabase extends StreackLibNewable {
     return profileConf.getString("table_prefix", "");
   }
 
+  /** 获取数据库模式（sqlite / mysql），包级权限供 SdbActionContext 使用 */
+  String getMode() {
+    return profileConf.getString("mode", "sqlite").toLowerCase();
+  }
+
   // ==========================================
   // 构造
   // ==========================================

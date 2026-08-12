@@ -1,7 +1,9 @@
 package com.github.streackmc.StreackLib.types.SDatabase;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -359,16 +361,69 @@ public class SdbActionContext extends StreackLibNewable {
     switch (ctx.type) {
       case SELECT:
         sb.append("SELECT ");
-        String[] cols = ctx.filter.selectWhat();
-        for (int i = 0; i < cols.length; i++) {
-          if (i > 0) sb.append(", "); sb.append(cols[i]);
+        String[] cols_select = ctx.filter.selectWhat();
+        for (int i = 0; i < cols_select.length; i++) {
+          if (i > 0) sb.append(", "); sb.append(cols_select[i]);
         }
         sb.append(" FROM "); if (tbl != null) sb.append(tbl);
         break;
-      case UPDATE:
-      case MERGE:
-        throw new UnsupportedOperationException(
-            ctx.type + " 操作尚未实现。请使用 db.act(\"UPDATE/MERGE ...\") 原始 SQL 替代");
+      case UPDATE: {
+        Map<String, Object> data = ctx.param.getRawData();
+        if (data == null || data.isEmpty())
+          throw new IllegalStateException("UPDATE 需要调用 .param() 设置列值");
+        sb.append("UPDATE ").append(SdbUtils.q(tbl)).append(" SET ");
+        boolean first = true;
+        for (Map.Entry<String, Object> e : data.entrySet()) {
+          if (!first) sb.append(", ");
+          first = false;
+          sb.append(SdbUtils.q(e.getKey())).append(" = ?");
+          params.add(e.getValue());
+        }
+        break;
+      }
+      case MERGE: {
+        Map<String, Object> data = ctx.param.getRawData();
+        if (data == null || data.isEmpty())
+          throw new IllegalStateException("MERGE 需要调用 .param() 设置列值");
+        String mode = ctx.database.getMode();
+        List<String> cols_merge = new ArrayList<>(data.keySet());
+        if ("mysql".equals(mode)) {
+          sb.append("INSERT INTO ").append(SdbUtils.q(tbl))
+            .append(" (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.q(cols_merge.get(i)));
+          }
+          sb.append(") VALUES (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append('?');
+            params.add(data.get(cols_merge.get(i)));
+          }
+          sb.append(") ON DUPLICATE KEY UPDATE ");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.q(cols_merge.get(i))).append(" = VALUES(")
+              .append(SdbUtils.q(cols_merge.get(i))).append(')');
+          }
+        } else {
+          // SQLite: INSERT OR REPLACE
+          sb.append("INSERT OR REPLACE INTO ").append(SdbUtils.q(tbl))
+            .append(" (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.q(cols_merge.get(i)));
+          }
+          sb.append(") VALUES (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append('?');
+            params.add(data.get(cols_merge.get(i)));
+          }
+          sb.append(')');
+        }
+        break;
+      }
       case DELETE:
         sb.append("DELETE FROM "); if (tbl != null) sb.append(tbl);
         break;
@@ -389,14 +444,15 @@ public class SdbActionContext extends StreackLibNewable {
         break;
     }
 
-    // WHERE 条件（参数化）
-    String where = ctx.filter.toString(ctx.alias);
-    if (!"()".equals(where)) {
-      // 使用参数化版本
-      sb.append(" WHERE ");
-      SdbActionContext.PreparedSQL wherePrep = ctx.filter.toPrepared(ctx.alias);
-      sb.append(wherePrep.sql());
-      params.addAll(wherePrep.params());
+    // WHERE 条件（参数化，MERGE 不需要）
+    if (ctx.type != SdbEnums.ACTION_TYPE.MERGE) {
+      String where = ctx.filter.toString(ctx.alias);
+      if (!"()".equals(where)) {
+        sb.append(" WHERE ");
+        SdbActionContext.PreparedSQL wherePrep = ctx.filter.toPrepared(ctx.alias);
+        sb.append(wherePrep.sql());
+        params.addAll(wherePrep.params());
+      }
     }
     if (ctx.limit > 0) sb.append(" LIMIT ").append(ctx.limit);
     return new PreparedSQL(sb.toString(), params);
@@ -456,22 +512,32 @@ public class SdbActionContext extends StreackLibNewable {
     switch (ctx.type) {
       case SELECT:
         sb.append("SELECT ");
-        String[] cols = ctx.filter.selectWhat();
-        for (int i = 0; i < cols.length; i++) {
+        String[] cols_select = ctx.filter.selectWhat();
+        for (int i = 0; i < cols_select.length; i++) {
           if (i > 0) sb.append(", ");
-          if ("*".equals(cols[i])) {
+          if ("*".equals(cols_select[i])) {
             sb.append('*');
           } else {
-            sb.append(SdbUtils.q(cols[i]));
+            sb.append(SdbUtils.q(cols_select[i]));
           }
         }
         sb.append(" FROM ");
         if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
-      case UPDATE:
-        throw new UnsupportedOperationException(
-            "UPDATE 的 SET 子句参数映射尚未实现。"
-            + "请使用 db.act(\"UPDATE ... SET ... WHERE ...\") 原始 SQL 替代");
+      case UPDATE: {
+        Map<String, Object> data = ctx.param.getRawData();
+        if (data == null || data.isEmpty())
+          throw new IllegalStateException("UPDATE 需要调用 .param() 设置列值");
+        sb.append("UPDATE ").append(SdbUtils.q(tbl)).append(" SET ");
+        boolean first = true;
+        for (Map.Entry<String, Object> e : data.entrySet()) {
+          if (!first) sb.append(", ");
+          first = false;
+          sb.append(SdbUtils.q(e.getKey())).append(" = ")
+            .append(SdbUtils.literal(String.valueOf(e.getValue())));
+        }
+        break;
+      }
       case DELETE:
         sb.append("DELETE FROM ");
         if (tbl != null) sb.append(SdbUtils.q(tbl));
@@ -492,10 +558,44 @@ public class SdbActionContext extends StreackLibNewable {
         sb.append("TRUNCATE TABLE ");
         if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
-      case MERGE:
-        sb.append("MERGE INTO ");
-        if (tbl != null) sb.append(SdbUtils.q(tbl));
+      case MERGE: {
+        Map<String, Object> data = ctx.param.getRawData();
+        if (data == null || data.isEmpty())
+          throw new IllegalStateException("MERGE 需要调用 .param() 设置列值");
+        String mode = ctx.database.getMode();
+        List<String> cols_merge = new ArrayList<>(data.keySet());
+        if ("mysql".equals(mode)) {
+          sb.append("INSERT INTO ").append(SdbUtils.q(tbl)).append(" (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.q(cols_merge.get(i)));
+          }
+          sb.append(") VALUES (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.literal(String.valueOf(data.get(cols_merge.get(i)))));
+          }
+          sb.append(") ON DUPLICATE KEY UPDATE ");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.q(cols_merge.get(i))).append(" = VALUES(")
+              .append(SdbUtils.q(cols_merge.get(i))).append(')');
+          }
+        } else {
+          sb.append("INSERT OR REPLACE INTO ").append(SdbUtils.q(tbl)).append(" (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.q(cols_merge.get(i)));
+          }
+          sb.append(") VALUES (");
+          for (int i = 0; i < cols_merge.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(SdbUtils.literal(String.valueOf(data.get(cols_merge.get(i)))));
+          }
+          sb.append(')');
+        }
         break;
+      }
       case COMMIT:
       case ROLLBACK:
       case SAVEPOINT:
@@ -507,9 +607,11 @@ public class SdbActionContext extends StreackLibNewable {
         if (tbl != null) sb.append(SdbUtils.q(tbl));
         break;
     }
-    // WHERE 条件
-    String where = ctx.filter.toString(ctx.alias);
-    if (!"()".equals(where)) sb.append(" WHERE ").append(where);
+    // WHERE 条件（MERGE 不需要）
+    if (ctx.type != SdbEnums.ACTION_TYPE.MERGE) {
+      String where = ctx.filter.toString(ctx.alias);
+      if (!"()".equals(where)) sb.append(" WHERE ").append(where);
+    }
     // LIMIT（上限 2^31-1 即无限制）
     if (ctx.limit > 0) {
       if (ctx.limit > Integer.MAX_VALUE - 1) ctx.limit = Integer.MAX_VALUE - 1;

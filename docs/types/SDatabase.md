@@ -258,9 +258,23 @@ db.act(SELECT, ctx ->
 
 ## 设计限制与注意
 
+### 异常
+> **异常类型**：所有 `SdbDatabase.act()` 方法签名声明 `throws SQLException`——SQL 执行错误直接透传，调用者可精确 catch。连接池创建等底层异常被包装为 `RuntimeException`（这些属于配置错误，应在启动时解决）。
+
+| 异常 | 来源 | 场景 |
+|:--|:--|:--|
+| `SQLException` | `SdbAction.apply()` | SQL 语法错误、约束冲突、连接断开 |
+| `IllegalStateException` | `SdbActionContext.buildSQL()` | 操作上下文配置非法（缺少表名、WITH 链错误等） |
+| `IllegalArgumentException` | `SdbManager.createBackend()` | MySQL 使用 root 登录 |
+| `RuntimeException` | `SdbDatabase.act()` | 连接池创建失败等底层异常 |
+| `NullPointerException` | 各断言方法 | 断言参数为 Null |
+
+
 ### SQL 注入防御与责任划分
 
 本库对**值**和**标识符**采用两种截然不同的防护机制，调用者职责也不同。请严格按下面的划分使用，不要假定「库替我兜住了所有注入」。
+
+> 以下内容由 AI 总结并生成
 
 #### ✅ 自动防护（调用者无需处理）
 
@@ -278,13 +292,3 @@ db.act(SELECT, ctx ->
 | `SdbStatement.toString()` / `SdbActionContext.toString()` / `toSqlString()` | 仅用于**预览/调试**导出字符串 SQL；其中值经 `SdbUtils.literal()` 做基础转义（非参数化） | 这些字符串**不应回灌给执行器**。执行永远走 `toPrepared()` 的参数化路径。 |
 
 > **一句话**：把用户输入只放在条件「值」位置就安全；凡是表名/列名/原始 SQL 带上了外部输入，必须由你白名单或参数化。
-
-> **异常类型**：所有 `SdbDatabase.act()` 方法签名声明 `throws SQLException`——SQL 执行错误直接透传，调用者可精确 catch。连接池创建等底层异常被包装为 `RuntimeException`（这些属于配置错误，应在启动时解决）。
-
-| 异常 | 来源 | 场景 |
-|:--|:--|:--|
-| `SQLException` | `SdbAction.apply()` | SQL 语法错误、约束冲突、连接断开 |
-| `IllegalStateException` | `SdbActionContext.buildSQL()` | 操作上下文配置非法（缺少表名、WITH 链错误等） |
-| `IllegalArgumentException` | `SdbManager.createBackend()` | MySQL 使用 root 登录 |
-| `RuntimeException` | `SdbDatabase.act()` | 连接池创建失败等底层异常 |
-| `NullPointerException` | 各断言方法 | 断言参数为 Null |

@@ -2,6 +2,7 @@ package com.github.streackmc.StreackLib.types;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -1246,6 +1247,30 @@ public class SConfig extends StreackLibNewable {
    */
   public Map<String, Object> getRawData() {
     return Collections.unmodifiableMap(cache);
+  }
+
+  /**
+   * 将当前缓存按配置格式转换为字符串。
+   * <p>
+   * 对于 NBT 和 NBTle 等二进制格式，返回缓存的 Map 表示，因为二进制内容不适合直接转换为字符串。
+   *
+   * @return 当前缓存的格式化文本，或二进制格式的 Map 表示
+   */
+  @Override
+  public String toString() {
+    lock.readLock().lock();
+    try {
+      if (confHandler instanceof BackendNBT) {
+        return cache.toString();
+      }
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      confHandler.flush(out);
+      return out.toString(charSet);
+    } catch (Exception e) {
+      throw new IllegalStateException("无法将配置转换为字符串", e);
+    } finally {
+      lock.readLock().unlock();
+    }
   }
 
   /* ==========================================

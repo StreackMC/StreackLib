@@ -22,21 +22,32 @@
 - SDatabase（0.6.0 新增，0.6.1 审查）：后端已完整实现（Backend接口、SqliteBackend/MysqlBackend、SdbManager引用计数连接池、SdbAction事务会话）
 - ⚠️ SDatabase 已知缺陷（2026-08-12 审查）：① UPDATE/MERGE 操作上下文不可用（buildSQL 抛 UnsupportedOperationException / toPrepared 拼出非法 `SET ?`，须用原始 SQL）；② 操作链 `.next()` 无法经 `apply()` 执行（toPrepared 拼多语句，JDBC prepareStatement 不支持）；③ SELECT 投影列在参数化路径未加反引号 —— **2026-08-12 已修复（同步转义表名/CTE 名/SELECT 列）**；④ `SdbActionContext` 构造器 package-private，文档「上下文链/WITH」示例 `new SdbActionContext(...)` 外部不可编译；⑤ 空 filter 恒为 `WHERE 1=1`（无害）；⑥ 文档 MySQL 示例误用 root（代码拒绝 root）
 - ✅ SQL 注入防御（2026-08-12 复核 + 修复）：过滤条件的「值」已参数化（安全）；**执行路径 `buildPreparedSQL` 现已对全部标识符做反引号转义**——表名（SELECT/UPDATE/MERGE/DELETE/CREATE/ALTER/DROP/TRUNCATE + 默认分支）、WITH 的 CTE 名、SELECT 投影列，与预览路径 `buildSQL` 一致，标识符注入面已闭合。唯一残留风险：`act(String)` 原始 SQL 无任何防护（调用方自担）。2026-08-12 已重写 `docs/types/SDatabase.md`「SQL 注入防御与责任划分」及全部相关 JavaDoc，明确三类职责（✅自动防护：值=PreparedStatement 占位符、标识符=`SdbUtils.q` 反引号转义且注明「转义≠参数化」；⚠️调用者负责：原始 SQL、动态标识符、toString 预览路径）。
-- SConfig：66.4KB，项目最大源文件，支持 7+ 种配置格式
-- 🔴 SConfig 已知缺陷（2026-10-07 实测复现，均有最小复现用例）：
-  ① **顶层出现 null 值即加载失败（JSON / YAML / 全格式）** —— `new SConfig("{\"b\":null}", JSON, null)`
-     与 `new SConfig("b:\n", YAML, null)` 都抛 `RuntimeException: 无法加载配置文件：null`，
-     根因 `cache = new ConcurrentHashMap<>(loaded)` 不接受 null value（`SConfig.java` 约 409 / 1495 行）。
-     **边界：只有最外层那一层会炸**——`{"a":{"b":null}}` 与项目自己的 `config.yml`（null 都在嵌套层）
-     都能正常加载，因为 ConcurrentHashMap 只包了顶层，嵌套 Map 仍是允许 null 的 HashMap。
-  ② **`save()` 对 JSON / TOML 写出 0 字节文件（数据丢失）** —— `getWriter(OutputStream)` 返回的
-     `OutputStreamWriter` 从未 flush，而 Gson 的 `toJson(obj, Writer)` 也不会 flush；
-     YAML / PROPERTIES 正常，INI 会丢新增键（疑似设计限制）
-  ③ **解析失败静默返回空 Map** —— `BackendJSONc.load` 里 `catch (Exception ignore) {} return new HashMap<>()`；
-     `BackendJSON` 对非对象/非数组根也返回空 Map。配置文件场景是「fail-soft」，但调用方无法区分
-     「内容确实为空」与「格式坏了」
-  ④ 代码注释称 JSONC「支持注释、尾随逗号」，但 Gson 2.10.1 的 `setLenient()` 并不接受尾随逗号
-     （实测 `{"a":1,}` → 空 Map）
+- SConfig：约 97KB，项目最大源文件，支持 JSON/JSONC/YAML/YAMLc/YAMLi/TOML/INI/PROPERTIES/NBT/NBTle/SNBT
+- ✅ SConfig 缺陷修复（2026-10-07，三项已复现缺陷全部修复，110 项自检全通过）：
+  ① **顶层 null 导致加载失败** → 根因 `new ConcurrentHashMap<>(loaded)` 拒绝 null value。
+     缓存改由 `newCache()` / `newCache(loaded)` 创建：`Collections.synchronizedMap(new LinkedHashMap<>())`
+     （该 Map 允许 null；本类所有读写都已被 `lock` 保护，且未用 ConcurrentHashMap 的复合原子操作）。
+     `getRawData()` 同时补上读锁 + 改用 `copyCache()`（原 `Map.copyOf` 同样拒绝 null）。
+  ② **`save()` 对 JSON/JSONC/TOML 写出 0 字节** → 全部文本后端统一走
+     `writeText(OutputStream, TextWriter)`：写出后强制 `flush()`（只 flush 不 close，流生命周期仍归
+     `atomicWrite`/`toString` 管理）。顺带修掉三个同源问题：Gson 加 `serializeNulls()`
+     （否则显式 null 字段会被静默丢弃，与 YAML 行为不一致）；INI 顶层标量改为显式抛
+     `IllegalArgumentException`（原来静默丢成 0 字节）；`atomicWrite` 失败时清理临时文件。
+  ③ **JSONC「尾随逗号」承诺落空 + 失败静默变空 Map** → 新增 `stripTrailingCommas` /
+     `skipWhitespaceAndComments` 做字符串感知的预处理（Gson 2.10.1 的 lenient 确实不收尾随逗号）；
+     移除 `catch (Exception ignore)`，畸形输入现在抛错并正常触发 `WRONG_FORMAT` 与 `onLoadFailure`。
+  修复过程中另外发现并修掉三个「必然失败」的既有缺陷（均已自检覆盖）：
+  ④ YAMLc/YAMLi 的 `save()` 100% 抛 NPE「Scalar style must be provided」——
+     SnakeYAML 的 `new ScalarNode(tag, value, mark, mark, style)` 既不允许 style=null，
+     也不允许 value=null（空值原来直接传了 null），已统一改为 `ScalarStyle.PLAIN` 且空值传 `"null"`；
+  ⑤ 全新 NBT 文件永远无法创建 —— 文件不存在时 `reload()` 提前返回，`BackendNBT.rootName`
+     未被 `setRootName` 初始化仍为 null，`flush` 直接 `rootName.isEmpty()` 即 NPE，改用 `getRootName()`；
+  ⑥ 空 SNBT 文件加载抛 `StringIndexOutOfBoundsException` → 空内容视作空配置，与其它格式对齐。
+- ⚠️ SConfig 剩余格式边界（非缺陷，已写入 JavaDoc 与 `docs/types/SConfig.md`）：
+  · TOML 语言无 null 字面量 → null 项保存时被省略（整节皆 null 则整节省略）；
+  · INI 必须把项写在节里（键形如 `section.key`），顶层标量保存时抛异常；
+  · Properties 的 null 退化为空串；JSON/JSONC 写入会丢弃注释；
+  · `BackendJSON` 对非对象/非数组根仍返回空 Map（标量根无法用 Map 表示），这是有意的 fail-soft。
 - HTTPServer：基于自定义 NanoHTTPd fork
 - SMail：支持 SMTP 和 DKIM SELFSIGN 两种模式
 - SLDB 已移除（设计与 SQL 架构不兼容）
@@ -57,4 +68,5 @@
   消费 `json()`→`Map`（缓存同一实例、保持键序、可变）/ `config()`→`SConfig` / `text()` / `bytes()` / `as(Class|Type)`。
   RAW 载荷上 `json()/config()/as()` 抛 `IllegalStateException`。
   ⚠️ `config()` 必须传顶层拷贝（SConfig 的 `this.cache = rD` 直接引用不拷贝，否则会污染 `json()` 缓存）；
-  该 Map 构造器绕过 ConcurrentHashMap 因而容忍顶层 null，但 `getRawData()`（`Map.copyOf`）仍会 NPE。
+  该 Map 构造器绕过 ConcurrentHashMap 因而容忍顶层 null；`getRawData()` 自 2026-10-07 修复后
+  也不再拒绝 null（改为读锁 + 允许 null 的不可变副本）。

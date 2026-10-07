@@ -11,6 +11,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PushbackInputStream;
+import java.io.Reader;
 import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.io.Writer;
@@ -92,6 +93,10 @@ import net.querz.nbt.tag.Tag;
  * <p>
  * 支持JSON的 Array As Root 和 NBT 的 Root Name 特性，见于 {@link SConfig.TYPES#JSON} 和
  * {@link SConfig#setRootName(String)} 。
+ * <p>
+ * <b>空值（null）：</b>顶层与嵌套层的 null 值均可正常加载、读取与写出（{@link #getRawData()}
+ * 亦容忍顶层 null）。各格式的表达能力不同：YAML / JSON / JSONC 会保留 null；
+ * TOML 因语言无 null 字面量而会省略；INI 则完全不允许顶层标量。详见各 {@link SConfig.TYPES} 说明。
  * 
  * @author kdxiaoyi
  * @author Kimi[AI] ~~亦有贡献~~现因圈钱过度退出开发
@@ -111,6 +116,9 @@ public class SConfig extends StreackLibNewable {
   public final static class TYPES {
     /**
      * @apiNote 不支持宽松模式，例如注释和尾随逗号。参见 {@link TYPES#JSONC}
+     * @apiNote 内容非法时抛出异常，而<b>不是</b>静默当作空配置；空文件与仅含空白的文件视作空配置。
+     * @apiNote 根为标量（如 {@code 42}、{@code null}）时视作空配置，因为标量根无法用
+     *          {@code Map} 表示。
      * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 中；在 0.4.6 及更早版本中则会被忽略。
      * 
      *          <pre>
@@ -120,9 +128,13 @@ public class SConfig extends StreackLibNewable {
     public final static String JSON = "json";
     /**
      * 解析宽松的JSON，例如注释和尾随逗号。
+     * <p>
+     * 宽松能力由两部分组成：Gson 的 lenient 模式（注释、单引号、无引号键等），
+     * 以及本类自行实现的尾随逗号预处理（Gson 本身不支持尾随逗号）。
      * 
      * @since 0.4.7
      * @apiNote 写入时会以标准JSON覆盖并因此丢失全部注释
+     * @apiNote 解析失败会抛出异常，而<b>不是</b>静默返回空配置。
      * @apiNote 根数组类型的JSON会自动将该数组放入键 _root_array 中；在 0.4.6 及更早版本中则会被忽略。
      * 
      *          <pre>
@@ -152,11 +164,20 @@ public class SConfig extends StreackLibNewable {
      * @since 0.6.0
      */
     public final static String YAMLi = "yamli";
+    /**
+     * @apiNote <b>不支持 null 值</b>：TOML 语言没有 null 字面量，值为 null 的配置项在保存时
+     *          会被直接省略（某节的全部配置项皆为 null 时该节也会被省略）。
+     *          需要完整保留空值请改用 {@link TYPES#YAML} 或 {@link TYPES#JSON}。
+     */
     public final static String TOML = "toml";
     /**
      * @apiNote 0.5.0版本（不含）前，本 INI 支持使用了 {@link org.ini4j.ini4j} ，其存在已知严重漏洞
      *          CVE-2022-41404：允许攻击者通过构造恶意 INI 文件并借此崩溃程序来完成拒绝服务攻击。
      * @apiNote 0.5.0版本后，本 INI 支持改用 SuperMap/ini4j 临时代替以修复该漏洞。
+     * @apiNote 所有配置项都必须位于节（section）中，即键必须形如 {@code section.key}。
+     *          INI 没有「顶层标量」的概念，ini4j 连加载裸键都会直接报 parse error，
+     *          因此保存时若检测到顶层标量会抛出 {@link IllegalArgumentException}，
+     *          而不是把它们静默丢弃成 0 字节文件。
      * @see {@link https://nvd.nist.gov/vuln/detail/CVE-2022-41404} 漏洞详情
      * @see {@link https://github.com/ini4j/ini4j?tab=readme-ov-file#%EF%B8%8F-roadmap-to-v060}
      *      鸽子官方迁移几年了还没修bug
@@ -240,7 +261,7 @@ public class SConfig extends StreackLibNewable {
   /** 读写锁 */
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
   /** 已加载的数据 */
-  private volatile Map<String, Object> cache = new ConcurrentHashMap<>();
+  private volatile Map<String, Object> cache = newCache();
   
   // callback
   private volatile Consumer<SConfig> onAutoReloadedFunc;
@@ -273,6 +294,57 @@ public class SConfig extends StreackLibNewable {
   private String tempFileSuffix;
   /** 配置文件使用的字符集 */
   private final Charset charSet;
+
+  /* ---------- 缓存 Map 的创建 ---------- */
+
+  /**
+   * 创建一个空的配置缓存。
+   * <p>
+   * <b>此处不可使用 {@link ConcurrentHashMap}</b>：它拒绝 null 值，而顶层出现 null
+   * （如 JSON 的 {@code {"b": null}}、YAML 的 {@code b:}）是完全合法的配置内容，
+   * 用它包装解析结果会直接抛 {@link NullPointerException} 导致整个文件加载失败。
+   * <p>
+   * 这里改用允许 null 的 {@link LinkedHashMap}，由
+   * {@link Collections#synchronizedMap} 提供并发安全：本类的所有读写路径都已由
+   * {@link #lock} 保护，且未使用 ConcurrentHashMap 的复合原子操作
+   * （compute / putIfAbsent / merge 等）。
+   *
+   * @return 允许 null 值、线程安全的空缓存
+   */
+  private static Map<String, Object> newCache() {
+    return Collections.synchronizedMap(new LinkedHashMap<>());
+  }
+
+  /**
+   * 用后端解析结果创建配置缓存，容忍顶层 null 值。
+   * <p>
+   * 与 {@code new ConcurrentHashMap<>(loaded)} 的区别：后者只浅拷贝顶层，
+   * 因此只有「最外层直接包含 null 值」才会抛 {@link NullPointerException}
+   * （嵌套层的 null 因内部仍是普通 Map 而不受影响）。
+   *
+   * @param loaded 后端解析结果，可为 null（视作空配置）
+   * @return 新的配置缓存
+   */
+  private static Map<String, Object> newCache(@Nullable Map<String, Object> loaded) {
+    Map<String, Object> created = newCache();
+    if (loaded != null && !loaded.isEmpty()) {
+      created.putAll(loaded);
+    }
+    return created;
+  }
+
+  /**
+   * 创建缓存的可读副本。
+   * <p>
+   * 不使用 {@link Map#copyOf}：它同样拒绝 null 值。返回的副本保留原键序、不可修改，
+   * 但其嵌套层仍是共享引用。
+   *
+   * @param source 源缓存，不可为 null
+   * @return 不可修改的顶层副本
+   */
+  private static Map<String, Object> copyCache(Map<String, Object> source) {
+    return Collections.unmodifiableMap(new LinkedHashMap<>(source));
+  }
 
   // --- 从文件读取配置文件 ---
 
@@ -406,7 +478,7 @@ public class SConfig extends StreackLibNewable {
       try (InputStream in = new ByteArrayInputStream(rawData.getBytes(charSet))) {
         loaded = confHandler.load(in);
       }
-      cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
+      cache = newCache(loaded);
     } catch (Exception e) {
       SEventCentral.broadcastEvent(EVENTS.WRONG_FORMAT, this)
           .set("exception", e)
@@ -449,7 +521,7 @@ public class SConfig extends StreackLibNewable {
    * @since 0.6.0
    */
   public SConfig(@Nullable Map<String, Object> rawData, @Nullable Charset charSet , String ctype, @Nullable String suffix) {
-    Map<String, Object> rD = Objects.requireNonNullElse(rawData, new ConcurrentHashMap<>());
+    Map<String, Object> rD = Objects.requireNonNullElse(rawData, newCache());
     this.confHandler = this.parseType(ctype);
     this.confFile = null;
     this.charSet = Objects.requireNonNullElse(charSet, StandardCharsets.UTF_8);
@@ -1243,11 +1315,17 @@ public class SConfig extends StreackLibNewable {
 
   /**
    * @apiNote 即使已启用自动重载，仍然建议先使用 {@link #reload()} 刷新数据，以免某些边缘情况。
+   * @apiNote 返回的副本容忍 null 值（顶层字段值为 null 时不会被拒绝，嵌套层仍是共享引用）。
    * @since 自 0.6.2 及更高版本起为拷贝，旧版本是不可变视图
    * @return 当前已加载的数据，注意<b>不是</b>原始对象引用，而是镜像版本。
    */
   public Map<String, Object> getRawData() {
-    return Map.copyOf(cache);
+    lock.readLock().lock();
+    try {
+      return copyCache(cache);
+    } finally {
+      lock.readLock().unlock();
+    }
   }
 
   /**
@@ -1482,7 +1560,7 @@ public class SConfig extends StreackLibNewable {
         throw new NullPointerException("");
       }
       if (!getFile(false).exists()) {
-        cache = new ConcurrentHashMap<>();
+        cache = newCache();
         lastModified = 0L; // 同步时间戳，File.lastModified() 对不存在的文件返回 0L
         return this;
       }
@@ -1490,7 +1568,7 @@ public class SConfig extends StreackLibNewable {
       try (InputStream in = new FileInputStream(getFile(false))) {
         loaded = confHandler.load(in);
       }
-      cache = loaded == null ? new ConcurrentHashMap<>() : new ConcurrentHashMap<>(loaded);
+      cache = newCache(loaded);
       lastModified = getFile(false).lastModified();
     } catch (IllegalArgumentException eIA) {
       throw eIA;
@@ -1891,14 +1969,24 @@ public class SConfig extends StreackLibNewable {
   /** 原子替换文件：先写临时文件，再 move */
   private void atomicWrite(Path target, IOConsumer<OutputStream> outF) throws Exception {
     Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "StreackLib.SConfig-", "." + getType() + ".tmp");
-    try (OutputStream out = Files.newOutputStream(tmp)) {
-        outF.accept(out);
-    }
     try {
-      Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
-    } catch (AtomicMoveNotSupportedException ignore) {
-      // 某些文件系统不支持原子 move，退化为复制后删除
-      Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+      try (OutputStream out = Files.newOutputStream(tmp)) {
+        outF.accept(out);
+      }
+      try {
+        Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE);
+      } catch (AtomicMoveNotSupportedException ignore) {
+        // 某些文件系统不支持原子 move，退化为复制后删除
+        Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+      }
+    } catch (Exception e) {
+      // 写出失败（例如 INI 拒绝顶层标量）时清理临时文件，避免在配置目录留下垃圾
+      try {
+        Files.deleteIfExists(tmp);
+      } catch (IOException ignore) {
+        // 清理失败不应掩盖原始异常
+      }
+      throw e;
     }
   }
 
@@ -1911,6 +1999,33 @@ public class SConfig extends StreackLibNewable {
   /** 从 OutputStream 解析一个 Writer */
   private Writer getWriter(OutputStream out) {
     return new OutputStreamWriter(out, charSet);
+  }
+
+  /**
+   * 在 {@link Writer} 上执行文本写出，并在写出结束后 flush。
+   * <p>
+   * <b>所有文本格式的后端都必须经由此方法写出。</b>直接使用
+   * {@link #getWriter(OutputStream)} 的返回值会因编码缓冲区始终未被 flush
+   * 而写出 0 字节文件（数据丢失级缺陷）；且不可依赖第三方写出器代为 flush——
+   * Gson 的 {@code toJson(Object, Writer)}、toml4j 的 {@code TomlWriter#write}
+   * 都只负责写字符，不会 flush 调用方传入的 Writer。
+   * <p>
+   * 这里只 flush 不 close，底层 {@link OutputStream} 的生命周期仍由调用方
+   * （{@link #atomicWrite} 或 {@link #toString()}）统一管理。
+   *
+   * @param out    目标字节流
+   * @param writer 具体的文本写出逻辑
+   */
+  private void writeText(OutputStream out, TextWriter writer) throws Exception {
+    Writer w = getWriter(out);
+    writer.write(w);
+    w.flush();
+  }
+
+  /** {@link #writeText(OutputStream, TextWriter)} 的写出逻辑 */
+  @FunctionalInterface
+  private interface TextWriter {
+    void write(Writer writer) throws Exception;
   }
 
   /*
@@ -1935,7 +2050,7 @@ public class SConfig extends StreackLibNewable {
       DumperOptions opts = new DumperOptions();
       opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
       opts.setPrettyFlow(true);
-      new Yaml(opts).dump(cache, getWriter(out));
+      writeText(out, w -> new Yaml(opts).dump(cache, w));
     };
 
     @Override
@@ -2078,7 +2193,7 @@ public class SConfig extends StreackLibNewable {
       opts.setProcessComments(true);
 
       MappingNode root = mapToMappingNode(cache, "");
-      new Yaml(opts).serialize(root, getWriter(out));
+      writeText(out, w -> new Yaml(opts).serialize(root, w));
     }
 
     /** 递归构建带注释的 MappingNode */
@@ -2087,7 +2202,8 @@ public class SConfig extends StreackLibNewable {
       for (Map.Entry<String, Object> entry : data.entrySet()) {
         String fullPath = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
 
-        ScalarNode keyNode = new ScalarNode(org.yaml.snakeyaml.nodes.Tag.STR, entry.getKey(), null, null, null);
+        ScalarNode keyNode = new ScalarNode(org.yaml.snakeyaml.nodes.Tag.STR, entry.getKey(), null, null,
+            DumperOptions.ScalarStyle.PLAIN);
         // 附加 Block 注释
         attachBlockComments(keyNode, fullPath);
 
@@ -2106,8 +2222,13 @@ public class SConfig extends StreackLibNewable {
     /** 将 Java 值转为对应的 Node */
     @SuppressWarnings("unchecked")
     private Node javaToNode(Object value, String path) {
+      // 注意：SnakeYAML 的 ScalarNode 构造器<b>拒绝 null style</b>
+      // （"Scalar style must be provided."），且 Tag.NULL 的 value 也不能为 null，
+      // 因此这里统一显式给出 PLAIN 风格与 "null" 字面量。
+      // 具体的引号/换行等呈现方式仍由 Emitter 根据内容自行决定。
       if (value == null) {
-        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.NULL, null, null, null, null);
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.NULL, "null", null, null,
+            DumperOptions.ScalarStyle.PLAIN);
       }
       if (value instanceof Map) {
         return mapToMappingNode((Map<String, Object>) value, path);
@@ -2123,16 +2244,20 @@ public class SConfig extends StreackLibNewable {
       // 数字类型
       if (value instanceof Integer || value instanceof Long
           || value instanceof Short || value instanceof Byte) {
-        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.INT, String.valueOf(value), null, null, null);
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.INT, String.valueOf(value), null, null,
+            DumperOptions.ScalarStyle.PLAIN);
       }
       if (value instanceof Float || value instanceof Double) {
-        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.FLOAT, String.valueOf(value), null, null, null);
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.FLOAT, String.valueOf(value), null, null,
+            DumperOptions.ScalarStyle.PLAIN);
       }
       if (value instanceof Boolean) {
-        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.BOOL, String.valueOf(value), null, null, null);
+        return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.BOOL, String.valueOf(value), null, null,
+            DumperOptions.ScalarStyle.PLAIN);
       }
       // 默认按字符串处理
-      return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.STR, String.valueOf(value), null, null, null);
+      return new ScalarNode(org.yaml.snakeyaml.nodes.Tag.STR, String.valueOf(value), null, null,
+          DumperOptions.ScalarStyle.PLAIN);
     }
 
     /** 为 Node 附加 Block 注释 */
@@ -2191,6 +2316,108 @@ public class SConfig extends StreackLibNewable {
     public String getType() { return TYPES.YAMLi; }
   }
 
+  /**
+   * 读取 {@link Reader} 的全部内容。
+   *
+   * @param reader 源，由调用方负责关闭
+   * @return 完整文本
+   */
+  private static String readAll(Reader reader) throws IOException {
+    StringBuilder sb = new StringBuilder();
+    char[] buf = new char[8192];
+    int n;
+    while ((n = reader.read(buf)) != -1) {
+      sb.append(buf, 0, n);
+    }
+    return sb.toString();
+  }
+
+  /**
+   * 删除 JSONC 文本中对象/数组末尾的多余逗号（trailing comma）。
+   * <p>
+   * Gson 的 lenient 模式能接受注释、单引号、无引号键，但<b>不接受尾随逗号</b>
+   * （{@code {"a":1,}} 会解析失败），而 {@link TYPES#JSONC} 承诺支持它，
+   * 因此在词法层面做一次预处理。
+   * <p>
+   * 处理是字符串感知的：只有当逗号<b>不在字符串字面量内</b>、且其后跳过空白与注释后
+   * 紧跟着对象或数组的闭合符号时，才删除该逗号。因此字符串内容不会被误改；
+   * 注释也原样保留（仍交由 Gson 解析）。
+   *
+   * @param src 原始 JSONC 文本
+   * @return 去除尾随逗号后的文本
+   */
+  private static String stripTrailingCommas(String src) {
+    StringBuilder out = new StringBuilder(src.length());
+    boolean inString = false;
+    boolean escaped = false;
+    for (int i = 0; i < src.length(); i++) {
+      char c = src.charAt(i);
+      if (inString) {
+        out.append(c);
+        if (escaped) {
+          escaped = false;
+        } else if (c == '\\') {
+          escaped = true;
+        } else if (c == '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (c == '"') {
+        inString = true;
+        out.append(c);
+        continue;
+      }
+      if (c == ',') {
+        int next = skipWhitespaceAndComments(src, i + 1);
+        if (next < src.length() && (src.charAt(next) == '}' || src.charAt(next) == ']')) {
+          continue; // 逗号后面只有空白/注释与闭合符号 → 是尾随逗号
+        }
+      }
+      out.append(c);
+    }
+    return out.toString();
+  }
+
+  /**
+   * 从 {@code from} 开始跳过空白字符与行注释、块注释，返回首个有效字符的下标；
+   * 若直到文本末尾都只有空白与注释，则返回文本长度。
+   *
+   * @param src  源文本
+   * @param from 起始下标
+   * @return 首个非空白、非注释字符的下标
+   */
+  private static int skipWhitespaceAndComments(String src, int from) {
+    int i = from;
+    while (i < src.length()) {
+      char c = src.charAt(i);
+      if (Character.isWhitespace(c)) {
+        i++;
+        continue;
+      }
+      if (c == '/' && i + 1 < src.length()) {
+        char next = src.charAt(i + 1);
+        if (next == '/') {
+          i += 2;
+          while (i < src.length() && src.charAt(i) != '\n' && src.charAt(i) != '\r') {
+            i++;
+          }
+          continue;
+        }
+        if (next == '*') {
+          i += 2;
+          while (i + 1 < src.length() && !(src.charAt(i) == '*' && src.charAt(i + 1) == '/')) {
+            i++;
+          }
+          i = Math.min(i + 2, src.length());
+          continue;
+        }
+      }
+      break;
+    }
+    return i;
+  }
+
   private class BackendJSON implements Backend {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
@@ -2211,15 +2438,21 @@ public class SConfig extends StreackLibNewable {
 
     @Override
     public void flush(OutputStream out) throws Exception {
-      Gson gson = new GsonBuilder().setPrettyPrinting().create();
+      // serializeNulls：Gson 默认会丢弃值为 null 的字段，导致「显式声明的空值」
+      // 在保存时静默消失（与 YAML 后端保留 null 的行为不一致）。这里开启后
+      // null 会被写成字面量 null，从而保证空值可以完整往返。
+      Gson gson = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
       Object maybeArray = cache.get("_root_array");
-      if (cache.size() == 1 && maybeArray != null) {
-        // 符合条件，写作纯数组
-        gson.toJson(maybeArray, getWriter(out));
-      } else {
-        // 直接写入
-        gson.toJson(cache, getWriter(out));
-      }
+      // 注意：Gson 的 toJson(Object, Writer) 不会 flush 传入的 Writer，必须走 writeText
+      writeText(out, w -> {
+        if (cache.size() == 1 && maybeArray != null) {
+          // 符合条件，写作纯数组
+          gson.toJson(maybeArray, w);
+        } else {
+          // 直接写入
+          gson.toJson(cache, w);
+        }
+      });
     };
 
     @Override
@@ -2229,22 +2462,35 @@ public class SConfig extends StreackLibNewable {
   private class BackendJSONc extends BackendJSON {
     @Override
     public Map<String, Object> load(InputStream in) throws Exception {
-      // 启用 lenient 模式，支持注释、尾随逗号等
-      Gson gson = new GsonBuilder().setLenient().create();
+      String raw;
       try (InputStreamReader reader = new InputStreamReader(in, charSet)) {
-        JsonElement el = gson.fromJson(reader, JsonElement.class);
-        if (el.isJsonObject()) {
-          Type mapType = new TypeToken<Map<String, Object>>() {
-          }.getType();
-          return gson.fromJson(el, mapType);
-        }
-        // 处理根数组：将其包装为单键 Map
-        if (el.isJsonArray()) {
-          Map<String, Object> wrapper = new LinkedHashMap<>();
-          wrapper.put("_root_array", el.getAsJsonArray());
-          return wrapper;
-        }
-      } catch (Exception ignore) {
+        raw = readAll(reader);
+      }
+      // 空文件或仅含空白视作空配置，与 JSON 等其它格式保持一致
+      if (raw.trim().isEmpty()) {
+        return new HashMap<>();
+      }
+      // Gson 的 lenient 模式支持注释、单引号、无引号键等，但**不接受尾随逗号**，
+      // 因此先做一次字符串感知的预处理把尾随逗号去掉。
+      // 另：此处不再 catch 后静默返回空 Map —— 解析失败必须抛出，否则调用方
+      // 无法区分「内容确实是空的」与「格式坏了」，WRONG_FORMAT 事件与
+      // onLoadFailure 回调也永远不会被触发。
+      Gson gson = new GsonBuilder().setLenient().create();
+      JsonElement el = gson.fromJson(stripTrailingCommas(raw), JsonElement.class);
+      if (el == null || el.isJsonNull()) {
+        return new HashMap<>();
+      }
+      if (el.isJsonObject()) {
+        Type mapType = new TypeToken<Map<String, Object>>() {
+        }.getType();
+        Map<String, Object> loaded = gson.fromJson(el, mapType);
+        return loaded == null ? new HashMap<>() : loaded;
+      }
+      // 处理根数组：将其包装为单键 Map
+      if (el.isJsonArray()) {
+        Map<String, Object> wrapper = new LinkedHashMap<>();
+        wrapper.put("_root_array", el.getAsJsonArray());
+        return wrapper;
       }
       return new HashMap<>();
     };
@@ -2265,7 +2511,8 @@ public class SConfig extends StreackLibNewable {
 
     @Override
     public void flush(OutputStream out) throws Exception {
-      new TomlWriter().write(cache, getWriter(out));
+      // 注意：toml4j 的 TomlWriter#write 不会 flush 传入的 Writer，必须走 writeText
+      writeText(out, w -> new TomlWriter().write(cache, w));
     };
 
     @Override
@@ -2294,16 +2541,27 @@ public class SConfig extends StreackLibNewable {
     @SuppressWarnings("unchecked")
     public void flush(OutputStream out) throws Exception {
       Ini ini = new Ini();
+      List<String> looseKeys = new ArrayList<>();
       for (Map.Entry<String, Object> e : cache.entrySet()) {
         if (e.getValue() instanceof Map) {
           Profile.Section sec = ini.add(e.getKey());
           Map<String, Object> section = (Map<String, Object>) e.getValue();
           for (Map.Entry<String, Object> se : section.entrySet()) {
-            sec.put(se.getKey(), String.valueOf(se.getValue()));
+            Object sv = se.getValue();
+            sec.put(se.getKey(), sv == null ? "" : String.valueOf(sv));
           }
+        } else {
+          looseKeys.add(e.getKey());
         }
       }
-      ini.store(getWriter(out));
+      // INI 没有「顶层标量」的概念，ini4j 的 Ini 连加载都会直接拒绝裸键
+      // （parse error）。此处必须显式报错，否则这些配置项会被静默丢弃成 0 字节文件。
+      if (!looseKeys.isEmpty()) {
+        throw new IllegalArgumentException(
+            "INI 格式不支持顶层标量配置项，请将其写入某个节（section）中，例如 putSection(\"section\", ...)。当前非法键："
+                + looseKeys);
+      }
+      writeText(out, ini::store);
     };
 
     @Override
@@ -2331,7 +2589,7 @@ public class SConfig extends StreackLibNewable {
     public void flush(OutputStream out) throws Exception {
       Properties props = new Properties();
       flattenMap("", cache, props);
-      props.store(getWriter(out), null);
+      writeText(out, w -> props.store(w, null));
     };
 
     /**
@@ -2447,7 +2705,10 @@ public class SConfig extends StreackLibNewable {
       } else {
         rootCompound = nbtHandler.Map2Compound(cache);
       }
-      NamedTag namedTag = new NamedTag(rootName.isEmpty() ? "" : rootName, rootCompound);
+      // 使用 getRootName()（null 安全）而不是直接读 rootName：
+      // 全新文件在 reload() 中因文件不存在而提前返回，BackendNBT#load 不会执行、
+      // setRootName 也就不会被调用，此时 rootName 仍为 null，直接解引用会 NPE。
+      NamedTag namedTag = new NamedTag(getRootName(), rootCompound);
 
       // 根据 load 时检测的压缩标志决定是否包装 GZIP
       OutputStream actualOut = out;
@@ -2486,7 +2747,13 @@ public class SConfig extends StreackLibNewable {
       }
 
       // 转为 NBT
-      SNBTParser parser = new SNBTParser(sb.toString());
+      String snbt = sb.toString();
+      // 空文件视作空配置：与其他文本格式保持一致。否则 SNBTParser 会在空串上
+      // 抛出误导性的 StringIndexOutOfBoundsException（"Index 0 out of bounds"）。
+      if (snbt.trim().isEmpty()) {
+        return new HashMap<>();
+      }
+      SNBTParser parser = new SNBTParser(snbt);
       Tag<?> parsedTag = parser.parse();
 
       // 处理根标签
@@ -2514,7 +2781,7 @@ public class SConfig extends StreackLibNewable {
        compound = nbtHandler.Map2Compound(cache);
      }
      // 再把 NBT 写为 SNBT
-     SNBTWriter.write(compound, getWriter(out), Integer.MAX_VALUE);
+     writeText(out, w -> SNBTWriter.write(compound, w, Integer.MAX_VALUE));
    }
 
     @Override

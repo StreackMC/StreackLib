@@ -250,8 +250,8 @@ public class SUDSPayload extends StreackLibNewable {
    * @throws IllegalArgumentException 如果内容不是 JSON 对象
    * @apiNote 传入的是顶层拷贝：SConfig 会直接引用传入的 Map，不拷贝就会与本载荷的
    *          {@link #json()} 缓存互相串改；嵌套层仍是共享引用。
-   *          另注意 SConfig 的 {@code getRawData()} 不接受 null 值，
-   *          含顶层空值字段的载荷请改用 {@link #json()}。
+   *          含顶层空值字段的载荷同样可用：SConfig 自 0.6.2 起容忍顶层 null，
+   *          其 {@code getRawData()} 也不再拒绝 null 值。
    * @since 0.6.2
    */
   public SConfig toSConfig() {

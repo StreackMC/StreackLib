@@ -24,9 +24,11 @@
 - ✅ SQL 注入防御（2026-08-12 复核 + 修复）：过滤条件的「值」已参数化（安全）；**执行路径 `buildPreparedSQL` 现已对全部标识符做反引号转义**——表名（SELECT/UPDATE/MERGE/DELETE/CREATE/ALTER/DROP/TRUNCATE + 默认分支）、WITH 的 CTE 名、SELECT 投影列，与预览路径 `buildSQL` 一致，标识符注入面已闭合。唯一残留风险：`act(String)` 原始 SQL 无任何防护（调用方自担）。2026-08-12 已重写 `docs/types/SDatabase.md`「SQL 注入防御与责任划分」及全部相关 JavaDoc，明确三类职责（✅自动防护：值=PreparedStatement 占位符、标识符=`SdbUtils.q` 反引号转义且注明「转义≠参数化」；⚠️调用者负责：原始 SQL、动态标识符、toString 预览路径）。
 - SConfig：66.4KB，项目最大源文件，支持 7+ 种配置格式
 - 🔴 SConfig 已知缺陷（2026-10-07 实测复现，均有最小复现用例）：
-  ① **JSON 含 null 值无法加载** —— `new SConfig("{\"a\":null}", JSON, null)` 抛
-     `RuntimeException: 无法加载配置文件：null`，根因 `cache = new ConcurrentHashMap<>(loaded)`
-     不接受 null value（`SConfig.java` 约 409 / 1495 行，文件重载路径同样受影响）
+  ① **顶层出现 null 值即加载失败（JSON / YAML / 全格式）** —— `new SConfig("{\"b\":null}", JSON, null)`
+     与 `new SConfig("b:\n", YAML, null)` 都抛 `RuntimeException: 无法加载配置文件：null`，
+     根因 `cache = new ConcurrentHashMap<>(loaded)` 不接受 null value（`SConfig.java` 约 409 / 1495 行）。
+     **边界：只有最外层那一层会炸**——`{"a":{"b":null}}` 与项目自己的 `config.yml`（null 都在嵌套层）
+     都能正常加载，因为 ConcurrentHashMap 只包了顶层，嵌套 Map 仍是允许 null 的 HashMap。
   ② **`save()` 对 JSON / TOML 写出 0 字节文件（数据丢失）** —— `getWriter(OutputStream)` 返回的
      `OutputStreamWriter` 从未 flush，而 Gson 的 `toJson(obj, Writer)` 也不会 flush；
      YAML / PROPERTIES 正常，INI 会丢新增键（疑似设计限制）

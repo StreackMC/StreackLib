@@ -34,7 +34,7 @@ public enum SUDSProtocol {
    * 内置 JSON 行协议：报文为一段 JSON 文本并以 LF（{@code \n}）结束。
    * <p>
    * 接收时按 LF 分帧、忽略空行、兼容 CRLF 换行；发送时由链路在写入后自动补上 LF，
-   * 因此 {@link SUDSPayload#getData()} 里永远只有 JSON 文本本身。
+   * 因此 {@link SUDSPayload#bytes()} 里永远只有 JSON 文本本身。
    * <p>
    * 报文由 Gson 以紧凑模式序列化，本身不含裸换行，因此用 LF 做分隔符是安全的。
    */
@@ -44,7 +44,7 @@ public enum SUDSProtocol {
    * 自定义协议：链路只提供字节流，不做任何分帧与解析。
    * <p>
    * 接收时每次 {@code read} 得到的字节块就是一个 {@link SUDSPayload}；发送时
-   * {@link SUDSPayload#raw(byte[])} 的字节被原样写入。<b>调用方必须自行实现分帧</b>，
+   * {@link SUDSPayload#bytes(byte[])} 的字节被原样写入。<b>调用方必须自行实现分帧</b>，
    * 否则无法区分报文边界。
    */
   RAW(false);

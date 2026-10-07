@@ -8,7 +8,7 @@
 它比 TCP/IP 少一层网络协议栈，因此在同机通讯场景下更快、更省；代价是**只能在同一台机器内使用**，
 跨机器请改用 [HTTPServer](./HTTPServer.md)。
 
-模块由四个类组成，职责边界很清晰：
+模块由五个类组成，职责边界很清晰：
 
 | 类 | 角色 |
 |:-:|------|
@@ -16,9 +16,9 @@
 |`SUDSServerLink`|服务端：绑定 socket 文件并持续接受客户端接入，可同时持有 N 条连接|
 |`SUDSClientLink`|客户端：连接到已有 socket 文件，只持有 1 条连接（即服务端）|
 |`SUDSPeer`|一条**已建立**的连接。服务端每个接入的客户端一个，客户端只有指向服务端的那一个|
-|`SUDSPayload<T>`|一条报文的数据载体|
+|`SUDSPayload`|一条报文的数据载体（≈ JS 的 `Response.body`）|
 
-因为三者共享同一个基类，所以 `close()`、`send()`、`onMessage()` 这些方法在服务端和客户端上的用法完全一致。
+因为服务端与客户端共享同一个基类，所以 `close()`、`send()`、`onMessage()` 这些方法在两侧的用法完全一致。
 
 ### 运行环境要求
 
@@ -47,11 +47,11 @@ SUDSServerLink server = new SUDSServerLink("my-app", SUDSProtocol.JSON_LINES);
 
 // 收到报文就回一条原样回声
 server.onMessage((peer, payload) -> {
-  peer.send(SUDSPayload.ofJson(Map.of("echo", payload.asMap())));
+  peer.send(SUDSPayload.json(Map.of("echo", payload.json())));
 });
 
 // 广播给所有已接入的客户端
-server.send(SUDSPayload.ofJson(Map.of("type", "broadcast")));
+server.send(SUDSPayload.json(Map.of("type", "broadcast")));
 
 // ...
 
@@ -67,9 +67,9 @@ UDS 只能同机通讯，所以不需要 IP 与端口。
 SUDSClientLink client = new SUDSClientLink("my-app", SUDSProtocol.JSON_LINES);
 
 // 不关心来源连接时写起来最短
-client.onMessage(payload -> logger.info("收到: ", payload.asMap()));
+client.onMessage(payload -> logger.info("收到: ", payload.json()));
 
-client.send(SUDSPayload.ofJson(Map.of("hello", "world")));
+client.send(SUDSPayload.json(Map.of("hello", "world")));
 
 // ...
 
@@ -83,17 +83,17 @@ client.close();
 
 创建链路时必须指定协议模式，它决定了**一条报文的边界在哪里**：
 
-| 协议 | 报文边界 | `SUDSPayload.getData()` | `SUDSPayload.getValue()` |
-|:-:|------|------|------|
-|`SUDSProtocol.JSON_LINES`|一段 JSON 文本 + 结尾 LF(`\n`)|JSON 文本的字节（**不含** LF）|解析出的 `Map<String, Object>`|
-|`SUDSProtocol.RAW`|不做分帧，一次 `read` 就是一条|原始字节块|`byte[]`，与 `getData()` 一致|
+| 协议 | 报文边界 | 载荷怎么读 |
+|:-:|------|------|
+|`SUDSProtocol.JSON_LINES`|一段 JSON 文本 + 结尾 LF(`\n`)|`json()` → `Map`、`config()` → `SConfig`、`as(Class)` → 自己的类型|
+|`SUDSProtocol.RAW`|不做分帧，一次 `read` 就是一条|`bytes()` → `byte[]`、`text()` → `String`|
 
 ### `JSON_LINES`：内置协议（推荐）
 
 链路自动完成分帧与 JSON 解析，你拿到的永远是完整的、已经解析好的报文，**不需要关心粘包与拆包**。
 
 * 接收时按 LF 切分，自动忽略空行（可以拿连续换行当心跳），并且兼容 CRLF 换行；
-* 发送时由链路在写入后追加 LF，所以 `getData()` 里只有 JSON 文本本身——
+* 发送时由链路在写入后追加 LF，所以 `bytes()` 里只有 JSON 文本本身——
   这样「收到再转发」的载荷也能被正确发出去；
 * 报文由 Gson 以紧凑模式序列化，自身不含裸换行，所以用 LF 做分隔符是安全的。
 
@@ -107,55 +107,76 @@ client.close();
 > **分帧必须由你的协议自己负责**——「一次 `read` = 一条报文」只是实现细节，
 > 它取决于操作系统的读取时机，不能当作可靠的消息边界。
 
-## 报文：`SUDSPayload<T>`
+## 报文：`SUDSPayload`
 
-一条报文同时持有两样东西，二者总是配套的：`getData()` 是链路上真正跑着的**原始字节**，
-`getValue()` 是**解析后的值**，其类型由泛型参数 `T` 决定。
+`SUDSPayload` 是链路上一条报文的数据载体，设计上对齐 JavaScript 的 `Response` / `MessageEvent.data`：
+**它只是 body，不带头部**。构造侧与读取侧用的是同一组名字，两侧对称：
 
-| 工厂方法 | 用途 |
+| 构造（发送） | 读取（接收） |
 |:-:|------|
-|`raw(byte[])` / `raw(byte[], off, len)`|构造 `RAW` 载荷|
-|`json(byte[] line)`|解析一条 JSON 报文，`T` 为 `Map<String, Object>`，**要求根节点是 JSON 对象**|
-|`json(byte[] line, Class<R> type)` / `json(byte[], Type type)`|解析并一步映射为你的类型，根节点不限|
-|`ofJson(Object value)`|把对象序列化为一条 JSON 报文用于发送，同样要求序列化结果是对象|
-|`of(byte[] data, T value, boolean raw)`|自定义协议的通用出口，直接给出字节与解析值|
+|`json(Object value)`|`json()` → `Map<String, Object>`|
+|`text(String value)`|`text()` → `String`|
+|`bytes(byte[])` / `bytes(byte[], off, len)`|`bytes()` → `byte[]`|
+|`parse(byte[] line)`|—|
+|`of(byte[] data, boolean raw)`|—|
+|—|`config()` → `SConfig`|
+|—|`as(Class)` / `as(Type)` → 你自己的类型|
 
-| 实例方法 | 说明 |
-|:-:|------|
-|`getData()`|原始字节，返回的是**拷贝**，可以随意改动|
-|`getValue()`|解析后的值|
-|`getValue(Class<R>)` / `getValue(Type)`|把同一段字节按 JSON **重新解析**成另一种类型，不用重建对象|
-|`asMap()`|JSON 对象视图，无论 `T` 是什么都会尝试按 JSON 对象解析一次|
-|`asConfig()`|解析成 `SConfig`，从而复用 `getString/getInt/...` 系列取值接口|
-|`asString()` / `length()` / `isRaw()`|文本视图 / 字节长度 / 是否为自定义协议载荷|
+其中 `of(data, raw)` 是最底层的构造器，其余构造方法都是它的语法糖：它**不做任何校验**，
+字节是什么就送什么出去。`parse(line)` 相反，它**严格校验**（JSON 语法必须合法、根节点必须是对象），
+链路的接收路径用的就是它，你也可以离线拿它解析一段报文文本。
 
-### 扩展性
+### 视图是按需的
 
-泛型参数 `T` 就是扩展点。想让链路上的 JSON 一步变成自己的 POJO：
+一条载荷同时是字节、文本、JSON 对象——**看哪一面由消费方在读取时决定**，不需要在还没解析前先声明类型：
 
 ```java
-public class Msg {
-  String type;
-  int seq;
-}
-
-client.onMessage((peer, payload) -> {
-  Msg msg = payload.getValue(Msg.class);   // 同一段字节，换个视角看
-  // ...
+server.onMessage((peer, payload) -> {
+  String type = (String) payload.json().get("type");   // 收到什么才决定怎么看
+  if ("ping".equals(type)) {
+    peer.send(SUDSPayload.json(Map.of("pong", true)));
+  }
 });
 ```
 
-或者从一开始就按目标类型解析：
+* 同一份 JSON 只会被解析一次，结果被缓存，`json()` 反复调用不重复解析，返回同一个 `Map` 实例；
+* 返回的 `Map` 保持 JSON 原文的键顺序，是普通可变 Map，直接 `get` / `put` 都行；
+* 只需要转发字节或看文本的载荷，可以完全不碰 JSON 视图——视图是按需的，不做无用功。
+
+### 三种取值口味
 
 ```java
-SUDSPayload<Msg> out = SUDSPayload.json(bytes, Msg.class);
+payload.json();          // Map：像 JS 的普通对象，也可再交给 Gson 转成别的
+payload.config();        // SConfig：需要 getString("a.b.c") 这类路径取值时用
+payload.as(Msg.class);   // POJO：一步映射成自己的类型
 ```
 
+`config()` 只是**消费侧的便利**，`SUDSPayload` 自身的解析与序列化都不经过 SConfig：
+它复用已经解析好的结果（不重复解析），且处于内存模式，`save()` 会直接抛异常。
+
+> **两个边界**：`config()` 传入的是顶层拷贝，所以改它不会回写到 `json()` 的缓存（嵌套层仍是共享引用）；
+> 另外 SConfig 的 `getRawData()` 不接受空值，含顶层空值字段的载荷请改用 `json()`。
+
+### 自定义协议与 JS 的两处刻意差异
+
+```java
+SUDSPayload.bytes(new byte[] { 1, 2 });   // RAW 载荷
+payload.bytes();                          // 取回原始字节（返回的是拷贝）
+```
+
+RAW 载荷没有 JSON 语义，`json()` / `config()` / `as()` 会抛 `IllegalStateException`，
+而不是抛一个看不懂的 JSON 语法错。
+
+与 JS 的两处不同是**刻意的**：
+
+* `body` 可以重复读，没有 `bodyUsed`，因此也不需要 `clone()`；
+* 没有 `headers` / `status` / `ok` / `url`——UDS 线上没有头部，SUDS 也不是请求-响应模型。
+  需要元数据时挂 `SUDSPeer`（连接标识、协议、存活状态），而不是伪造在载荷上。
 ## 连接：`SUDSPeer`
 
 | 方法 | 说明 |
 |:-:|------|
-|`send(SUDSPayload<?>)`|向这条连接写一条报文；同一连接的多次写入内部串行，可多线程并发调用|
+|`send(SUDSPayload)`|向这条连接写一条报文；同一连接的多次写入内部串行，可多线程并发调用|
 |`close()`|断开这条连接，幂等|
 |`isOpen()`|连接是否仍可用|
 |`getId()`|连接标识符，在所属链路内唯一|
@@ -170,7 +191,7 @@ UDS 与 TCP 不同，客户端侧**没有**可用的对端地址（连接是匿�
 Map<String, String> peerOf = new ConcurrentHashMap<>();
 
 server.onMessage((peer, payload) -> {
-  Object who = payload.asMap().get("who");
+  Object who = payload.json().get("who");
   if (who != null) peerOf.put(String.valueOf(who), peer.getId());   // 登记身份
 });
 ```
@@ -251,9 +272,12 @@ server.MAX_MESSAGE_SIZE = 64 * 1024;
 
 ## 注意事项
 
-* **载荷类型必须与协议匹配**。在 `RAW` 链路上发 `ofJson(...)` 的产物（或反之）会抛 `IllegalArgumentException`，
+* **载荷类型必须与协议匹配**。在 `RAW` 链路上发 `json(...)` 的产物（或反之）会抛 `IllegalArgumentException`，
   这是刻意设计的：错配的载荷发出去只会让对端解析失败，不如在本地立刻炸掉；
-* `getData()` 返回的是拷贝，`RAW` 模式下频繁读取大报文会有额外开销；
+* `json()` 返回的是内部缓存的**同一个** `Map` 实例，多个监听器会看到同一份数据，改动它等于改动这条载荷；
+* 内置 JSON 协议约定一行一个 JSON **对象**：根节点是数组或基本值的报文会被拒绝（`IllegalArgumentException` 上报为链路错误）。
+  确有需要时用 `of(bytes, false)` 手工构造，或以 `as(Class)` 映射；
+* `bytes()` 返回的是拷贝，`RAW` 模式下频繁读取大报文会有额外开销；
 * 客户端**不做自动重连**，也没有心跳，这些属于使用方的策略；
 * 链路的 `token` 会直接成为文件名（`<token>.streacklib.sock`，默认放在 `/tmp`，不可写时回退系统临时目录），
   因此长度上限 64 字符，且**不允许**包含路径分隔符。

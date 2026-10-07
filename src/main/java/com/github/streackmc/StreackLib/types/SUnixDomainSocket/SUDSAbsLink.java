@@ -52,17 +52,30 @@ import com.github.streackmc.StreackLib.utils.SEventCentral;
  * 进程间通信，跨机器场景请改用 {@link HTTPServer}。
  * 
  * <h3>快速上手</h3>
+ * 报文是「按需看哪一面」的：收到之后才决定当 JSON、当文本还是当字节读。
+ * 
  * <pre>{@code
- * // 服务端
+ * // 服务端（内置 JSON 协议）
  * SUDSServerLink server = new SUDSServerLink("my-app", SUDSProtocol.JSON_LINES);
  * server.onMessage((peer, payload) -> {
- *   peer.send(SUDSPayload.ofJson(Map.of("echo", payload.asMap())));
+ *   String type = (String) payload.json().get("type");
+ *   peer.send(SUDSPayload.json(Map.of("echo", type)));
  * });
- *
+ * 
  * // 客户端
  * SUDSClientLink client = new SUDSClientLink("my-app", SUDSProtocol.JSON_LINES);
- * client.onMessage(payload -> logger.info("收到: " + payload.asMap()));
- * client.send(SUDSPayload.ofJson(Map.of("hello", "world")));
+ * client.onMessage(payload -> logger.info("收到: " + payload.json()));
+ * client.send(SUDSPayload.json(Map.of("type", "hello")));
+ * }</pre>
+ * 
+ * 自定义协议同理，只是把 {@code json(...)} 换成 {@code bytes(...)}：
+ * 
+ * <pre>{@code
+ * SUDSServerLink rawServer = new SUDSServerLink("my-raw-app", SUDSProtocol.RAW);
+ * rawServer.onMessage((peer, payload) -> {
+ *   byte[] frame = payload.bytes();   // 分帧由你自己的协议负责
+ *   // ...
+ * });
  * }</pre>
  * 
  * <h3>线程模型</h3>
@@ -111,7 +124,7 @@ public abstract class SUDSAbsLink extends StreackLibNewable implements AutoClose
      * @param peer    报文来源的那条连接；服务端可借此定位客户端，客户端则该值即对服务端的那条连接
      * @param payload 报文内容
      */
-    void onMessage(SUDSPeer peer, SUDSPayload<?> payload);
+    void onMessage(SUDSPeer peer, SUDSPayload payload);
   }
 
   /**
@@ -250,7 +263,7 @@ public abstract class SUDSAbsLink extends StreackLibNewable implements AutoClose
    * @throws IllegalArgumentException 如果载荷类型与链路协议不匹配
    * @since 0.6.2
    */
-  public void send(SUDSPayload<?> payload) {
+  public void send(SUDSPayload payload) {
     requireOpen();
     for (SUDSPeer peer : peers.values()) {
       peer.send(payload);
@@ -267,7 +280,7 @@ public abstract class SUDSAbsLink extends StreackLibNewable implements AutoClose
    * @throws IllegalStateException    如果链路已关闭，或该连接已断开
    * @since 0.6.2
    */
-  public void send(SUDSPeer peer, SUDSPayload<?> payload) {
+  public void send(SUDSPeer peer, SUDSPayload payload) {
     requireOpen();
     if (peer == null)
       throw new NullPointerException("Peer cannot be null.");
@@ -299,14 +312,14 @@ public abstract class SUDSAbsLink extends StreackLibNewable implements AutoClose
   /**
    * 注册一个报文监听器，不关心来源连接时写起来最短：
    * 
-   * <pre>{@code link.onMessage(payload -> System.out.println(payload.asMap()));}</pre>
+   * <pre>{@code link.onMessage(payload -> System.out.println(payload.json()));}</pre>
    * 
    * @param listener 监听器
    * @return 监听器 ID，用于 {@link #removeMessageListener(int)} 注销
    * @throws NullPointerException 如果 listener 为 null
    * @since 0.6.2
    */
-  public int onMessage(Consumer<SUDSPayload<?>> listener) {
+  public int onMessage(Consumer<SUDSPayload> listener) {
     if (listener == null)
       throw new NullPointerException("Listener cannot be null.");
     return onMessage((peer, payload) -> listener.accept(payload));
@@ -456,7 +469,7 @@ public abstract class SUDSAbsLink extends StreackLibNewable implements AutoClose
    * @param peer    报文来源
    * @param payload 报文内容
    */
-  final void dispatchPayload(SUDSPeer peer, SUDSPayload<?> payload) {
+  final void dispatchPayload(SUDSPeer peer, SUDSPayload payload) {
     for (MessageListener listener : listeners.values()) {
       try {
         listener.onMessage(peer, payload);

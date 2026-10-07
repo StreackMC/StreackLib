@@ -42,10 +42,19 @@
 - SLDB 已移除（设计与 SQL 架构不兼容）
 - SdbManager 全静态化，不再实例化使用
 - SUDS（0.6.2 补完，2026-10-07）：UDS 进程间通讯。`SUDSAbsLink`（抽象基类）← `SUDSServerLink` / `SUDSClientLink`，
-  连接实体 `SUDSPeer`，报文载体 `SUDSPayload<T>`，协议枚举 `SUDSProtocol{JSON_LINES, RAW}`。
+  连接实体 `SUDSPeer`，报文载体 `SUDSPayload`，协议枚举 `SUDSProtocol{JSON_LINES, RAW}`。
+  设计定位：**对齐 JS 的 `Response`/`MessageEvent.data`**（载荷只有 body，没有 headers/status，也**刻意不抄**
+  `bodyUsed` 一次性消费——可重复读、不需要 `clone()`）。0.6.2 未发布时按用户决定**去掉了 `<T>`** 以降低理解成本。
   要点：① 客户端必须 `SocketChannel.open(UNIX)`，`ServerSocketChannel` 无 `connect()`；
   ② LF 分帧符由链路在 `send` 时追加，不放进 Payload 字节（保证「收到再转发」可用）；
   ③ 两侧各自为同一条连接生成 `SUDSPeer`，ID 本地唯一、不可跨进程比较；
   ④ 服务端 bind 前探测僵尸 socket（连不上才删），close 时删自己创建的文件；
   ⑤ 载荷-协议错配（RAW 链路发 JSON 载荷）直接抛 `IllegalArgumentException`；
   ⑥ 客户端**不自动重连**，无心跳（后续可加）。文档见 `docs/types/SUDS.md`。
+- `SUDSPayload` API（非泛型，构造/消费两侧同名对称）：
+  构造 `json(Object)` / `text(String)` / `bytes(byte[])` / `bytes(byte[],off,len)` / `of(byte[],raw)`（最底层，不校验）；
+  解析 `parse(byte[] line)`（严格：语法 + 要求对象根，链路接收路径用它，校验一次并缓存）；
+  消费 `json()`→`Map`（缓存同一实例、保持键序、可变）/ `config()`→`SConfig` / `text()` / `bytes()` / `as(Class|Type)`。
+  RAW 载荷上 `json()/config()/as()` 抛 `IllegalStateException`。
+  ⚠️ `config()` 必须传顶层拷贝（SConfig 的 `this.cache = rD` 直接引用不拷贝，否则会污染 `json()` 缓存）；
+  该 Map 构造器绕过 ConcurrentHashMap 因而容忍顶层 null，但 `getRawData()`（`Map.copyOf`）仍会 NPE。

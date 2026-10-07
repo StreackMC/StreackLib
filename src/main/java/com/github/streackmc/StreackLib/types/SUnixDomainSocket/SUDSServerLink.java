@@ -29,7 +29,7 @@ import com.github.streackmc.StreackLib.self.logger;
  * SUDSServerLink server = new SUDSServerLink("my-app", SUDSProtocol.JSON_LINES);
  * server.onMessage((peer, payload) -> {
  *   // 只回给发来这条报文的那个客户端
- *   peer.send(SUDSPayload.ofJson(Map.of("echo", payload.asMap())));
+ *   peer.send(SUDSPayload.json(Map.of("echo", payload.json())));
  * });
  * // ...
  * server.close();

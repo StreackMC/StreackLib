@@ -19,8 +19,8 @@ import com.github.streackmc.StreackLib.types.HTTPServer;
  * <h3>示例</h3>
  * <pre>{@code
  * SUDSClientLink client = new SUDSClientLink("my-app", SUDSProtocol.JSON_LINES);
- * client.onMessage(payload -> logger.info("来自服务端: " + payload.asMap()));
- * client.send(SUDSPayload.ofJson(Map.of("hello", "world")));
+ * client.onMessage(payload -> logger.info("来自服务端: " + payload.json()));
+ * client.send(SUDSPayload.json(Map.of("hello", "world")));
  * // ...
  * client.close();
  * }</pre>
@@ -82,7 +82,7 @@ public class SUDSClientLink extends SUDSAbsLink {
    * @since 0.6.2
    */
   @Override
-  public void send(SUDSPayload<?> payload) {
+  public void send(SUDSPayload payload) {
     SUDSPeer peer = serverPeer;
     if (peer == null || !peer.isOpen())
       throw new IllegalStateException("Client link is not connected to any server: token=[" + getToken() + "].");

@@ -87,12 +87,12 @@ public class SUDSPeer extends StreackLibNewable implements AutoCloseable {
    * @throws NullPointerException     如果 payload 为 null
    * @throws IllegalStateException    如果本连接已断开
    * @throws IllegalArgumentException 如果载荷类型与链路协议不匹配（例如拿
-   *                                  {@link SUDSPayload#ofJson(Object)} 的产物往
+   *                                  {@link SUDSPayload#json(Object)} 的产物往
    *                                  {@link SUDSProtocol#RAW} 链路上发）
    * @throws UncheckedIOException     如果写入过程中发生 IO 错误
    * @since 0.6.2
    */
-  public void send(SUDSPayload<?> payload) {
+  public void send(SUDSPayload payload) {
     if (payload == null)
       throw new NullPointerException("Payload cannot be null.");
     if (!open.get())
@@ -100,7 +100,7 @@ public class SUDSPeer extends StreackLibNewable implements AutoCloseable {
     if (payload.isRaw() != protocol.isRaw())
       throw new IllegalArgumentException(
           "Payload kind mismatches link protocol [" + protocol.getId() + "]: expected "
-              + (protocol.isRaw() ? "SUDSPayload.raw(...)" : "SUDSPayload.ofJson(...)")
+              + (protocol.isRaw() ? "SUDSPayload.bytes(...)" : "SUDSPayload.json(...)")
               + ", but got " + (payload.isRaw() ? "a raw payload" : "a JSON payload") + ".");
 
     ByteBuffer buffer = ByteBuffer.wrap(payload.rawForWrite());
@@ -172,7 +172,8 @@ public class SUDSPeer extends StreackLibNewable implements AutoCloseable {
   private void consumeRaw(ByteBuffer buffer) {
     byte[] chunk = new byte[buffer.remaining()];
     buffer.get(chunk);
-    owner.dispatchPayload(this, SUDSPayload.raw(chunk));
+    // 这个数组刚分配、之后不再被读到，直接把所有权交给载荷，省一次拷贝
+    owner.dispatchPayload(this, SUDSPayload.wrapRaw(chunk));
   }
 
   /**
@@ -190,7 +191,7 @@ public class SUDSPeer extends StreackLibNewable implements AutoCloseable {
         if (line.length == 0)
           continue; // 空行忽略，便于对端用连续换行做心跳
         try {
-          owner.dispatchPayload(this, SUDSPayload.json(line));
+          owner.dispatchPayload(this, SUDSPayload.parse(line));
         } catch (Exception e) {
           // 单条报文有问题不应拖垮整条连接，报错后继续读下一条
           owner.fireError(this, e);

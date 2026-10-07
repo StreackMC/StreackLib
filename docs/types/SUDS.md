@@ -85,7 +85,7 @@ client.close();
 
 | 协议 | 报文边界 | 载荷怎么读 |
 |:-:|------|------|
-|`SUDSProtocol.JSON_LINES`|一段 JSON 文本 + 结尾 LF(`\n`)|`json()` → `Map`、`config()` → `SConfig`、`as(Class)` → 自己的类型|
+|`SUDSProtocol.JSON_LINES`|一段 JSON 文本 + 结尾 LF(`\n`)|`json()` → `Map`、`toSConfig()` → `SConfig`、`as(Class)` → 自己的类型|
 |`SUDSProtocol.RAW`|不做分帧，一次 `read` 就是一条|`bytes()` → `byte[]`、`text()` → `String`|
 
 ### `JSON_LINES`：内置协议（推荐）
@@ -119,7 +119,7 @@ client.close();
 |`bytes(byte[])` / `bytes(byte[], off, len)`|`bytes()` → `byte[]`|
 |`parse(byte[] line)`|—|
 |`of(byte[] data, boolean raw)`|—|
-|—|`config()` → `SConfig`|
+|—|`toSConfig()` → `SConfig`|
 |—|`as(Class)` / `as(Type)` → 你自己的类型|
 
 其中 `of(data, raw)` 是最底层的构造器，其余构造方法都是它的语法糖：它**不做任何校验**，
@@ -147,14 +147,14 @@ server.onMessage((peer, payload) -> {
 
 ```java
 payload.json();          // Map：像 JS 的普通对象，也可再交给 Gson 转成别的
-payload.config();        // SConfig：需要 getString("a.b.c") 这类路径取值时用
+payload.toSConfig();        // SConfig：需要 getString("a.b.c") 这类路径取值时用
 payload.as(Msg.class);   // POJO：一步映射成自己的类型
 ```
 
-`config()` 只是**消费侧的便利**，`SUDSPayload` 自身的解析与序列化都不经过 SConfig：
+`toSConfig()` 只是**消费侧的便利**，`SUDSPayload` 自身的解析与序列化都不经过 SConfig：
 它复用已经解析好的结果（不重复解析），且处于内存模式，`save()` 会直接抛异常。
 
-> **两个边界**：`config()` 传入的是顶层拷贝，所以改它不会回写到 `json()` 的缓存（嵌套层仍是共享引用）；
+> **两个边界**：`toSConfig()` 传入的是顶层拷贝，所以改它不会回写到 `json()` 的缓存（嵌套层仍是共享引用）；
 > 另外 SConfig 的 `getRawData()` 不接受空值，含顶层空值字段的载荷请改用 `json()`。
 
 ### 自定义协议与 JS 的两处刻意差异
@@ -164,7 +164,7 @@ SUDSPayload.bytes(new byte[] { 1, 2 });   // RAW 载荷
 payload.bytes();                          // 取回原始字节（返回的是拷贝）
 ```
 
-RAW 载荷没有 JSON 语义，`json()` / `config()` / `as()` 会抛 `IllegalStateException`，
+RAW 载荷没有 JSON 语义，`json()` / `toSConfig()` / `as()` 会抛 `IllegalStateException`，
 而不是抛一个看不懂的 JSON 语法错。
 
 与 JS 的两处不同是**刻意的**：

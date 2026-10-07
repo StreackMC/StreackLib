@@ -29,7 +29,7 @@ import com.google.gson.reflect.TypeToken;
  * <tr><td>{@link #json(Object) json(Object)}</td><td>{@link #json() json()} → {@code Map}</td></tr>
  * <tr><td>{@link #text(String) text(String)}</td><td>{@link #text() text()} → {@code String}</td></tr>
  * <tr><td>{@link #bytes(byte[]) bytes(byte[])}</td><td>{@link #bytes() bytes()} → {@code byte[]}</td></tr>
- * <tr><td>—</td><td>{@link #config() config()} → {@code SConfig}</td></tr>
+ * <tr><td>—</td><td>{@link #toSConfig() config()} → {@code SConfig}</td></tr>
  * <tr><td>—</td><td>{@link #as(Class) as(Class)} → 你自己的类型</td></tr>
  * </table>
  * 
@@ -254,7 +254,7 @@ public class SUDSPayload extends StreackLibNewable {
    *          含顶层空值字段的载荷请改用 {@link #json()}。
    * @since 0.6.2
    */
-  public SConfig config() {
+  public SConfig toSConfig() {
     return new SConfig(new LinkedHashMap<>(json()), SConfig.TYPES.JSON, null);
   }
 

@@ -23,6 +23,18 @@
 - ⚠️ SDatabase 已知缺陷（2026-08-12 审查）：① UPDATE/MERGE 操作上下文不可用（buildSQL 抛 UnsupportedOperationException / toPrepared 拼出非法 `SET ?`，须用原始 SQL）；② 操作链 `.next()` 无法经 `apply()` 执行（toPrepared 拼多语句，JDBC prepareStatement 不支持）；③ SELECT 投影列在参数化路径未加反引号 —— **2026-08-12 已修复（同步转义表名/CTE 名/SELECT 列）**；④ `SdbActionContext` 构造器 package-private，文档「上下文链/WITH」示例 `new SdbActionContext(...)` 外部不可编译；⑤ 空 filter 恒为 `WHERE 1=1`（无害）；⑥ 文档 MySQL 示例误用 root（代码拒绝 root）
 - ✅ SQL 注入防御（2026-08-12 复核 + 修复）：过滤条件的「值」已参数化（安全）；**执行路径 `buildPreparedSQL` 现已对全部标识符做反引号转义**——表名（SELECT/UPDATE/MERGE/DELETE/CREATE/ALTER/DROP/TRUNCATE + 默认分支）、WITH 的 CTE 名、SELECT 投影列，与预览路径 `buildSQL` 一致，标识符注入面已闭合。唯一残留风险：`act(String)` 原始 SQL 无任何防护（调用方自担）。2026-08-12 已重写 `docs/types/SDatabase.md`「SQL 注入防御与责任划分」及全部相关 JavaDoc，明确三类职责（✅自动防护：值=PreparedStatement 占位符、标识符=`SdbUtils.q` 反引号转义且注明「转义≠参数化」；⚠️调用者负责：原始 SQL、动态标识符、toString 预览路径）。
 - SConfig：66.4KB，项目最大源文件，支持 7+ 种配置格式
+- 🔴 SConfig 已知缺陷（2026-10-07 实测复现，均有最小复现用例）：
+  ① **JSON 含 null 值无法加载** —— `new SConfig("{\"a\":null}", JSON, null)` 抛
+     `RuntimeException: 无法加载配置文件：null`，根因 `cache = new ConcurrentHashMap<>(loaded)`
+     不接受 null value（`SConfig.java` 约 409 / 1495 行，文件重载路径同样受影响）
+  ② **`save()` 对 JSON / TOML 写出 0 字节文件（数据丢失）** —— `getWriter(OutputStream)` 返回的
+     `OutputStreamWriter` 从未 flush，而 Gson 的 `toJson(obj, Writer)` 也不会 flush；
+     YAML / PROPERTIES 正常，INI 会丢新增键（疑似设计限制）
+  ③ **解析失败静默返回空 Map** —— `BackendJSONc.load` 里 `catch (Exception ignore) {} return new HashMap<>()`；
+     `BackendJSON` 对非对象/非数组根也返回空 Map。配置文件场景是「fail-soft」，但调用方无法区分
+     「内容确实为空」与「格式坏了」
+  ④ 代码注释称 JSONC「支持注释、尾随逗号」，但 Gson 2.10.1 的 `setLenient()` 并不接受尾随逗号
+     （实测 `{"a":1,}` → 空 Map）
 - HTTPServer：基于自定义 NanoHTTPd fork
 - SMail：支持 SMTP 和 DKIM SELFSIGN 两种模式
 - SLDB 已移除（设计与 SQL 架构不兼容）

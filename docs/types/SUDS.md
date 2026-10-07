@@ -1,5 +1,7 @@
 # `SUDS`（Unix Domain Socket 链路）
 
+> 本文由 AI 生成，可能不准确。
+
 ## 前言
 
 `SUDS` 是一套基于 **UDS（Unix Domain Socket）** 的进程间通讯模块，用于让同一台机器上的两个进程互相收发报文。

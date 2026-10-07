@@ -1,7 +1,7 @@
 # StreackLib 项目记忆
 
 ## 项目概述
-- StreackLib 是 Minecraft 前置库，版本 0.6.1（pom.xml 已确认；此前误记 0.6.0）
+- StreackLib 是 Minecraft 前置库，版本 0.6.2（pom.xml 已确认）
 - 目标：让 Java 像 JavaScript 一样易用
 - 构建：Java 21 + Maven，目标 Paper 1.21.8 / Spigot 1.21.5
 - groupId: `com.github.streackmc`
@@ -9,12 +9,12 @@
 ## 架构层次（自上而下）
 1. **入口层**：`forBukkit`（JavaPlugin）→ `StreackLib`（ENV 内部类 + manager）
 2. **后端抽象层**：`StreackLibDefaultBackend`（抽象）← `StreackLibBukkitBackend`（Bukkit 实现）
-3. **功能模块层**：HTTPServer、SConfig、SMail、SDatabase
+3. **功能模块层**：HTTPServer、SConfig、SMail、SDatabase、SUDS
 4. **工具层**：SEventCentral、SFile、MCColor、nbtHandler
 5. **基础设施**：logger、updateChecker、StreackLibNewable
 
 ## Git 规范
-- 提交时 username: `Neonai`，email: `neonai+coding@streack.top`
+- 提交时 username: `Neonai`，email: `neonai+coding@kdxiaoyi.top`
 - 这两个参数只能在命令行携带，不能写入配置文件
 - 所有修改必须用 Git 跟踪
 
@@ -27,3 +27,11 @@
 - SMail：支持 SMTP 和 DKIM SELFSIGN 两种模式
 - SLDB 已移除（设计与 SQL 架构不兼容）
 - SdbManager 全静态化，不再实例化使用
+- SUDS（0.6.2 补完，2026-10-07）：UDS 进程间通讯。`SUDSAbsLink`（抽象基类）← `SUDSServerLink` / `SUDSClientLink`，
+  连接实体 `SUDSPeer`，报文载体 `SUDSPayload<T>`，协议枚举 `SUDSProtocol{JSON_LINES, RAW}`。
+  要点：① 客户端必须 `SocketChannel.open(UNIX)`，`ServerSocketChannel` 无 `connect()`；
+  ② LF 分帧符由链路在 `send` 时追加，不放进 Payload 字节（保证「收到再转发」可用）；
+  ③ 两侧各自为同一条连接生成 `SUDSPeer`，ID 本地唯一、不可跨进程比较；
+  ④ 服务端 bind 前探测僵尸 socket（连不上才删），close 时删自己创建的文件；
+  ⑤ 载荷-协议错配（RAW 链路发 JSON 载荷）直接抛 `IllegalArgumentException`；
+  ⑥ 客户端**不自动重连**，无心跳（后续可加）。文档见 `docs/types/SUDS.md`。

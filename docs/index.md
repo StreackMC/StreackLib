@@ -77,6 +77,7 @@ if (!Bukkit.getPluginManager().isPluginEnabled("StreackLib")) {
 * [SDatabase](./types/SDatabase.md)
 * [IgnoredException](./types/IgnoredException.md)
 * [HTTPServer](./types/HTTPServer.md)
+* [SUDS（Unix Domain Socket 链路）](./types/SUDS.md)
 
 #### 静态工具
 

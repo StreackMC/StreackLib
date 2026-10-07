@@ -1242,11 +1242,12 @@ public class SConfig extends StreackLibNewable {
   }
 
   /**
-   * @apiNote 即使已启用自动重载，仍然建议先使用 {@link #reload()} 刷新数据，以免防止某些边缘情况。
+   * @apiNote 即使已启用自动重载，仍然建议先使用 {@link #reload()} 刷新数据，以免某些边缘情况。
+   * @since 自 0.6.2 及更高版本起为拷贝，旧版本是不可变视图
    * @return 当前已加载的数据，注意<b>不是</b>原始对象引用，而是镜像版本。
    */
   public Map<String, Object> getRawData() {
-    return Collections.unmodifiableMap(cache);
+    return Map.copyOf(cache);
   }
 
   /**
@@ -1255,6 +1256,7 @@ public class SConfig extends StreackLibNewable {
    * 对于 NBT 和 NBTle 等二进制格式，返回缓存的 Map 表示，因为二进制内容不适合直接转换为字符串。
    *
    * @return 当前缓存的格式化文本，或二进制格式的 Map 表示
+   * @since 0.6.2
    */
   @Override
   public String toString() {

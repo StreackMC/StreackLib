@@ -107,6 +107,36 @@ T v = (T) conf.get(String "key", <T> fallback);
 boolean isUnset = conf.isExist(String "key");
 ```
 
+### 嵌套路径与转义
+
+嵌套路径**支持任意深度**：键里每个未被转义的 `.` 都代表下一层，且**只有最后一段**是叶子键名。
+
+```java
+conf.putString("server.lobby.region.cn.name", "北京一号");
+conf.getString("server.lobby.region.cn.name");   // 北京一号
+```
+
+写入后的结构就是逐层嵌套。写、读、删用的是同一套分段规则，因此「写得进」必然「读得出」：
+
+```json
+{
+  "server": { "lobby": { "region": { "cn": { "name": "北京一号" } } } }
+}
+```
+
+若键名本身含有点号，用反斜杠转义：
+
+```java
+conf.putString("weird\\.key", "v");   // 顶层键就是 "weird.key"
+conf.putString("a\\.b.c", "v");       // { "a.b": { "c": "v" } }
+```
+
+`remove()`、`getSection()`、`putSection()` 都使用同一套分段规则，深层数据同样能正确删除与取段。
+
+> 各格式的表达能力不同：JSON / JSONC / YAML / TOML / SNBT / Properties 都支持深层嵌套；
+> **INI 只支持「节 → 单层值」**（即 `section.key`），更深的路径在保存时会抛出
+> `IllegalArgumentException`，而不会写出读不回来的伪字符串。
+
 ### 无法深入退化与防止
 
 另外，考虑这种情况：当使用嵌套路径，但路径中某个节点并不是嵌套结构的，比如，
@@ -198,7 +228,7 @@ SConfig支持四种写入模式，默认为自动保存模式。
 | NBT / SNBT | 保留 |
 | Properties | 退化为空串 `""`，读回是 `""` 而非 `null` |
 | TOML | **省略该项**（TOML 语言没有 null 字面量；某节全为 null 时整节被省略） |
-| INI | 节内的 null 退化为空串；**顶层标量直接报错**（INI 没有顶层标量概念） |
+| INI | 节内的 null 退化为空串；**顶层标量直接报错**（INI 没有顶层标量概念）；**不支持深度 ≥3 的路径**（保存时报错） |
 
 因此需要严格保留空值时，请使用 JSON/JSONC/YAML 而非 TOML。INI 的配置项必须写在节里，
 即键名要形如 `section.key`。

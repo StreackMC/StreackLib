@@ -43,9 +43,28 @@
   ⑤ 全新 NBT 文件永远无法创建 —— 文件不存在时 `reload()` 提前返回，`BackendNBT.rootName`
      未被 `setRootName` 初始化仍为 null，`flush` 直接 `rootName.isEmpty()` 即 NPE，改用 `getRootName()`；
   ⑥ 空 SNBT 文件加载抛 `StringIndexOutOfBoundsException` → 空内容视作空配置，与其它格式对齐。
+- ✅ SConfig 嵌套路径修复（2026-10-14，调用者反馈「depth ≥3 写得进、读不出」，73+112 项自检全通过）：
+  ① 根因：`getIndexOfNormalDot(key)` 返回的是**第一个**未转义点，但 `putNested()` 与 `remove()`
+     把它当「最后一个点」用（`key.substring(lastDot + 1)` 取了「第一个点之后的全部」当叶子键名），
+     而 `ensureNestedMap` 又确实逐层建中间层 → `putString("a.b.c","v")` 得到 `{a={b={"b.c"=v}}}`
+     （多一层 + 叶子键带父级前缀），读侧按 `a→b→c` 下探自然找不到。
+     **深度 1/2 恰好正确**（第一个点就是最后一个点），故只在 depth ≥3 暴露。
+     副作用：`put`/`remove` 共用同一套错推断 → 「刚 put 再 remove」看似正常，
+     真正的破绽是「删一条从磁盘加载进来的、正确嵌套的数据」会静默无操作。
+  ② 修法：**删掉 `getIndexOfNormalDot` 这个陷阱本身**，改为 `hasNestedPath(key)`（只回答有无嵌套，
+     返回值语义无法被误读）；`splitWithNormalDot` 明确为分段唯一权威；`getNested` 改为按分段迭代下探
+     （删掉 `drillDown` 与 substring 逻辑）；`putNested`/`remove` 叶子键名取 `parts.get(size-1)`；
+     新增 `ensureNestedMap(Map, List)` 重载避免重复切分；`isReachable` 与 Properties 的
+     `putNestedRaw` 一并对齐。
+  ③ 顺带修掉两个同类不对称：读侧原来**不做转义还原**（`a\.b.c` 写得对却读不回）、
+     写侧叶子不做还原（`x.y\.z` 留成 `y\.z`）；INI 后端对节内嵌套值 `String.valueOf(map)`
+     写成伪字符串（与上一轮顶层标量同一政策）改为显式抛 `IllegalArgumentException`。
+  ⚠️ 已被该 bug 写坏的历史文件不会自动修复：形如 `uuid.preset-code` 的字面键需重新写入或手工改名。
+  ⚠️ `remove()` 不连带清理空的父级 Map（删完留下 `{a={b={}}}`），属既有行为。
 - ⚠️ SConfig 剩余格式边界（非缺陷，已写入 JavaDoc 与 `docs/types/SConfig.md`）：
   · TOML 语言无 null 字面量 → null 项保存时被省略（整节皆 null 则整节省略）；
-  · INI 必须把项写在节里（键形如 `section.key`），顶层标量保存时抛异常；
+  · INI 必须把项写在节里（键形如 `section.key`），顶层标量保存时抛异常，
+    且**只支持「节 → 单层值」**（深度 ≥3 保存时抛异常，不会写出伪字符串）；
   · Properties 的 null 退化为空串；JSON/JSONC 写入会丢弃注释；
   · `BackendJSON` 对非对象/非数组根仍返回空 Map（标量根无法用 Map 表示），这是有意的 fail-soft。
 - HTTPServer：基于自定义 NanoHTTPd fork

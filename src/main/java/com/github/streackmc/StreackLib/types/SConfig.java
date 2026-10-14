@@ -178,6 +178,9 @@ public class SConfig extends StreackLibNewable {
      *          INI 没有「顶层标量」的概念，ini4j 连加载裸键都会直接报 parse error，
      *          因此保存时若检测到顶层标量会抛出 {@link IllegalArgumentException}，
      *          而不是把它们静默丢弃成 0 字节文件。
+     * @apiNote 只支持「节 → 单层值」，即 {@code section.key} 这种深度；
+     *          {@code section.sub.key} 这类更深嵌套无法表示，保存时会抛出
+     *          {@link IllegalArgumentException}（原先会被 String.valueOf 成伪字符串静默损坏）。
      * @see {@link https://nvd.nist.gov/vuln/detail/CVE-2022-41404} 漏洞详情
      * @see {@link https://github.com/ini4j/ini4j?tab=readme-ov-file#%EF%B8%8F-roadmap-to-v060}
      *      鸽子官方迁移几年了还没修bug
@@ -606,8 +609,7 @@ public class SConfig extends StreackLibNewable {
   public boolean isReachable(String key) {
     lock.readLock().lock();
     try {
-      int dot = getIndexOfNormalDot(key);
-      if (dot == -1) {
+      if (!hasNestedPath(key)) {
         // 无嵌套路径，顶层 key 始终可触达
         return true;
       }
@@ -1286,8 +1288,12 @@ public class SConfig extends StreackLibNewable {
   // 其它
 
   /**
-   * 删除配置项；支持嵌套 key，如 "server.port"
-   * 若路径不存在或中途类型不匹配，静默返回
+   * 删除配置项；支持任意深度的嵌套 key，如 "server.port"、"a.b.c"。
+   * <p>
+   * 路径分段与 {@link #getNested(Map, String)}、{@link #putNested(Map, String, Object)} 完全一致：
+   * 只有最后一段被当作叶子键名。
+   * 若路径不存在或中途类型不匹配，静默返回（注意：不会连带清理空的父级 Map）。
+   * 
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
    */
   public SConfig remove(String key) {
@@ -1296,14 +1302,13 @@ public class SConfig extends StreackLibNewable {
       if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
         throw new IllegalStateException("只读模式下无法修改配置");
       }
-      int lastDot = getIndexOfNormalDot(key);
-      if (lastDot == -1) {
-        cache.remove(key);
+      List<String> parts = splitWithNormalDot(key);
+      if (parts.size() == 1) {
+        cache.remove(parts.get(0));
       } else {
-        Map<String, Object> parent = ensureNestedMap(cache, key);
+        Map<String, Object> parent = ensureNestedMap(cache, parts);
         if (parent != null) {
-          String lastKey = key.substring(lastDot + 1);
-          parent.remove(lastKey);
+          parent.remove(parts.get(parts.size() - 1));
         }
       }
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
@@ -1358,30 +1363,52 @@ public class SConfig extends StreackLibNewable {
    * ========================================== */
 
   /**
-   * 获取第一个未被转义的 . 的位置，找不到返回 -1
+   * 判断路径是否为嵌套路径，即是否存在<b>未被转义的</b> {@code .} 。
+   * <p>
+   * 本方法只用于「要不要下探」的快速判断。路径分段的唯一权威是
+   * {@link #splitWithNormalDot(String)}，读写删三条路径都必须以它为准。
+   * <p>
+   * 历史教训：这里原先叫 {@code getIndexOfNormalDot(key)} 并返回<b>第一个</b>未转义点的下标，
+   * 但调用方把它当成了「最后一个点」来取叶子键名，导致 {@code a.b.c} 被写成
+   * {@code {a={b={"b.c"=v}}}} —— 写得进、读不出。因此不再对外暴露「下标」，
+   * 只回答「有没有嵌套」。
+   *
+   * @param key 目标路径，可为 null（视作无嵌套）
+   * @return 存在未转义的点时为 true
    */
-  private static final int getIndexOfNormalDot(String key) {
+  private static boolean hasNestedPath(String key) {
     if (key == null)
-      return -1;
-    boolean escaped = false; // 表示当前字符是否被前一个反斜杠转义
+      return false;
+    boolean escaped = false; // 当前字符是否被前一个反斜杠转义
     for (int i = 0; i < key.length(); i++) {
       char c = key.charAt(i);
       if (c == '\\') {
         // 遇到反斜杠：翻转转义状态（只有未转义的反斜杠才能转义下一个字符）
         escaped = !escaped;
-      } else {
-        if (c == '.' && !escaped) {
-          return i; // 找到未被转义的点
-        }
-        // 普通字符或已被转义的点：重置转义状态
-        escaped = false;
+        continue;
       }
+      if (c == '.' && !escaped) {
+        return true;
+      }
+      escaped = false; // 普通字符或已被转义的点：重置转义状态
     }
-    return -1; // 未找到
+    return false;
   }
 
   /**
-   * 支持转义 . 的切割路径
+   * 按未被转义的 {@code .} 切分路径，并把 {@code \.} 还原为字面点号。
+   * <pre>
+   * "a.b.c"    → ["a", "b", "c"]
+   * "a\.b.c"   → ["a.b", "c"]
+   * "a"        → ["a"]
+   * </pre>
+   * <b>本方法是嵌套路径分段的唯一权威</b>：读取（{@link #getNested}）、写入
+   * （{@link #putNested}）、删除（{@link #remove}）、触达性判断（{@link #isReachable}）
+   * 与扁平化后端（Properties）的还原都必须以它的结果为准，
+   * 任何「按第 N 个点做 substring」的自行实现都会造成读写不对称。
+   *
+   * @param key 目标路径，不可为 null
+   * @return 路径分段，至少含一个元素
    */
   private static List<String> splitWithNormalDot(String key) {
     List<String> parts = new ArrayList<>();
@@ -1414,53 +1441,46 @@ public class SConfig extends StreackLibNewable {
   }
 
   /**
-   * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null
+   * 从嵌套路径读取值，路径不存在或中途类型不匹配返回 null。
+   * <p>
+   * 与写入侧 {@link #putNested(Map, String, Object)}、删除侧 {@link #remove(String)} 共用
+   * {@link #splitWithNormalDot(String)} 分段，因此「写得进」必然「读得出」：
+   * 所有分段逐层下探，只有最后一段是叶子键名，且每段都会先做转义还原
+   * （{@code a\.b.c} → 段 {@code a.b} 与 {@code c}）。
    */
   @SuppressWarnings("unchecked")
   private Object getNested(Map<String, Object> originMap, String key) {
-    int dot = getIndexOfNormalDot(key);
-    if (dot == -1)
-      return originMap.get(key);
-
-    String first = key.substring(0, dot);
-    Object current = originMap.get(first);
-    if (!(current instanceof Map))
-      return null;
-
-    Map<String, Object> map = (Map<String, Object>) current;
-    String rest = key.substring(dot + 1);
-    return drillDown(map, rest);
-  }
-
-  /**
-   * 递归或迭代下探到最后一级 Map
-   */
-  @SuppressWarnings("unchecked")
-  private Object drillDown(Map<String, Object> map, String path) {
-    int dot = getIndexOfNormalDot(path);
-    if (dot == -1)
-      return map.get(path);
-
-    String first = path.substring(0, dot);
-    Object next = map.get(first);
-    if (!(next instanceof Map))
-      return null;
-
-    String rest = path.substring(dot + 1);
-    return drillDown((Map<String, Object>) next, rest);
+    List<String> parts = splitWithNormalDot(key);
+    Object current = originMap;
+    for (String part : parts) {
+      if (!(current instanceof Map))
+        return null;
+      current = ((Map<String, Object>) current).get(part);
+      if (current == null) {
+        // 中间层缺失或叶子值本身就是 null，都无需继续下探
+        return null;
+      }
+    }
+    return current;
   }
   
   /**
-   * 确保嵌套路径存在，返回最后一级 Map 以便写入
-   * 若中途遇到非 Map 节点，返回 null 表示无法创建
-  */
-  @SuppressWarnings("unchecked")
+   * 确保嵌套路径的<b>中间层</b>存在，返回可以写入叶子键的那一级 Map。
+   * 若中途遇到非 Map 节点，返回 null 表示无法创建。
+   *
+   * @see #ensureNestedMap(Map, List)
+   */
   private Map<String, Object> ensureNestedMap(Map<String, Object> map, String key) {
-    int lastDot = getIndexOfNormalDot(key);
-    if (lastDot == -1)
-      return map;
+    return ensureNestedMap(map, splitWithNormalDot(key));
+  }
 
-    List<String> parts = splitWithNormalDot(key);
+  /**
+   * 同上，但直接接受已切分好的路径段，避免重复切分。
+   *
+   * @param parts {@link #splitWithNormalDot(String)} 的结果，最后一段是叶子键名
+   */
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> ensureNestedMap(Map<String, Object> map, List<String> parts) {
     Map<String, Object> current = map;
     for (int i = 0; i < parts.size() - 1; i++) {
       String part = parts.get(i);
@@ -1480,22 +1500,29 @@ public class SConfig extends StreackLibNewable {
   }
 
   /**
-   * 向嵌套路径写入值，若路径非法（中间节点非 Map）则退化为普通 key 写入顶层
+   * 向嵌套路径写入值。
+   * <p>
+   * 与读取（{@link #getNested(Map, String)}）严格对称：所有分段逐层下探，
+   * <b>只有最后一段</b>作为叶子键名。因此 {@code a.b.c} 会写成
+   * {@code {a={b={c=value}}}}，且可以被 {@code getXxx("a.b.c")} 读回。
+   * <p>
+   * 若中途节点非 Map（无法建嵌套），退化为「用整个路径当顶层键」写入。
+   * 该退化行为会写出带点的字面键（读不回来），建议先用
+   * {@link #isReachable(String)} 判断，或用 {@link #isReachable(BiFunction, String, Object)} 写入。
    */
   private void putNested(Map<String, Object> map, String key, Object value) {
     if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
       throw new IllegalStateException("只读模式下无法修改配置");
     }
-    Map<String, Object> targetMap = ensureNestedMap(map, key);
+    List<String> parts = splitWithNormalDot(key);
+    Map<String, Object> targetMap = ensureNestedMap(map, parts);
     if (targetMap == null) {
       // 嵌套失败，退化为顶层写入（保持兼容）
       map.put(key, value);
       return;
     }
-
-    int lastDot = getIndexOfNormalDot(key);
-    String lastKey = (lastDot == -1) ? key : key.substring(lastDot + 1);
-    targetMap.put(lastKey, value);
+    // 叶子键名必须是「最后一段」，而不是「第一个点之后的所有内容」
+    targetMap.put(parts.get(parts.size() - 1), value);
   }
 
   /*
@@ -2542,12 +2569,21 @@ public class SConfig extends StreackLibNewable {
     public void flush(OutputStream out) throws Exception {
       Ini ini = new Ini();
       List<String> looseKeys = new ArrayList<>();
+      List<String> nestedKeys = new ArrayList<>();
       for (Map.Entry<String, Object> e : cache.entrySet()) {
         if (e.getValue() instanceof Map) {
           Profile.Section sec = ini.add(e.getKey());
           Map<String, Object> section = (Map<String, Object>) e.getValue();
           for (Map.Entry<String, Object> se : section.entrySet()) {
             Object sv = se.getValue();
+            if (sv instanceof Map || sv instanceof List) {
+              // INI 只有「节 → 单层字符串值」一级结构。原先这里对嵌套值直接
+              // String.valueOf(map)，把 {leaf=v} 当成字符串写进文件，读回来永远
+              // 对不上（写得进、读不出），属于静默数据损坏，故改为显式报错。
+              nestedKeys.add(e.getKey() + "." + se.getKey()
+                  + "（" + (sv instanceof Map ? "嵌套表" : "列表") + "）");
+              continue;
+            }
             sec.put(se.getKey(), sv == null ? "" : String.valueOf(sv));
           }
         } else {
@@ -2560,6 +2596,11 @@ public class SConfig extends StreackLibNewable {
         throw new IllegalArgumentException(
             "INI 格式不支持顶层标量配置项，请将其写入某个节（section）中，例如 putSection(\"section\", ...)。当前非法键："
                 + looseKeys);
+      }
+      if (!nestedKeys.isEmpty()) {
+        throw new IllegalArgumentException(
+            "INI 格式只支持「节 → 单层值」，无法表示更深的嵌套，请改用 JSON/YAML 等格式，或把值摊平为字符串。当前非法项："
+                + nestedKeys);
       }
       writeText(out, ini::store);
     };
@@ -2617,15 +2658,16 @@ public class SConfig extends StreackLibNewable {
 
     /**
      * 辅助方法：将扁平键值对插入嵌套 Map（用于 loadProperties）
+     * <p>
+     * 分段与 {@link SConfig#putNested} 保持同一套规则：所有段逐层下探，最后一段是叶子键名。
      */
     @SuppressWarnings("unchecked")
     private static void putNestedRaw(Map<String, Object> root, String key, Object value) {
-      int lastDot = getIndexOfNormalDot(key);
-      if (lastDot == -1) {
-        root.put(key, value);
+      List<String> parts = splitWithNormalDot(key);
+      if (parts.size() == 1) {
+        root.put(parts.get(0), value);
         return;
       }
-      List<String> parts = splitWithNormalDot(key);
       Map<String, Object> current = root;
       for (int i = 0; i < parts.size() - 1; i++) {
         String part = parts.get(i);

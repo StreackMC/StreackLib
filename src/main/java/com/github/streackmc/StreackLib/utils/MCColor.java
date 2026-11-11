@@ -65,6 +65,175 @@ public class MCColor {
   }
 
   /**
+   * 将MC格式化代码代码(§)转换为 MiniMessage 消息格式
+   * 
+   * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
+   * @see {@link #toMiniMessageBE(String)}：此方法将 §n 按基岩版行为，作为颜色处理
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.6.2
+   */
+  public static String toMiniMessage(String text) {
+    return toMiniMessageInternal(text, false);
+  }
+
+  /**
+   * 将MC格式化代码代码(§)转换为 MiniMessage 消息格式
+   * <p>
+   * 此方法将 §n 按基岩版行为，作为颜色处理
+   * 
+   * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
+   * @see #toMiniMessage(String)
+   * @param text 要处理的文本
+   * @return 处理后的文本
+   * @since 0.6.2
+   */
+  public static String toMiniMessageBE(String text) {
+    return toMiniMessageInternal(text, true);
+  }
+
+  private static String toMiniMessageInternal(String text, boolean isBE) {
+    if (text == null || text.isEmpty())
+      return "";
+
+    StringBuilder result = new StringBuilder();
+    StringBuilder currentText = new StringBuilder();
+    String color = null;
+    boolean bold = false;
+    boolean italic = false;
+    boolean underline = false;
+    boolean strikethrough = false;
+    boolean obfuscated = false;
+
+    for (int i = 0; i < text.length(); i++) {
+      char current = text.charAt(i);
+      if (current != '§' || i + 1 >= text.length()) {
+        currentText.append(current);
+        continue;
+      }
+
+      char next = text.charAt(i + 1);
+      String nextColor = null;
+      int consumed = 1;
+
+      if (next == '#') {
+        if (i + 7 < text.length()) {
+          String hex = text.substring(i + 2, i + 8);
+          if (isHex(hex)) {
+            nextColor = "#" + hex.toLowerCase();
+            consumed = 7;
+          }
+        }
+      } else if (next == 'x' || next == 'X') {
+        if (i + 13 < text.length()) {
+          StringBuilder hex = new StringBuilder(6);
+          int position = i + 2;
+          boolean valid = true;
+          for (int digit = 0; digit < 6; digit++) {
+            if (position + 1 >= text.length() || text.charAt(position) != '§'
+                || !isHexChar(text.charAt(position + 1))) {
+              valid = false;
+              break;
+            }
+            hex.append(Character.toLowerCase(text.charAt(position + 1)));
+            position += 2;
+          }
+          if (valid) {
+            nextColor = "#" + hex;
+            consumed = position - i - 1;
+          }
+        }
+      } else if (COLORS.containsKey(Character.toLowerCase(next))
+          && (Character.toLowerCase(next) != 'n' || isBE)) {
+        nextColor = miniMessageColor(Character.toLowerCase(next), isBE);
+      }
+
+      char code = Character.toLowerCase(next);
+      boolean formatCode = nextColor != null || code == 'l' || code == 'o' || code == 'n' || code == 'm'
+          || code == 'k' || code == 'r';
+      if (!formatCode) {
+        i++;
+        continue;
+      }
+
+      appendEscapedText(result, currentText);
+      currentText.setLength(0);
+
+      if (code == 'r') {
+        result.append("<reset>");
+        color = null;
+        bold = italic = underline = strikethrough = obfuscated = false;
+      } else if (nextColor != null) {
+        closeMiniMessageStyles(result, color, bold, italic, underline, strikethrough, obfuscated);
+        result.append('<').append(nextColor).append('>');
+        color = nextColor;
+        bold = italic = underline = strikethrough = obfuscated = false;
+      } else if (code == 'l' && !bold) {
+        result.append("<bold>");
+        bold = true;
+      } else if (code == 'o' && !italic) {
+        result.append("<italic>");
+        italic = true;
+      } else if (code == 'n' && !isBE && !underline) {
+        result.append("<underlined>");
+        underline = true;
+      } else if (code == 'n' && isBE && color == null) {
+        result.append("<").append(COLORS_BE.get('n')).append('>');
+        color = COLORS_BE.get('n');
+      } else if (code == 'm' && !strikethrough) {
+        result.append("<strikethrough>");
+        strikethrough = true;
+      } else if (code == 'k' && !obfuscated) {
+        result.append("<obfuscated>");
+        obfuscated = true;
+      }
+      i += consumed;
+    }
+
+    appendEscapedText(result, currentText);
+    closeMiniMessageStyles(result, color, bold, italic, underline, strikethrough, obfuscated);
+    return result.toString();
+  }
+
+  private static String miniMessageColor(char code, boolean isBE) {
+    if (code == 'n' && isBE)
+      return COLORS_BE.get('n');
+    switch (code) {
+      case '0': return "black";
+      case '1': return "dark_blue";
+      case '2': return "dark_green";
+      case '3': return "dark_aqua";
+      case '4': return "dark_red";
+      case '5': return "dark_purple";
+      case '6': return "gold";
+      case '7': return "gray";
+      case '8': return "dark_gray";
+      case '9': return "blue";
+      case 'a': return "green";
+      case 'b': return "aqua";
+      case 'c': return "red";
+      case 'd': return "light_purple";
+      case 'e': return "yellow";
+      case 'f': return "white";
+      default: return COLORS.get(code);
+    }
+  }
+
+  private static void appendEscapedText(StringBuilder result, StringBuilder text) {
+    result.append(text.toString().replace("\\", "\\\\").replace("<", "\\<"));
+  }
+
+  private static void closeMiniMessageStyles(StringBuilder result, String color, boolean bold, boolean italic,
+      boolean underline, boolean strikethrough, boolean obfuscated) {
+    if (obfuscated) result.append("</obfuscated>");
+    if (strikethrough) result.append("</strikethrough>");
+    if (underline) result.append("</underlined>");
+    if (italic) result.append("</italic>");
+    if (bold) result.append("</bold>");
+    if (color != null) result.append("</").append(color).append('>');
+  }
+
+  /**
    * 将MC格式化代码代码(§)转换为HTML
    * <p>
    * 支持：颜色代码（包含部分基岩版的）、粗体(§l)、斜体(§o)、下划线(§n)、删除线(§m)、随机(§k)、重置(§r)

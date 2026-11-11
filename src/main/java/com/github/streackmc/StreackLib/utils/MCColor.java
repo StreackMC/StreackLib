@@ -1,5 +1,8 @@
 package com.github.streackmc.StreackLib.utils;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -18,50 +21,85 @@ public class MCColor {
    * MC格式化代码颜色对照关系表
    * <p>
    * 其中也含有部分基岩版的颜色
-   * @apinote 注意：基岩版中 §n 指代 #B4684D ，但是在Java版中其为下划线，本列表遵照 Java 版，不含有其的值
+   * 
+   * @apiNote Readonly<Map>: 无法修改只读视图
+   * @apiNote 注意：基岩版中 §n 指代 #B4684D ，但是在Java版中其为下划线，本列表遵照 Java 版，不含有其的值
    * @see #COLORS_BE
    * @since 0.4.5
    * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81#%E9%A2%9C%E8%89%B2%E4%BB%A3%E7%A0%81}
    */
-  public static final java.util.Map<Character, String> COLORS = new java.util.HashMap<Character, String>();
+  public static final Map<Character, String> COLORS;
   /**
    * MC格式化代码颜色对照关系表
-   * @apinote 本表按基岩版颜色为优先
+   * 
+   * @apiNote Readonly<Map>: 无法修改只读视图
+   * @apiNote 本表按基岩版颜色为优先
    * @since 0.4.7
    * @see #COLORS
    * @see {@link https://zh.minecraft.wiki/w/%E6%A0%BC%E5%BC%8F%E5%8C%96%E4%BB%A3%E7%A0%81#%E9%A2%9C%E8%89%B2%E4%BB%A3%E7%A0%81}
    */
-  public static final java.util.Map<Character, String> COLORS_BE;
+  public static final Map<Character, String> COLORS_BE;
   static {
-    COLORS.put('0', "#000000");
-    COLORS.put('1', "#0000AA");
-    COLORS.put('2', "#00AA00");
-    COLORS.put('3', "#00AAAA");
-    COLORS.put('4', "#AA0000");
-    COLORS.put('5', "#AA00AA");
-    COLORS.put('6', "#FFAA00");
-    COLORS.put('7', "#AAAAAA");
-    COLORS.put('8', "#555555");
-    COLORS.put('9', "#5555FF");
-    COLORS.put('a', "#55FF55");
-    COLORS.put('b', "#55FFFF");
-    COLORS.put('c', "#FF5555");
-    COLORS.put('d', "#FF55FF");
-    COLORS.put('e', "#FFFF55");
-    COLORS.put('f', "#FFFFFF");
-    COLORS.put('g', "#DDD605");
-    COLORS.put('h', "#E3D4D1");
-    COLORS.put('i', "#CECACA");
-    COLORS.put('j', "#443A3B");
-    COLORS.put('m', "#971607");
-    COLORS.put('p', "#DEB12D");
-    COLORS.put('q', "#47A036");
-    COLORS.put('s', "#2CBAA8");
-    COLORS.put('t', "#21497B");
-    COLORS.put('u', "#9A5CC6");
-    COLORS.put('v', "#EB7114");
-    COLORS_BE = COLORS;
-    COLORS_BE.put('n', "#B4684D");
+    Map<Character, String> je = new HashMap<Character, String>();
+    je.put('0', "#000000");
+    je.put('1', "#0000AA");
+    je.put('2', "#00AA00");
+    je.put('3', "#00AAAA");
+    je.put('4', "#AA0000");
+    je.put('5', "#AA00AA");
+    je.put('6', "#FFAA00");
+    je.put('7', "#AAAAAA");
+    je.put('8', "#555555");
+    je.put('9', "#5555FF");
+    je.put('a', "#55FF55");
+    je.put('b', "#55FFFF");
+    je.put('c', "#FF5555");
+    je.put('d', "#FF55FF");
+    je.put('e', "#FFFF55");
+    je.put('f', "#FFFFFF");
+    je.put('g', "#DDD605");
+    je.put('h', "#E3D4D1");
+    je.put('i', "#CECACA");
+    je.put('j', "#443A3B");
+    je.put('m', "#971607");
+    je.put('p', "#DEB12D");
+    je.put('q', "#47A036");
+    je.put('s', "#2CBAA8");
+    je.put('t', "#21497B");
+    je.put('u', "#9A5CC6");
+    je.put('v', "#EB7114");
+    COLORS = Collections.unmodifiableMap(je);
+
+    Map<Character, String> be = new HashMap<Character, String>();
+    be.put('0', "#000000");
+    be.put('1', "#0000AA");
+    be.put('2', "#00AA00");
+    be.put('3', "#00AAAA");
+    be.put('4', "#AA0000");
+    be.put('5', "#AA00AA");
+    be.put('6', "#FFAA00");
+    be.put('7', "#AAAAAA");
+    be.put('8', "#555555");
+    be.put('9', "#5555FF");
+    be.put('a', "#55FF55");
+    be.put('b', "#55FFFF");
+    be.put('c', "#FF5555");
+    be.put('d', "#FF55FF");
+    be.put('e', "#FFFF55");
+    be.put('f', "#FFFFFF");
+    be.put('g', "#DDD605");
+    be.put('h', "#E3D4D1");
+    be.put('i', "#CECACA");
+    be.put('j', "#443A3B");
+    be.put('m', "#971607");
+    be.put('p', "#DEB12D");
+    be.put('q', "#47A036");
+    be.put('s', "#2CBAA8");
+    be.put('t', "#21497B");
+    be.put('u', "#9A5CC6");
+    be.put('v', "#EB7114");
+    be.put('n', "#B4684D");
+    COLORS_BE = Collections.unmodifiableMap(be);
   }
 
   /**
@@ -199,23 +237,40 @@ public class MCColor {
     if (code == 'n' && isBE)
       return COLORS_BE.get('n');
     switch (code) {
-      case '0': return "black";
-      case '1': return "dark_blue";
-      case '2': return "dark_green";
-      case '3': return "dark_aqua";
-      case '4': return "dark_red";
-      case '5': return "dark_purple";
-      case '6': return "gold";
-      case '7': return "gray";
-      case '8': return "dark_gray";
-      case '9': return "blue";
-      case 'a': return "green";
-      case 'b': return "aqua";
-      case 'c': return "red";
-      case 'd': return "light_purple";
-      case 'e': return "yellow";
-      case 'f': return "white";
-      default: return COLORS.get(code);
+      case '0':
+        return "black";
+      case '1':
+        return "dark_blue";
+      case '2':
+        return "dark_green";
+      case '3':
+        return "dark_aqua";
+      case '4':
+        return "dark_red";
+      case '5':
+        return "dark_purple";
+      case '6':
+        return "gold";
+      case '7':
+        return "gray";
+      case '8':
+        return "dark_gray";
+      case '9':
+        return "blue";
+      case 'a':
+        return "green";
+      case 'b':
+        return "aqua";
+      case 'c':
+        return "red";
+      case 'd':
+        return "light_purple";
+      case 'e':
+        return "yellow";
+      case 'f':
+        return "white";
+      default:
+        return COLORS.get(code);
     }
   }
 
@@ -225,12 +280,18 @@ public class MCColor {
 
   private static void closeMiniMessageStyles(StringBuilder result, String color, boolean bold, boolean italic,
       boolean underline, boolean strikethrough, boolean obfuscated) {
-    if (obfuscated) result.append("</obfuscated>");
-    if (strikethrough) result.append("</strikethrough>");
-    if (underline) result.append("</underlined>");
-    if (italic) result.append("</italic>");
-    if (bold) result.append("</bold>");
-    if (color != null) result.append("</").append(color).append('>');
+    if (obfuscated)
+      result.append("</obfuscated>");
+    if (strikethrough)
+      result.append("</strikethrough>");
+    if (underline)
+      result.append("</underlined>");
+    if (italic)
+      result.append("</italic>");
+    if (bold)
+      result.append("</bold>");
+    if (color != null)
+      result.append("</").append(color).append('>');
   }
 
   /**
@@ -242,7 +303,8 @@ public class MCColor {
    * 
    * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
    * @see {@link #toHtmlBE(String)}：此方法将 §n 按基岩版行为，作为颜色处理
-   * @see {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js} JS 版前端渲染实现（CSS 动画驱动乱码效果）
+   * @see {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js}
+   *      JS 版前端渲染实现（CSS 动画驱动乱码效果）
    * @param text 要处理的文本
    * @return 处理后的文本
    * @since 0.4.5
@@ -260,7 +322,8 @@ public class MCColor {
    * 
    * @apiNote 需要手动处理其它字符(&等)，该方法只处理§。
    * @see #toHtml(String)
-   * @see {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js} JS 版前端渲染实现（CSS 动画驱动乱码效果）
+   * @see {@link https://github.com/StreackMC/Joyous-MenuEditor/blob/main/javascript/library/MCColors.js}
+   *      JS 版前端渲染实现（CSS 动画驱动乱码效果）
    * @param text 要处理的文本
    * @return 处理后的文本
    * @since 0.4.7
@@ -405,6 +468,7 @@ public class MCColor {
 
   /**
    * 生成一个随机的半角字符（ASCII 可见字符 32-126）
+   * 
    * @return 随机半角字符
    * @since 0.4.8
    */
@@ -414,6 +478,7 @@ public class MCColor {
 
   /**
    * 生成一个随机的全角字符（CJK 统一表意文字 U+4E00-U+9FFF）
+   * 
    * @return 随机全角字符
    * @since 0.4.8
    */

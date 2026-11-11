@@ -678,23 +678,20 @@ public class SConfig extends StreackLibNewable {
   /**
    * 获取指定配置项
    * 
-   * @param <T>      可为String/List/Int/Number
-   * @param key      目标配置项，没有自动新增，<b>不支持嵌套</b>
+   * @param <T>      可为String/List/Int/Number……
+   * @param key      目标配置项，没有自动新增，<b>旧版本不支持嵌套</b>
    * @param fallback 默认值，如果没有传入则为空字符串
    * @return 获取到的值
-   * @deprecated 已弃用，请使用严格类型 API；此外本方法不支持处理嵌套路径。
+   * @deprecated 已弃用，请使用严格类型 Api；错误调用此方法可能导致其他方法行为异常
+   * @since 本方法自 0.6.2 版本起<b>才</b>支持处理嵌套路径。
+   * @since 0.2.0
    */
   @Deprecated
-  @SuppressWarnings("unchecked")
-  public <T> T get(String key, T fallback) {
+  public <T> Object get(String key, T fallback) {
     lock.readLock().lock();
     try {
-      if (fallback == null) fallback = (T) "";
-      if (!cache.containsKey(key)) {
-        put(key, fallback);
-        return fallback;
-      }
-      return (T) cache.get(key);
+      Object v = getNested(cache, key);
+      return v == null ? fallback : v;
     } finally {
       lock.readLock().unlock();
     }
@@ -703,11 +700,13 @@ public class SConfig extends StreackLibNewable {
   /**
    * 写入配置项
    * 
-   * @param <T>   可为String/List/Int/Number
-   * @param key   目标配置项，没有自动新增，<b>不支持嵌套</b>
+   * @param <T>   可为String/List/Int/Number……
+   * @param key   目标配置项，没有自动新增，<b>旧版本不支持嵌套</b>
    * @param value 目标值
    * @throws IllegalStateException 不受检；当前状态不允许进行此操作。
-   * @deprecated 已弃用，请使用严格类型 API；此外本方法不支持处理嵌套路径。
+   * @deprecated 已弃用，请使用严格类型 Api
+   * @since 本方法自 0.6.2 版本起<b>才</b>支持处理嵌套路径。
+   * @since 0.2.0
    */
   @Deprecated
   public <T> SConfig put(String key, T value) {
@@ -716,7 +715,7 @@ public class SConfig extends StreackLibNewable {
       if (writeMode.equalsIgnoreCase(WRITE_MODE.READONLY)) {
         throw new IllegalStateException("只读模式下无法修改配置");
       }
-      cache.put(key, value);
+      putNested(cache, key, value);
       if (writeMode.equalsIgnoreCase(WRITE_MODE.AUTOSAVE)) save();
     } finally {
       lock.writeLock().unlock();
